@@ -1,0 +1,25 @@
+# Backups
+backups/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# App data (personal)
+data.json
+
+# Shortcuts
+*.lnk
