@@ -1,6 +1,19 @@
 import flet as ft
-from config import CATEGORY_TYPE_NOTEBOOK, ICON_MAP, TASKS_KEY
+from config import (
+    CATEGORY_TYPE_NOTEBOOK,
+    GENERAL_CATEGORY_ID,
+    ICON_MAP,
+    TASKS_KEY,
+)
+from core.category_utils import (
+    get_category,
+    get_category_breadcrumb,
+    get_child_categories,
+    get_flat_category_entries,
+    get_item_category_id,
+)
 from ui.components.board_card import build_note_card, build_task_card
+from ui.components.subcategory_card import build_subcategory_card
 
 
 class BoardView:
@@ -43,6 +56,21 @@ class BoardView:
             "", size=24, weight="bold", color=ft.Colors.BLACK87
         )
         self.detail_subtitle = ft.Text("", size=14, color=ft.Colors.GREY_600)
+        self.subcategories_wrap = ft.Row(wrap=True, spacing=12, run_spacing=12)
+        self.subcategories_section = ft.Column(
+            [
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.FOLDER_OPEN, color=ft.Colors.TEAL_700),
+                        ft.Text("Subcategorías", weight="bold", size=18),
+                    ]
+                ),
+                self.subcategories_wrap,
+                ft.Divider(),
+            ],
+            spacing=10,
+            visible=False,
+        )
         self.empty_notes = ft.Text(
             "No hay notas en esta categoría.",
             size=13,
@@ -101,6 +129,7 @@ class BoardView:
                 ),
                 self.detail_subtitle,
                 ft.Divider(),
+                self.subcategories_section,
                 ft.Row(
                     [
                         ft.Icon(ft.Icons.NOTE, color=ft.Colors.AMBER_700),
@@ -134,15 +163,43 @@ class BoardView:
             visible=False,
         )
 
-    def _count_items(self, app_data: dict, category: str | None) -> tuple[int, int]:
+    def _get_category_icon(self, category: dict):
+        if category.get("id") == GENERAL_CATEGORY_ID:
+            return ft.Icons.INBOX
+        if category.get("type") == CATEGORY_TYPE_NOTEBOOK:
+            return ft.Icons.BOOK
+        return ICON_MAP.get(category.get("icon", "Carpeta"), ft.Icons.FOLDER)
+
+    def _refresh_subcategories(
+        self,
+        app_data: dict,
+        category_id: str,
+        on_open_category,
+    ) -> None:
+        self.subcategories_wrap.controls.clear()
+        children = get_child_categories(app_data, category_id)
+        for child in children:
+            child_type = child.get("type")
+            subtitle = (
+                "Bloc de notas"
+                if child_type == CATEGORY_TYPE_NOTEBOOK
+                else "Categoría con enlaces"
+            )
+            self.subcategories_wrap.controls.append(
+                build_subcategory_card(
+                    child.get("name", ""),
+                    subtitle,
+                    self._get_category_icon(child),
+                    on_open=lambda cid=child["id"]: on_open_category(cid),
+                )
+            )
+        self.subcategories_section.visible = len(children) > 0
+
+    def _count_items(self, app_data: dict, category_id: str) -> tuple[int, int]:
         note_count = 0
         task_count = 0
         for item in app_data.get(TASKS_KEY, []):
-            item_category = item.get("category")
-            if category is None:
-                if item_category is not None:
-                    continue
-            elif item_category != category:
+            if get_item_category_id(item) != category_id:
                 continue
 
             if item.get("type", "task") == "note":
@@ -169,7 +226,7 @@ class BoardView:
         on_open_category,
     ) -> ft.Card:
         return ft.Card(
-            color=color,
+            bgcolor=color,
             elevation=1,
             content=ft.Container(
                 padding=20,
@@ -221,44 +278,28 @@ class BoardView:
     def _refresh_gallery(self, app_data: dict, on_open_category) -> None:
         self.gallery_grid.controls.clear()
 
-        general_notes, general_tasks = self._count_items(app_data, None)
-        self.gallery_grid.controls.append(
-            self._build_category_card(
-                "General",
-                None,
-                ft.Icons.INBOX,
-                "Notas y tareas sin categoría asignada.",
-                general_notes,
-                general_tasks,
-                ft.Colors.TEAL_50,
-                on_open_category,
-            )
-        )
-
-        categories = [name for name in app_data if name != TASKS_KEY]
-        for category_name in categories:
-            category_data = app_data[category_name]
+        for category_data, depth in get_flat_category_entries(app_data):
+            category_id = category_data["id"]
             category_type = category_data.get("type")
-            note_count, task_count = self._count_items(app_data, category_name)
-            icon = (
-                ft.Icons.BOOK
-                if category_type == CATEGORY_TYPE_NOTEBOOK
-                else ICON_MAP.get(category_data.get("icon", "Carpeta"), ft.Icons.FOLDER)
-            )
+            note_count, task_count = self._count_items(app_data, category_id)
+            icon = self._get_category_icon(category_data)
             description = (
-                "Categoría de bloc de notas"
-                if category_type == CATEGORY_TYPE_NOTEBOOK
-                else "Categoría personalizada"
+                "Notas y tareas generales"
+                if category_id == GENERAL_CATEGORY_ID
+                else get_category_breadcrumb(app_data, category_id)
             )
-            color = (
-                ft.Colors.AMBER_50
-                if category_type == CATEGORY_TYPE_NOTEBOOK
-                else ft.Colors.WHITE
-            )
+            if category_id == GENERAL_CATEGORY_ID:
+                color = ft.Colors.TEAL_50
+            elif category_type == CATEGORY_TYPE_NOTEBOOK:
+                color = ft.Colors.AMBER_50
+            elif depth > 0:
+                color = ft.Colors.BLUE_GREY_50
+            else:
+                color = ft.Colors.WHITE
             self.gallery_grid.controls.append(
                 self._build_category_card(
-                    category_name,
-                    category_name,
+                    category_data.get("name", ""),
+                    category_id,
                     icon,
                     description,
                     note_count,
@@ -271,46 +312,48 @@ class BoardView:
     def _refresh_detail(
         self,
         app_data: dict,
-        board_category: str | None,
+        board_category_id: str | None,
         on_edit,
         on_delete,
         on_toggle,
+        on_open_category,
     ) -> None:
         self.notes_grid.controls.clear()
         self.tasks_grid.controls.clear()
+        self.subcategories_wrap.controls.clear()
 
-        is_general = board_category is None
-        if is_general:
-            self.detail_title.value = "General"
-            self.detail_subtitle.value = "Notas y tareas sin categoría asignada."
-            self.detail_icon.name = ft.Icons.INBOX
-            self.detail_icon.color = ft.Colors.TEAL_700
-            self.empty_notes.value = "No hay notas sin categoría."
-            self.empty_tasks.value = "No hay tareas sin categoría."
-        else:
-            category_data = app_data.get(board_category, {})
-            category_type = category_data.get("type")
-            self.detail_title.value = board_category
-            self.detail_subtitle.value = "Notas y tareas de esta categoría."
-            self.detail_icon.name = (
-                ft.Icons.BOOK
-                if category_type == CATEGORY_TYPE_NOTEBOOK
-                else ICON_MAP.get(category_data.get("icon", "Carpeta"), ft.Icons.FOLDER)
-            )
-            self.detail_icon.color = (
-                ft.Colors.AMBER_800
-                if category_type == CATEGORY_TYPE_NOTEBOOK
-                else ft.Colors.TEAL_700
-            )
-            self.empty_notes.value = "No hay notas en esta categoría."
-            self.empty_tasks.value = "No hay tareas en esta categoría."
+        if not board_category_id:
+            self.detail_title.value = ""
+            self.detail_subtitle.value = ""
+            self.subcategories_section.visible = False
+            self.empty_notes.visible = False
+            self.empty_tasks.visible = False
+            return
+
+        category = get_category(app_data, board_category_id)
+        if not category:
+            self.detail_title.value = ""
+            self.detail_subtitle.value = ""
+            self.subcategories_section.visible = False
+            self.empty_notes.visible = False
+            self.empty_tasks.visible = False
+            return
+
+        self.detail_title.value = category.get("name", "")
+        self.detail_subtitle.value = get_category_breadcrumb(app_data, board_category_id)
+        self.detail_icon.name = self._get_category_icon(category)
+        self.detail_icon.color = (
+            ft.Colors.AMBER_800
+            if category.get("type") == CATEGORY_TYPE_NOTEBOOK
+            else ft.Colors.TEAL_700
+        )
+
+        self._refresh_subcategories(app_data, board_category_id, on_open_category)
+        self.empty_notes.value = "No hay notas en esta categoría."
+        self.empty_tasks.value = "No hay tareas en esta categoría."
 
         for item in app_data.get(TASKS_KEY, []):
-            item_category = item.get("category")
-            if is_general:
-                if item_category is not None:
-                    continue
-            elif item_category != board_category:
+            if get_item_category_id(item) != board_category_id:
                 continue
 
             item_type = item.get("type", "task")
@@ -330,7 +373,7 @@ class BoardView:
         self,
         app_data: dict,
         board_mode: str,
-        board_category: str | None,
+        board_category_id: str | None,
         on_edit,
         on_delete,
         on_toggle,
@@ -341,10 +384,11 @@ class BoardView:
         self._refresh_gallery(app_data, on_open_category)
         self._refresh_detail(
             app_data,
-            board_category,
+            board_category_id,
             on_edit,
             on_delete,
             on_toggle,
+            on_open_category,
         )
 
         self.gallery_view.visible = board_mode == "gallery"

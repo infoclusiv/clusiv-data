@@ -2,6 +2,7 @@ import flet as ft
 from state.app_state import AppState
 from ui.dialogs import AppDialogs
 from core.data_manager import DataManager
+from core.category_utils import get_category
 
 
 class LinkHandlers:
@@ -14,25 +15,29 @@ class LinkHandlers:
         self.dialogs = dialogs
         self.refresh_callback = refresh_callback
 
+    def _get_current_category(self) -> dict | None:
+        return get_category(self.app_data, self.state.current_category_id)
+
     def open_add_dialog(self, e):
         self.dialogs.link_title.value = ""
         self.dialogs.link_url.value = ""
-        self.page.open(self.dialogs.dlg_link)
+        self.page.show_dialog(self.dialogs.dlg_link)
         self.page.update()
 
     def add(self, e):
         title = self.dialogs.link_title.value.strip()
         url = self.dialogs.link_url.value.strip()
-        if url and self.state.current_category:
+        current_category = self._get_current_category()
+        if url and current_category:
             if not title:
                 title = url
             if not url.startswith("http"):
                 url = "https://" + url
-            self.app_data[self.state.current_category]["links"].append(
+            current_category.setdefault("links", []).append(
                 {"title": title, "url": url}
             )
             DataManager.save_data(self.app_data)
-            self.page.close(self.dialogs.dlg_link)
+            self.page.pop_dialog()
             self.dialogs.link_title.value = ""
             self.dialogs.link_url.value = ""
             self.refresh_callback()
@@ -43,42 +48,44 @@ class LinkHandlers:
 
     def request_delete(self, link_obj):
         self.state.link_to_delete_temp = link_obj
-        self.page.open(self.dialogs.dlg_confirm_link)
+        self.page.show_dialog(self.dialogs.dlg_confirm_link)
         self.page.update()
 
     def confirm_delete(self, e):
-        if self.state.current_category and self.state.link_to_delete_temp:
+        current_category = self._get_current_category()
+        if current_category and self.state.link_to_delete_temp:
             try:
-                self.app_data[self.state.current_category]["links"].remove(
+                current_category.setdefault("links", []).remove(
                     self.state.link_to_delete_temp
                 )
                 DataManager.save_data(self.app_data)
             except ValueError:
                 pass
         self.state.link_to_delete_temp = None
-        self.page.close(self.dialogs.dlg_confirm_link)
+        self.page.pop_dialog()
         self.refresh_callback()
         self.page.update()
 
     def open_bulk_dialog(self, e):
         self.dialogs.bulk_input.value = ""
-        self.page.open(self.dialogs.dlg_bulk)
+        self.page.show_dialog(self.dialogs.dlg_bulk)
         self.page.update()
 
     def process_bulk_import(self, e):
         raw_text = self.dialogs.bulk_input.value
-        if raw_text:
+        current_category = self._get_current_category()
+        if raw_text and current_category:
             for line in raw_text.split("\n"):
                 url = line.strip()
                 if url:
                     if not url.startswith("http"):
                         url = "https://" + url
-                    self.app_data[self.state.current_category]["links"].append(
+                    current_category.setdefault("links", []).append(
                         {"title": url, "url": url}
                     )
             DataManager.save_data(self.app_data)
         self.dialogs.bulk_input.value = ""
-        self.page.close(self.dialogs.dlg_bulk)
+        self.page.pop_dialog()
         self.refresh_callback()
         self.page.update()
 
@@ -86,8 +93,9 @@ class LinkHandlers:
         self.page.launch_url(url)
 
     def open_all(self, e):
-        if self.state.current_category and self.state.current_category in self.app_data:
-            links = self.app_data[self.state.current_category].get("links", [])
+        current_category = self._get_current_category()
+        if current_category:
+            links = current_category.get("links", [])
             if not links:
                 self.show_message("No hay enlaces para abrir.", ft.Colors.ORANGE)
                 return

@@ -1,40 +1,43 @@
 
-import json
-import os
-
-TASKS_KEY = "__SYSTEM_TASKS__"
+from core.category_utils import build_category_record, create_default_data, get_item_category_id
+from config import GENERAL_CATEGORY_ID, TASKS_KEY
 
 def test_filtering():
-    data = {
-        "TTS": {
-            "links": [],
-            "icon": "Música",
-            "type": "notebook"
-        },
-        "__SYSTEM_TASKS__": [
-            {
-                "title": "NaturalReader",
-                "comment": "https://chromewebstore.google.com/detail/naturalreader-ai-text-to/...",
-                "type": "note",
-                "done": False,
-                "category": "TTS"
-            }
-        ]
-    }
-    
-    category = "TTS"
+    data = create_default_data()
+    data["__SYSTEM_CATEGORIES__"]["tts"] = build_category_record(
+        "tts",
+        "TTS",
+        GENERAL_CATEGORY_ID,
+        icon="Música",
+        category_type="notebook",
+    )
+    data[TASKS_KEY] = [
+        {
+            "title": "NaturalReader",
+            "comment": "https://chromewebstore.google.com/detail/naturalreader-ai-text-to/...",
+            "type": "note",
+            "done": False,
+            "category_id": "tts",
+        }
+    ]
+
+    category_id = "tts"
     found_items = []
-    
+
     if TASKS_KEY in data:
         for item in data[TASKS_KEY]:
-            print(f"Checking item: {item.get('title')} with category: {item.get('category')}")
-            if item.get("category") != category:
-                print(f"  Discarding: {item.get('category')} != {category}")
+            item_category_id = get_item_category_id(item)
+            print(
+                f"Checking item: {item.get('title')} with category_id: {item_category_id}"
+            )
+            if item_category_id != category_id:
+                print(f"  Discarding: {item_category_id} != {category_id}")
                 continue
             found_items.append(item)
             print(f"  Match found!")
-            
-    print(f"Found {len(found_items)} items for category {category}")
+
+    print(f"Found {len(found_items)} items for category_id {category_id}")
 
 if __name__ == "__main__":
     test_filtering()
+

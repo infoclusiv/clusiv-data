@@ -1,5 +1,10 @@
 import flet as ft
-from config import ICON_MAP, CATEGORY_TYPE_NICHE, CATEGORY_TYPE_NOTEBOOK
+from config import (
+    CATEGORY_TYPE_NICHE,
+    CATEGORY_TYPE_NOTEBOOK,
+    ICON_MAP,
+    ROOT_CATEGORY_OPTION,
+)
 
 
 class AppDialogs:
@@ -17,6 +22,16 @@ class AppDialogs:
             "", size=12, color=ft.Colors.GREY_600, visible=False
         )
         self.cat_input = ft.TextField(label="Nombre", autofocus=True)
+        self.cat_parent = ft.Dropdown(
+            label="Categoría padre",
+            options=[
+                ft.dropdown.Option(
+                    key=ROOT_CATEGORY_OPTION,
+                    text="Sin categoría padre (nivel superior)",
+                )
+            ],
+            value=ROOT_CATEGORY_OPTION,
+        )
         self.cat_icon = ft.Dropdown(
             label="Icono",
             options=[ft.dropdown.Option(k) for k in ICON_MAP.keys()],
@@ -26,8 +41,14 @@ class AppDialogs:
         self.dlg_category = ft.AlertDialog(
             title=ft.Text("Categoría"),
             content=ft.Column(
-                [self.cat_type, self.cat_type_label, self.cat_input, self.cat_icon],
-                height=180,
+                [
+                    self.cat_type,
+                    self.cat_type_label,
+                    self.cat_input,
+                    self.cat_parent,
+                    self.cat_icon,
+                ],
+                height=250,
                 tight=True,
             ),
             actions=[

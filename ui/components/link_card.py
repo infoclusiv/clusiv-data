@@ -3,7 +3,7 @@ import flet as ft
 
 def build_link_card(link: dict, on_open, on_delete) -> ft.Card:
     return ft.Card(
-        color=ft.Colors.WHITE,
+        bgcolor=ft.Colors.WHITE,
         elevation=2,
         content=ft.Container(
             content=ft.Row(

@@ -1,9 +1,10 @@
 import flet as ft
 import ctypes
 
-from config import TASKS_KEY, CATEGORY_TYPE_NICHE, CATEGORY_TYPE_NOTEBOOK
-from core.data_manager import DataManager
 from core.backup_manager import BackupManager
+from core.category_utils import get_category
+from core.data_manager import DataManager
+from config import CATEGORY_TYPE_NICHE, CATEGORY_TYPE_NOTEBOOK, GENERAL_CATEGORY_ID
 from state.app_state import AppState
 from ui.dialogs import AppDialogs
 from ui.nav_rail import build_nav_rail, refresh_nav_rail
@@ -40,17 +41,42 @@ def main(page: ft.Page):
     notebook_view = NotebookView(page)
     welcome_view = build_welcome_view()
 
+    def sync_nav_selection():
+        if state.current_category_id in state.nav_category_ids:
+            nav_rail.selected_index = state.nav_category_ids.index(
+                state.current_category_id
+            )
+        else:
+            nav_rail.selected_index = None
+
     def refresh_all():
-        refresh_nav_rail(nav_rail, app_data, page)
+        state.nav_category_ids = refresh_nav_rail(nav_rail, app_data)
+        sync_nav_selection()
+
         if state.current_view == "category":
-            if not state.current_category:
+            if not state.current_category_id or not get_category(
+                app_data, state.current_category_id
+            ):
+                if state.nav_category_ids:
+                    select_category(state.nav_category_ids[0])
+                else:
+                    clear_view()
+                return
+
+            current_category = get_category(app_data, state.current_category_id)
+            if not current_category:
                 clear_view()
                 return
-            cat_type = app_data.get(state.current_category, {}).get("type", CATEGORY_TYPE_NICHE)
+
+            links_view.btn_delete_cat.disabled = (
+                state.current_category_id == GENERAL_CATEGORY_ID
+            )
+            cat_type = current_category.get("type", CATEGORY_TYPE_NICHE)
             if cat_type == CATEGORY_TYPE_NOTEBOOK:
                 notebook_view.refresh(
                     app_data,
-                    state.current_category,
+                    state.current_category_id,
+                    select_category,
                     board_handlers.open_edit_dialog,
                     board_handlers.request_delete,
                     board_handlers.toggle_task_status,
@@ -58,7 +84,8 @@ def main(page: ft.Page):
             else:
                 links_view.refresh(
                     app_data,
-                    state.current_category,
+                    state.current_category_id,
+                    select_category,
                     link_handlers.open_link,
                     link_handlers.request_delete,
                 )
@@ -84,16 +111,16 @@ def main(page: ft.Page):
     def refresh_board_view():
         if (
             state.current_board_mode == "detail"
-            and state.current_board_filter is not None
-            and state.current_board_filter not in app_data
+            and state.current_board_filter_id is not None
+            and not get_category(app_data, state.current_board_filter_id)
         ):
             state.current_board_mode = "gallery"
-            state.current_board_filter = None
+            state.current_board_filter_id = None
 
         board_view.refresh(
             app_data,
             state.current_board_mode,
-            state.current_board_filter,
+            state.current_board_filter_id,
             board_handlers.open_edit_dialog,
             board_handlers.request_delete,
             board_handlers.toggle_task_status,
@@ -101,10 +128,10 @@ def main(page: ft.Page):
             return_to_board_gallery,
         )
 
-    def show_board_view(mode: str, category: str | None):
+    def show_board_view(mode: str, category_id: str | None):
         state.current_view = "board"
         state.current_board_mode = mode
-        state.current_board_filter = category
+        state.current_board_filter_id = category_id
         links_view.container.visible = False
         notebook_view.container.visible = False
         board_view.container.visible = True
@@ -112,65 +139,74 @@ def main(page: ft.Page):
         page.floating_action_button = fab_add_item
         refresh_board_view()
 
-    def open_board_category(category: str | None):
-        show_board_view("detail", category)
+    def open_board_category(category_id: str | None):
+        show_board_view("detail", category_id)
 
     def return_to_board_gallery(e=None):
         nav_rail.selected_index = None
         show_board_view("gallery", None)
 
+    def select_category(category_id: str | None):
+        category = get_category(app_data, category_id)
+        if not category:
+            return
+
+        state.current_category_id = category_id
+        state.current_view = "category"
+        state.current_board_filter_id = None
+        sync_nav_selection()
+
+        links_view.container.visible = False
+        notebook_view.container.visible = False
+        board_view.container.visible = False
+        welcome_view.visible = False
+
+        links_view.btn_delete_cat.disabled = category_id == GENERAL_CATEGORY_ID
+        cat_type = category.get("type", CATEGORY_TYPE_NICHE)
+        if cat_type == CATEGORY_TYPE_NOTEBOOK:
+            notebook_view.container.visible = True
+            page.floating_action_button = fab_add_notebook
+            notebook_view.refresh(
+                app_data,
+                category_id,
+                select_category,
+                board_handlers.open_edit_dialog,
+                board_handlers.request_delete,
+                board_handlers.toggle_task_status,
+            )
+        else:
+            links_view.container.visible = True
+            page.floating_action_button = fab_add_link
+            links_view.refresh(
+                app_data,
+                category_id,
+                select_category,
+                link_handlers.open_link,
+                link_handlers.request_delete,
+            )
+        page.update()
+
     def change_category(index):
         if index is None:
             return
-        categories = [k for k in app_data if k != TASKS_KEY]
-        if 0 <= index < len(categories):
-            state.current_category = categories[index]
-            state.current_view = "category"
-            cat_type = app_data[state.current_category].get("type", CATEGORY_TYPE_NICHE)
-            if cat_type == CATEGORY_TYPE_NOTEBOOK:
-                state.current_board_filter = None
-                notebook_view.container.visible = True
-                links_view.container.visible = False
-                board_view.container.visible = False
-                welcome_view.visible = False
-                page.floating_action_button = fab_add_notebook
-                notebook_view.refresh(
-                    app_data,
-                    state.current_category,
-                    board_handlers.open_edit_dialog,
-                    board_handlers.request_delete,
-                    board_handlers.toggle_task_status,
-                )
-            else:
-                state.current_board_filter = None
-                links_view.container.visible = True
-                notebook_view.container.visible = False
-                board_view.container.visible = False
-                welcome_view.visible = False
-                page.floating_action_button = fab_add_link
-                links_view.lbl_title.value = state.current_category
-                links_view.refresh(
-                    app_data,
-                    state.current_category,
-                    link_handlers.open_link,
-                    link_handlers.request_delete,
-                )
-            page.update()
+        if 0 <= index < len(state.nav_category_ids):
+            select_category(state.nav_category_ids[index])
 
     def switch_to_board_view(e):
         nav_rail.selected_index = None
         show_board_view("gallery", None)
 
     def open_category_specific_board(e):
-        if not state.current_category:
+        if not state.current_category_id:
             return
-        show_board_view("detail", state.current_category)
+        show_board_view("detail", state.current_category_id)
 
     def clear_view():
         links_view.container.visible = False
         board_view.container.visible = False
         notebook_view.container.visible = False
         welcome_view.visible = True
+        page.floating_action_button = None
         page.update()
 
     def perform_manual_backup(e):
@@ -180,28 +216,22 @@ def main(page: ft.Page):
         else:
             show_message(f"❌ Error: {msg}", ft.Colors.RED_200)
 
-    dialogs.dlg_category.actions[0].on_click = lambda e: page.close(
-        dialogs.dlg_category
-    )
+    dialogs.dlg_category.actions[0].on_click = lambda e: page.pop_dialog()
     dialogs.dlg_category.actions[1].on_click = cat_handlers.save
 
-    dialogs.dlg_link.actions[0].on_click = lambda e: page.close(dialogs.dlg_link)
+    dialogs.dlg_link.actions[0].on_click = lambda e: page.pop_dialog()
     dialogs.dlg_link.actions[1].on_click = link_handlers.add
 
-    dialogs.dlg_confirm_link.actions[0].on_click = lambda e: page.close(
-        dialogs.dlg_confirm_link
-    )
+    dialogs.dlg_confirm_link.actions[0].on_click = lambda e: page.pop_dialog()
     dialogs.dlg_confirm_link.actions[1].on_click = link_handlers.confirm_delete
 
-    dialogs.dlg_item.actions[0].on_click = lambda e: page.close(dialogs.dlg_item)
+    dialogs.dlg_item.actions[0].on_click = lambda e: page.pop_dialog()
     dialogs.dlg_item.actions[1].on_click = board_handlers.save
 
-    dialogs.dlg_confirm_item.actions[0].on_click = lambda e: page.close(
-        dialogs.dlg_confirm_item
-    )
+    dialogs.dlg_confirm_item.actions[0].on_click = lambda e: page.pop_dialog()
     dialogs.dlg_confirm_item.actions[1].on_click = board_handlers.confirm_delete
 
-    dialogs.dlg_bulk.actions[0].on_click = lambda e: page.close(dialogs.dlg_bulk)
+    dialogs.dlg_bulk.actions[0].on_click = lambda e: page.pop_dialog()
     dialogs.dlg_bulk.actions[1].on_click = link_handlers.process_bulk_import
 
     links_view.btn_open_all.on_click = link_handlers.open_all
@@ -212,17 +242,19 @@ def main(page: ft.Page):
     links_view.btn_add_note.on_click = board_handlers.open_quick_note_dialog
 
     fab_add_link = ft.FloatingActionButton(
-        icon=ft.Icons.ADD, text="Agregar Enlace", on_click=link_handlers.open_add_dialog
+        icon=ft.Icons.ADD,
+        tooltip="Agregar Enlace",
+        on_click=link_handlers.open_add_dialog,
     )
     fab_add_item = ft.FloatingActionButton(
         icon=ft.Icons.ADD_COMMENT,
-        text="Nuevo Ítem",
+        tooltip="Nuevo Ítem",
         on_click=board_handlers.open_new_dialog,
         bgcolor=ft.Colors.TEAL_100,
     )
     fab_add_notebook = ft.FloatingActionButton(
         icon=ft.Icons.ADD,
-        text="Nueva Nota/Tarea",
+        tooltip="Nueva Nota/Tarea",
         on_click=board_handlers.open_quick_note_dialog,
         bgcolor=ft.Colors.AMBER_100,
     )
@@ -288,11 +320,14 @@ def main(page: ft.Page):
         )
     )
 
-    refresh_nav_rail(nav_rail, app_data, page)
-    categories = [k for k in app_data if k != TASKS_KEY]
-    if categories:
-        nav_rail.selected_index = 0
-        change_category(0)
+    state.nav_category_ids = refresh_nav_rail(nav_rail, app_data)
+    initial_category_id = (
+        GENERAL_CATEGORY_ID
+        if get_category(app_data, GENERAL_CATEGORY_ID)
+        else (state.nav_category_ids[0] if state.nav_category_ids else None)
+    )
+    if initial_category_id:
+        select_category(initial_category_id)
     else:
         clear_view()
 

@@ -1,5 +1,6 @@
 import flet as ft
-from config import ICON_MAP, TASKS_KEY, CATEGORY_TYPE_NOTEBOOK
+from config import ICON_MAP, CATEGORY_TYPE_NOTEBOOK
+from core.category_utils import get_flat_category_entries
 
 
 def build_nav_rail(on_change) -> ft.NavigationRail:
@@ -16,20 +17,24 @@ def build_nav_rail(on_change) -> ft.NavigationRail:
 
 
 def refresh_nav_rail(
-    nav_rail: ft.NavigationRail, app_data: dict, page: ft.Page
-) -> None:
+    nav_rail: ft.NavigationRail, app_data: dict
+) -> list[str]:
     nav_rail.destinations.clear()
-    categories = [k for k in app_data.keys() if k != TASKS_KEY]
-    for cat_name in categories:
-        cat_data = app_data[cat_name]
+    category_ids: list[str] = []
+    for category, depth in get_flat_category_entries(app_data):
+        cat_data = category
         cat_type = cat_data.get("type", "niche")
         if cat_type == CATEGORY_TYPE_NOTEBOOK:
             icon_obj = ft.Icons.BOOK
         else:
             icon_obj = ICON_MAP.get(cat_data.get("icon", "Carpeta"), ft.Icons.FOLDER)
+        prefix = "> " * depth
         nav_rail.destinations.append(
             ft.NavigationRailDestination(
-                icon=icon_obj, selected_icon=icon_obj, label=cat_name
+                icon=icon_obj,
+                selected_icon=icon_obj,
+                label=f"{prefix}{cat_data['name']}",
             )
         )
-    page.update()
+        category_ids.append(cat_data["id"])
+    return category_ids

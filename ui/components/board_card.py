@@ -19,9 +19,10 @@ def build_note_card(
     )
 
     cat_label = ft.Container()
-    if not show_category_label and item.get("category"):
+    category_label = item.get("category_label") or item.get("category")
+    if not show_category_label and category_label:
         cat_label = ft.Container(
-            content=ft.Text(item["category"], size=10, color=ft.Colors.WHITE),
+            content=ft.Text(category_label, size=10, color=ft.Colors.WHITE),
             bgcolor=ft.Colors.BLUE_GREY_400,
             padding=ft.padding.symmetric(horizontal=6, vertical=2),
             border_radius=10,
@@ -29,7 +30,7 @@ def build_note_card(
         )
 
     return ft.Card(
-        color=ft.Colors.AMBER_50,
+        bgcolor=ft.Colors.AMBER_50,
         elevation=1,
         tooltip=comment_text if has_comment else "Sin comentarios adicionales",
         content=ft.Container(
@@ -103,9 +104,10 @@ def build_task_card(
     )
 
     cat_label = ft.Container()
-    if not show_category_label and item.get("category"):
+    category_label = item.get("category_label") or item.get("category")
+    if not show_category_label and category_label:
         cat_label = ft.Container(
-            content=ft.Text(item["category"], size=10, color=ft.Colors.WHITE),
+            content=ft.Text(category_label, size=10, color=ft.Colors.WHITE),
             bgcolor=ft.Colors.BLUE_GREY_400,
             padding=ft.padding.symmetric(horizontal=6, vertical=2),
             border_radius=10,
@@ -113,7 +115,7 @@ def build_task_card(
         )
 
     return ft.Card(
-        color=ft.Colors.GREEN_50 if is_done else ft.Colors.WHITE,
+        bgcolor=ft.Colors.GREEN_50 if is_done else ft.Colors.WHITE,
         elevation=2,
         tooltip=comment_text if has_comment else "Sin comentarios adicionales",
         content=ft.Container(
