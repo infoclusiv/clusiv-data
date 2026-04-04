@@ -43,7 +43,7 @@ def main(page: ft.Page):
     def refresh_all():
         refresh_nav_rail(nav_rail, app_data, page)
         if state.current_view == "category" and state.current_category:
-            cat_type = app_data[state.current_category].get("type", CATEGORY_TYPE_NICHE)
+            cat_type = app_data.get(state.current_category, {}).get("type", CATEGORY_TYPE_NICHE)
             if cat_type == CATEGORY_TYPE_NOTEBOOK:
                 notebook_view.refresh(
                     app_data,
@@ -90,11 +90,15 @@ def main(page: ft.Page):
         categories = [k for k in app_data if k != TASKS_KEY]
         if 0 <= index < len(categories):
             state.current_category = categories[index]
+            state.current_view = "category"
             cat_type = app_data[state.current_category].get("type", CATEGORY_TYPE_NICHE)
             if cat_type == CATEGORY_TYPE_NOTEBOOK:
-                state.current_view = "category"
-                state.current_board_filter = state.current_category
-                notebook_view.lbl_title.value = state.current_category
+                state.current_board_filter = None
+                notebook_view.container.visible = True
+                links_view.container.visible = False
+                board_view.container.visible = False
+                welcome_view.visible = False
+                page.floating_action_button = fab_add_notebook
                 notebook_view.refresh(
                     app_data,
                     state.current_category,
@@ -102,13 +106,13 @@ def main(page: ft.Page):
                     board_handlers.request_delete,
                     board_handlers.toggle_task_status,
                 )
-                notebook_view.container.visible = True
-                links_view.container.visible = False
+            else:
+                state.current_board_filter = None
+                links_view.container.visible = True
+                notebook_view.container.visible = False
                 board_view.container.visible = False
                 welcome_view.visible = False
-                page.floating_action_button = fab_add_notebook
-            else:
-                state.current_view = "category"
+                page.floating_action_button = fab_add_link
                 links_view.lbl_title.value = state.current_category
                 links_view.refresh(
                     app_data,
@@ -116,11 +120,6 @@ def main(page: ft.Page):
                     link_handlers.open_link,
                     link_handlers.request_delete,
                 )
-                links_view.container.visible = True
-                notebook_view.container.visible = False
-                board_view.container.visible = False
-                welcome_view.visible = False
-                page.floating_action_button = fab_add_link
             page.update()
 
     def switch_to_board_view(e):
@@ -265,7 +264,6 @@ def main(page: ft.Page):
                         btn_go_board,
                         btn_add_cat,
                         nav_rail,
-                        ft.Container(expand=True),
                         btn_backup,
                     ],
                     width=200,

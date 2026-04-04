@@ -22,6 +22,20 @@ class NotebookView:
             run_spacing=15,
             expand=False,
         )
+        self.empty_notes = ft.Text(
+            "No hay notas en esta categoría.",
+            size=13,
+            color=ft.Colors.GREY_600,
+            italic=True,
+            visible=False,
+        )
+        self.empty_tasks = ft.Text(
+            "No hay tareas en esta categoría.",
+            size=13,
+            color=ft.Colors.GREY_600,
+            italic=True,
+            visible=False,
+        )
         self.lbl_title = ft.Text("", size=24, weight="bold", color=ft.Colors.BLACK87)
         self.lbl_subtitle = ft.Text(
             "Notas y tareas de esta categoría", size=14, color=ft.Colors.GREY_600
@@ -49,7 +63,13 @@ class NotebookView:
                             ft.Text("Notas", weight="bold", size=18),
                         ]
                     ),
-                    ft.Container(content=self.notes_grid, expand=True),
+                    ft.Container(
+                        content=ft.Column(
+                            [self.empty_notes, self.notes_grid],
+                            spacing=10,
+                        ),
+                        expand=True,
+                    ),
                     ft.Divider(),
                     ft.Row(
                         [
@@ -57,7 +77,13 @@ class NotebookView:
                             ft.Text("Tareas", weight="bold", size=18),
                         ]
                     ),
-                    ft.Container(content=self.tasks_grid, expand=True),
+                    ft.Container(
+                        content=ft.Column(
+                            [self.empty_tasks, self.tasks_grid],
+                            spacing=10,
+                        ),
+                        expand=True,
+                    ),
                 ],
                 scroll=ft.ScrollMode.AUTO,
                 expand=True,
@@ -91,5 +117,8 @@ class NotebookView:
                         item, on_edit, on_delete, on_toggle, show_category_label=True
                     )
                     self.tasks_grid.controls.append(card)
+
+        self.empty_notes.visible = len(self.notes_grid.controls) == 0
+        self.empty_tasks.visible = len(self.tasks_grid.controls) == 0
 
         self.page.update()
