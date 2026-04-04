@@ -1,11 +1,19 @@
 import flet as ft
-from config import TASKS_KEY
+from config import CATEGORY_TYPE_NOTEBOOK, ICON_MAP, TASKS_KEY
 from ui.components.board_card import build_note_card, build_task_card
 
 
 class BoardView:
     def __init__(self, page: ft.Page):
         self.page = page
+        self.gallery_grid = ft.GridView(
+            runs_count=4,
+            max_extent=260,
+            child_aspect_ratio=1.3,
+            spacing=15,
+            run_spacing=15,
+            expand=True,
+        )
         self.notes_grid = ft.GridView(
             runs_count=5,
             max_extent=300,
@@ -22,12 +30,40 @@ class BoardView:
             run_spacing=15,
             expand=False,
         )
-        self.lbl_title = ft.Text(
+        self.gallery_title = ft.Text(
             "Notas y Tareas", size=24, weight="bold", color=ft.Colors.BLACK87
         )
-        self.lbl_subtitle = ft.Text(
-            "Organiza tus ideas y pendientes", size=14, color=ft.Colors.GREY_600
+        self.gallery_subtitle = ft.Text(
+            "Elige una categoría para ver solo sus notas y tareas.",
+            size=14,
+            color=ft.Colors.GREY_600,
         )
+        self.detail_icon = ft.Icon(ft.Icons.FOLDER, color=ft.Colors.TEAL_700)
+        self.detail_title = ft.Text(
+            "", size=24, weight="bold", color=ft.Colors.BLACK87
+        )
+        self.detail_subtitle = ft.Text("", size=14, color=ft.Colors.GREY_600)
+        self.empty_notes = ft.Text(
+            "No hay notas en esta categoría.",
+            size=13,
+            color=ft.Colors.GREY_600,
+            italic=True,
+            visible=False,
+        )
+        self.empty_tasks = ft.Text(
+            "No hay tareas en esta categoría.",
+            size=13,
+            color=ft.Colors.GREY_600,
+            italic=True,
+            visible=False,
+        )
+        self.btn_back = ft.TextButton(
+            "Volver a categorías",
+            icon=ft.Icons.ARROW_BACK,
+            style=ft.ButtonStyle(color=ft.Colors.TEAL_700),
+        )
+        self.gallery_view = self._build_gallery_view()
+        self.detail_view = self._build_detail_view()
         self.container = self._build()
 
     def _build(self) -> ft.Container:
@@ -36,59 +72,282 @@ class BoardView:
             visible=False,
             padding=20,
             content=ft.Column(
-                [
-                    self.lbl_title,
-                    self.lbl_subtitle,
-                    ft.Divider(),
-                    ft.Row(
-                        [
-                            ft.Icon(ft.Icons.NOTE, color=ft.Colors.AMBER_700),
-                            ft.Text("Notas", weight="bold", size=18),
-                        ]
-                    ),
-                    ft.Container(content=self.notes_grid, expand=True),
-                    ft.Divider(),
-                    ft.Row(
-                        [
-                            ft.Icon(ft.Icons.CHECK_CIRCLE, color=ft.Colors.GREEN_700),
-                            ft.Text("Tareas", weight="bold", size=18),
-                        ]
-                    ),
-                    ft.Container(content=self.tasks_grid, expand=True),
-                ],
-                scroll=ft.ScrollMode.AUTO,
+                [self.gallery_view, self.detail_view],
                 expand=True,
             ),
         )
 
-    def refresh(
-        self, app_data: dict, board_filter: str | None, on_edit, on_delete, on_toggle
+    def _build_gallery_view(self) -> ft.Column:
+        return ft.Column(
+            [
+                self.gallery_title,
+                self.gallery_subtitle,
+                ft.Divider(),
+                ft.Container(content=self.gallery_grid, expand=True),
+            ],
+            expand=True,
+            visible=True,
+        )
+
+    def _build_detail_view(self) -> ft.Column:
+        return ft.Column(
+            [
+                self.btn_back,
+                ft.Row(
+                    [
+                        self.detail_icon,
+                        self.detail_title,
+                    ]
+                ),
+                self.detail_subtitle,
+                ft.Divider(),
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.NOTE, color=ft.Colors.AMBER_700),
+                        ft.Text("Notas", weight="bold", size=18),
+                    ]
+                ),
+                ft.Container(
+                    content=ft.Column(
+                        [self.empty_notes, self.notes_grid],
+                        spacing=10,
+                    ),
+                    expand=True,
+                ),
+                ft.Divider(),
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, color=ft.Colors.GREEN_700),
+                        ft.Text("Tareas", weight="bold", size=18),
+                    ]
+                ),
+                ft.Container(
+                    content=ft.Column(
+                        [self.empty_tasks, self.tasks_grid],
+                        spacing=10,
+                    ),
+                    expand=True,
+                ),
+            ],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+            visible=False,
+        )
+
+    def _count_items(self, app_data: dict, category: str | None) -> tuple[int, int]:
+        note_count = 0
+        task_count = 0
+        for item in app_data.get(TASKS_KEY, []):
+            item_category = item.get("category")
+            if category is None:
+                if item_category is not None:
+                    continue
+            elif item_category != category:
+                continue
+
+            if item.get("type", "task") == "note":
+                note_count += 1
+            else:
+                task_count += 1
+
+        return note_count, task_count
+
+    def _format_counts(self, note_count: int, task_count: int) -> str:
+        note_label = "nota" if note_count == 1 else "notas"
+        task_label = "tarea" if task_count == 1 else "tareas"
+        return f"{note_count} {note_label} • {task_count} {task_label}"
+
+    def _build_category_card(
+        self,
+        label: str,
+        category_value: str | None,
+        icon,
+        description: str,
+        note_count: int,
+        task_count: int,
+        color,
+        on_open_category,
+    ) -> ft.Card:
+        return ft.Card(
+            color=color,
+            elevation=1,
+            content=ft.Container(
+                padding=20,
+                ink=True,
+                border_radius=14,
+                on_click=lambda _, cat=category_value: on_open_category(cat),
+                content=ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                ft.Icon(icon, size=28, color=ft.Colors.TEAL_700),
+                                ft.Container(expand=True),
+                                ft.Icon(
+                                    ft.Icons.CHEVRON_RIGHT,
+                                    size=16,
+                                    color=ft.Colors.GREY_500,
+                                ),
+                            ]
+                        ),
+                        ft.Text(
+                            label,
+                            size=18,
+                            weight="bold",
+                            color=ft.Colors.BLACK87,
+                            max_lines=2,
+                            overflow=ft.TextOverflow.ELLIPSIS,
+                        ),
+                        ft.Text(
+                            description,
+                            size=13,
+                            color=ft.Colors.GREY_700,
+                            max_lines=2,
+                            overflow=ft.TextOverflow.ELLIPSIS,
+                        ),
+                        ft.Container(expand=True),
+                        ft.Text(
+                            self._format_counts(note_count, task_count),
+                            size=12,
+                            color=ft.Colors.GREY_800,
+                            weight="bold",
+                        ),
+                    ],
+                    expand=True,
+                    spacing=10,
+                ),
+            ),
+        )
+
+    def _refresh_gallery(self, app_data: dict, on_open_category) -> None:
+        self.gallery_grid.controls.clear()
+
+        general_notes, general_tasks = self._count_items(app_data, None)
+        self.gallery_grid.controls.append(
+            self._build_category_card(
+                "General",
+                None,
+                ft.Icons.INBOX,
+                "Notas y tareas sin categoría asignada.",
+                general_notes,
+                general_tasks,
+                ft.Colors.TEAL_50,
+                on_open_category,
+            )
+        )
+
+        categories = [name for name in app_data if name != TASKS_KEY]
+        for category_name in categories:
+            category_data = app_data[category_name]
+            category_type = category_data.get("type")
+            note_count, task_count = self._count_items(app_data, category_name)
+            icon = (
+                ft.Icons.BOOK
+                if category_type == CATEGORY_TYPE_NOTEBOOK
+                else ICON_MAP.get(category_data.get("icon", "Carpeta"), ft.Icons.FOLDER)
+            )
+            description = (
+                "Categoría de bloc de notas"
+                if category_type == CATEGORY_TYPE_NOTEBOOK
+                else "Categoría personalizada"
+            )
+            color = (
+                ft.Colors.AMBER_50
+                if category_type == CATEGORY_TYPE_NOTEBOOK
+                else ft.Colors.WHITE
+            )
+            self.gallery_grid.controls.append(
+                self._build_category_card(
+                    category_name,
+                    category_name,
+                    icon,
+                    description,
+                    note_count,
+                    task_count,
+                    color,
+                    on_open_category,
+                )
+            )
+
+    def _refresh_detail(
+        self,
+        app_data: dict,
+        board_category: str | None,
+        on_edit,
+        on_delete,
+        on_toggle,
     ) -> None:
         self.notes_grid.controls.clear()
         self.tasks_grid.controls.clear()
 
-        if board_filter:
-            self.lbl_title.value = f"Notas de: {board_filter}"
-            self.lbl_subtitle.value = "Viendo solo elementos de esta categoría"
+        is_general = board_category is None
+        if is_general:
+            self.detail_title.value = "General"
+            self.detail_subtitle.value = "Notas y tareas sin categoría asignada."
+            self.detail_icon.name = ft.Icons.INBOX
+            self.detail_icon.color = ft.Colors.TEAL_700
+            self.empty_notes.value = "No hay notas sin categoría."
+            self.empty_tasks.value = "No hay tareas sin categoría."
         else:
-            self.lbl_title.value = "Notas y Tareas (General)"
-            self.lbl_subtitle.value = "Todas tus notas y pendientes globales"
+            category_data = app_data.get(board_category, {})
+            category_type = category_data.get("type")
+            self.detail_title.value = board_category
+            self.detail_subtitle.value = "Notas y tareas de esta categoría."
+            self.detail_icon.name = (
+                ft.Icons.BOOK
+                if category_type == CATEGORY_TYPE_NOTEBOOK
+                else ICON_MAP.get(category_data.get("icon", "Carpeta"), ft.Icons.FOLDER)
+            )
+            self.detail_icon.color = (
+                ft.Colors.AMBER_800
+                if category_type == CATEGORY_TYPE_NOTEBOOK
+                else ft.Colors.TEAL_700
+            )
+            self.empty_notes.value = "No hay notas en esta categoría."
+            self.empty_tasks.value = "No hay tareas en esta categoría."
 
-        if TASKS_KEY in app_data:
-            for item in app_data[TASKS_KEY]:
-                item_cat = item.get("category", None)
-                if board_filter and item_cat != board_filter:
+        for item in app_data.get(TASKS_KEY, []):
+            item_category = item.get("category")
+            if is_general:
+                if item_category is not None:
                     continue
+            elif item_category != board_category:
+                continue
 
-                itype = item.get("type", "task")
-                show_cat_label = board_filter is not None
+            item_type = item.get("type", "task")
+            if item_type == "note":
+                self.notes_grid.controls.append(
+                    build_note_card(item, on_edit, on_delete, True)
+                )
+            else:
+                self.tasks_grid.controls.append(
+                    build_task_card(item, on_edit, on_delete, on_toggle, True)
+                )
 
-                if itype == "note":
-                    card = build_note_card(item, on_edit, on_delete, show_cat_label)
-                    self.notes_grid.controls.append(card)
-                else:
-                    card = build_task_card(
-                        item, on_edit, on_delete, on_toggle, show_cat_label
-                    )
-                    self.tasks_grid.controls.append(card)
+        self.empty_notes.visible = len(self.notes_grid.controls) == 0
+        self.empty_tasks.visible = len(self.tasks_grid.controls) == 0
+
+    def refresh(
+        self,
+        app_data: dict,
+        board_mode: str,
+        board_category: str | None,
+        on_edit,
+        on_delete,
+        on_toggle,
+        on_open_category,
+        on_back,
+    ) -> None:
+        self.btn_back.on_click = on_back
+        self._refresh_gallery(app_data, on_open_category)
+        self._refresh_detail(
+            app_data,
+            board_category,
+            on_edit,
+            on_delete,
+            on_toggle,
+        )
+
+        self.gallery_view.visible = board_mode == "gallery"
+        self.detail_view.visible = board_mode == "detail"
+
         self.page.update()

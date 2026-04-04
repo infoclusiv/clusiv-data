@@ -68,6 +68,8 @@ class CategoryHandlers:
             if new_name != self.state.editing_category_old_name:
                 self.app_data[new_name] = data
                 del self.app_data[self.state.editing_category_old_name]
+                if self.state.current_board_filter == self.state.editing_category_old_name:
+                    self.state.current_board_filter = new_name
                 if TASKS_KEY in self.app_data:
                     for item in self.app_data[TASKS_KEY]:
                         if item.get("category") == self.state.editing_category_old_name:
@@ -99,11 +101,15 @@ class CategoryHandlers:
         if self.state.current_category and self.state.current_category in self.app_data:
 
             def confirm_delete_cat(e):
+                deleted_category = self.state.current_category
                 if TASKS_KEY in self.app_data:
                     for item in self.app_data[TASKS_KEY]:
                         if item.get("category") == self.state.current_category:
                             item["category"] = None
                 del self.app_data[self.state.current_category]
+                if self.state.current_board_filter == deleted_category:
+                    self.state.current_board_mode = "gallery"
+                    self.state.current_board_filter = None
                 DataManager.save_data(self.app_data)
                 self.page.close(dlg_confirm_cat)
                 keys = [k for k in self.app_data if k != TASKS_KEY]

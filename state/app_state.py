@@ -4,6 +4,7 @@ class AppState:
         self.editing_category_old_name: str | None = None
         self.current_view: str = "category"
         self.editing_item_obj: dict | None = None
+        self.current_board_mode: str = "gallery"
         self.current_board_filter: str | None = None
         self.link_to_delete_temp: dict | None = None
         self.item_to_delete_temp: dict | None = None

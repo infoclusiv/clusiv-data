@@ -42,7 +42,10 @@ def main(page: ft.Page):
 
     def refresh_all():
         refresh_nav_rail(nav_rail, app_data, page)
-        if state.current_view == "category" and state.current_category:
+        if state.current_view == "category":
+            if not state.current_category:
+                clear_view()
+                return
             cat_type = app_data.get(state.current_category, {}).get("type", CATEGORY_TYPE_NICHE)
             if cat_type == CATEGORY_TYPE_NOTEBOOK:
                 notebook_view.refresh(
@@ -60,13 +63,7 @@ def main(page: ft.Page):
                     link_handlers.request_delete,
                 )
         elif state.current_view == "board":
-            board_view.refresh(
-                app_data,
-                state.current_board_filter,
-                board_handlers.open_edit_dialog,
-                board_handlers.request_delete,
-                board_handlers.toggle_task_status,
-            )
+            refresh_board_view()
 
     def show_message(msg, color=ft.Colors.WHITE):
         snackbar = ft.SnackBar(content=ft.Text(msg, color=color))
@@ -83,6 +80,44 @@ def main(page: ft.Page):
     nav_rail = build_nav_rail(
         on_change=lambda e: change_category(e.control.selected_index)
     )
+
+    def refresh_board_view():
+        if (
+            state.current_board_mode == "detail"
+            and state.current_board_filter is not None
+            and state.current_board_filter not in app_data
+        ):
+            state.current_board_mode = "gallery"
+            state.current_board_filter = None
+
+        board_view.refresh(
+            app_data,
+            state.current_board_mode,
+            state.current_board_filter,
+            board_handlers.open_edit_dialog,
+            board_handlers.request_delete,
+            board_handlers.toggle_task_status,
+            open_board_category,
+            return_to_board_gallery,
+        )
+
+    def show_board_view(mode: str, category: str | None):
+        state.current_view = "board"
+        state.current_board_mode = mode
+        state.current_board_filter = category
+        links_view.container.visible = False
+        notebook_view.container.visible = False
+        board_view.container.visible = True
+        welcome_view.visible = False
+        page.floating_action_button = fab_add_item
+        refresh_board_view()
+
+    def open_board_category(category: str | None):
+        show_board_view("detail", category)
+
+    def return_to_board_gallery(e=None):
+        nav_rail.selected_index = None
+        show_board_view("gallery", None)
 
     def change_category(index):
         if index is None:
@@ -123,39 +158,13 @@ def main(page: ft.Page):
             page.update()
 
     def switch_to_board_view(e):
-        state.current_view = "board"
-        state.current_board_filter = None
         nav_rail.selected_index = None
-        board_view.refresh(
-            app_data,
-            state.current_board_filter,
-            board_handlers.open_edit_dialog,
-            board_handlers.request_delete,
-            board_handlers.toggle_task_status,
-        )
-        links_view.container.visible = False
-        board_view.container.visible = True
-        welcome_view.visible = False
-        page.floating_action_button = fab_add_item
-        page.update()
+        show_board_view("gallery", None)
 
     def open_category_specific_board(e):
         if not state.current_category:
             return
-        state.current_view = "board"
-        state.current_board_filter = state.current_category
-        board_view.refresh(
-            app_data,
-            state.current_board_filter,
-            board_handlers.open_edit_dialog,
-            board_handlers.request_delete,
-            board_handlers.toggle_task_status,
-        )
-        links_view.container.visible = False
-        board_view.container.visible = True
-        welcome_view.visible = False
-        page.floating_action_button = fab_add_item
-        page.update()
+        show_board_view("detail", state.current_category)
 
     def clear_view():
         links_view.container.visible = False
