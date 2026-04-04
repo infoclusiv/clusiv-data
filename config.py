@@ -5,6 +5,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(script_dir, "data.json")
 BACKUP_DIR = os.path.join(script_dir, "backups")
 TASKS_KEY = "__SYSTEM_TASKS__"
+CATEGORY_TYPE_NICHE = "niche"
+CATEGORY_TYPE_NOTEBOOK = "notebook"
 
 ICON_MAP = {
     "Carpeta": ft.Icons.FOLDER,

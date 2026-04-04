@@ -2,7 +2,7 @@ import flet as ft
 from state.app_state import AppState
 from ui.dialogs import AppDialogs
 from core.data_manager import DataManager
-from config import TASKS_KEY
+from config import TASKS_KEY, CATEGORY_TYPE_NICHE, CATEGORY_TYPE_NOTEBOOK
 
 
 class CategoryHandlers:
@@ -18,6 +18,8 @@ class CategoryHandlers:
     def open_new_dialog(self, e):
         self.state.editing_category_old_name = None
         self.dialogs.dlg_category.title = ft.Text("Nueva Categoría")
+        self.dialogs.cat_type.value = CATEGORY_TYPE_NICHE
+        self.dialogs.cat_type.visible = True
         self.dialogs.cat_input.value = ""
         self.dialogs.cat_input.error_text = None
         self.dialogs.cat_icon.value = "Carpeta"
@@ -31,6 +33,17 @@ class CategoryHandlers:
         self.dialogs.cat_icon.value = self.app_data[self.state.current_category].get(
             "icon", "Carpeta"
         )
+        current_type = self.app_data[self.state.current_category].get(
+            "type", CATEGORY_TYPE_NICHE
+        )
+        self.dialogs.cat_type.visible = False
+        self.dialogs.cat_type_label.visible = True
+        type_label = (
+            "Nicho (con enlaces)"
+            if current_type == CATEGORY_TYPE_NICHE
+            else "Bloc de notas"
+        )
+        self.dialogs.cat_type_label.value = f"Tipo: {type_label} (no editable)"
         self.page.open(self.dialogs.dlg_category)
         self.page.update()
 
@@ -67,8 +80,15 @@ class CategoryHandlers:
                 self.dialogs.cat_input.error_text = "Ya existe"
                 self.dialogs.cat_input.update()
                 return
-            self.app_data[new_name] = {"links": [], "icon": selected_icon_key}
+            self.app_data[new_name] = {
+                "links": [],
+                "icon": selected_icon_key,
+                "type": self.dialogs.cat_type.value,
+            }
             self.state.current_category = new_name
+
+        self.dialogs.cat_type.visible = True
+        self.dialogs.cat_type_label.visible = False
 
         DataManager.save_data(self.app_data)
         self.page.close(self.dialogs.dlg_category)

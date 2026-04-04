@@ -1,9 +1,21 @@
 import flet as ft
-from config import ICON_MAP
+from config import ICON_MAP, CATEGORY_TYPE_NICHE, CATEGORY_TYPE_NOTEBOOK
 
 
 class AppDialogs:
     def __init__(self):
+        self.cat_type = ft.RadioGroup(
+            content=ft.Row(
+                [
+                    ft.Radio(value=CATEGORY_TYPE_NICHE, label="Nicho (con enlaces)"),
+                    ft.Radio(value=CATEGORY_TYPE_NOTEBOOK, label="Bloc de notas"),
+                ]
+            ),
+            value=CATEGORY_TYPE_NICHE,
+        )
+        self.cat_type_label = ft.Text(
+            "", size=12, color=ft.Colors.GREY_600, visible=False
+        )
         self.cat_input = ft.TextField(label="Nombre", autofocus=True)
         self.cat_icon = ft.Dropdown(
             label="Icono",
@@ -13,7 +25,11 @@ class AppDialogs:
         )
         self.dlg_category = ft.AlertDialog(
             title=ft.Text("Categoría"),
-            content=ft.Column([self.cat_input, self.cat_icon], height=120, tight=True),
+            content=ft.Column(
+                [self.cat_type, self.cat_type_label, self.cat_input, self.cat_icon],
+                height=180,
+                tight=True,
+            ),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: None),
                 ft.TextButton("Guardar", on_click=lambda e: None),

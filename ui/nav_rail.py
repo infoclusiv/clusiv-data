@@ -1,5 +1,5 @@
 import flet as ft
-from config import ICON_MAP, TASKS_KEY
+from config import ICON_MAP, TASKS_KEY, CATEGORY_TYPE_NOTEBOOK
 
 
 def build_nav_rail(on_change) -> ft.NavigationRail:
@@ -22,7 +22,11 @@ def refresh_nav_rail(
     categories = [k for k in app_data.keys() if k != TASKS_KEY]
     for cat_name in categories:
         cat_data = app_data[cat_name]
-        icon_obj = ICON_MAP.get(cat_data.get("icon", "Carpeta"), ft.Icons.FOLDER)
+        cat_type = cat_data.get("type", "niche")
+        if cat_type == CATEGORY_TYPE_NOTEBOOK:
+            icon_obj = ft.Icons.BOOK
+        else:
+            icon_obj = ICON_MAP.get(cat_data.get("icon", "Carpeta"), ft.Icons.FOLDER)
         nav_rail.destinations.append(
             ft.NavigationRailDestination(
                 icon=icon_obj, selected_icon=icon_obj, label=cat_name
