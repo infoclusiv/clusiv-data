@@ -1,12 +1,6 @@
 # Backups
 backups/
 
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.ruff_cache/
-
 # Node / frontend
 node_modules/
 dist/

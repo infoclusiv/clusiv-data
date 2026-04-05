@@ -9,7 +9,7 @@
     </div>
     <h1 class="text-2xl font-semibold text-slate-900">Selecciona una opción del menú</h1>
     <p class="mt-3 text-sm leading-relaxed text-slate-600">
-      La navegación lateral mantiene la misma jerarquía de categorías y notebooks de la app Flet original.
+      La navegación lateral conserva la misma jerarquía de categorías y notebooks para que la estructura siga siendo familiar.
     </p>
   </div>
 </div>
