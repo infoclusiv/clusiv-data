@@ -1,7 +1,8 @@
 export type CategoryType = "niche" | "notebook";
 export type ItemType = "task" | "note";
-export type AppView = "welcome" | "category" | "board";
+export type AppView = "welcome" | "category" | "board" | "logs";
 export type BoardMode = "gallery" | "detail";
+export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 
 export interface Link {
   title: string;
@@ -30,6 +31,19 @@ export interface AppData {
   __SCHEMA_VERSION__: number;
   __SYSTEM_CATEGORIES__: Record<string, Category>;
   __SYSTEM_TASKS__: Item[];
+}
+
+export interface LogStatus {
+  sessionId: string;
+  sessionStartedAt: string;
+  sessionFilePath: string;
+  logDirectory: string;
+  entryCount: number;
+  lastExportPath: string | null;
+  appName: string;
+  appVersion: string;
+  buildProfile: string;
+  platform: string;
 }
 
 export interface UIState {

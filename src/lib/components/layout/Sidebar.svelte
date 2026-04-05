@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Download, ListChecks, Plus } from "lucide-svelte";
+  import { Bug, Download, ListChecks, Plus } from "lucide-svelte";
 
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import NavRail from "$lib/components/layout/NavRail.svelte";
-  import { appState, createBackup, showBoard } from "$lib/store/appState.svelte";
+  import { appState, createBackup, showBoard, showLogs } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
 
   let showCategoryDialog = $state(false);
@@ -63,6 +63,14 @@
   <div class="mx-3 mt-2 h-px bg-slate-200/80"></div>
 
   <div class="px-3 py-4">
+    <button
+      class="btn-ghost mb-2 w-full justify-start bg-white/65"
+      onclick={showLogs}
+    >
+      <Bug size={16} />
+      Depuración
+    </button>
+
     <button
       class="btn-ghost w-full justify-start bg-white/65"
       onclick={() => void handleBackup()}

@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::time::Instant;
 
-use serde_json::{Map, Value};
-use tauri::command;
+use serde_json::{json, Map, Value};
+use tauri::{command, State};
 use uuid::Uuid;
 
+use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
     AppData, Category, CategoryType, Item, ItemType, Link, GENERAL_CATEGORY_ID,
     GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
@@ -33,31 +35,206 @@ fn get_data_path() -> PathBuf {
     executable_dir().join("data.json")
 }
 
+fn count_links(data: &AppData) -> usize {
+    data.categories
+        .values()
+        .map(|category| category.links.len())
+        .sum()
+}
+
 #[command]
-pub fn load_data() -> Result<AppData, String> {
+pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
+    let started_at = Instant::now();
     let path = get_data_path();
+    let path_label = path.to_string_lossy().to_string();
+
+    logger.log_backend(
+        LogLevel::Info,
+        "commands::data",
+        "load_data_started",
+        "Loading application data from disk.",
+        json!({
+            "path": path_label,
+            "exists": path.exists(),
+        }),
+    );
+
     if !path.exists() {
-        return Ok(AppData::default_data());
+        let data = AppData::default_data();
+        logger.log_backend(
+            LogLevel::Warn,
+            "commands::data",
+            "load_data_missing_file",
+            "Data file not found, using default dataset.",
+            json!({
+                "path": path.to_string_lossy().to_string(),
+                "durationMs": started_at.elapsed().as_millis(),
+                "categoryCount": data.categories.len(),
+                "taskCount": data.tasks.len(),
+                "linkCount": count_links(&data),
+            }),
+        );
+        return Ok(data);
     }
 
-    let content = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    let content = match std::fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(error) => {
+            logger.log_backend(
+                LogLevel::Error,
+                "commands::data",
+                "load_data_read_failed",
+                "Failed to read application data from disk.",
+                json!({
+                    "path": path.to_string_lossy().to_string(),
+                    "error": error.to_string(),
+                    "durationMs": started_at.elapsed().as_millis(),
+                }),
+            );
+            return Err(error.to_string());
+        }
+    };
+
     let raw_data: Value = match serde_json::from_str(&content) {
         Ok(value) => value,
-        Err(_) => return Ok(AppData::default_data()),
+        Err(error) => {
+            let data = AppData::default_data();
+            logger.log_backend(
+                LogLevel::Warn,
+                "commands::data",
+                "load_data_parse_failed",
+                "Data file is not valid JSON, using default dataset.",
+                json!({
+                    "path": path.to_string_lossy().to_string(),
+                    "error": error.to_string(),
+                    "bytes": content.len(),
+                    "durationMs": started_at.elapsed().as_millis(),
+                    "categoryCount": data.categories.len(),
+                    "taskCount": data.tasks.len(),
+                    "linkCount": count_links(&data),
+                }),
+            );
+            return Ok(data);
+        }
     };
 
     let (data, changed) = normalize_data(raw_data);
     if changed {
-        let _ = save_data(data.clone());
+        match serde_json::to_string_pretty(&data) {
+            Ok(content) => {
+                if let Err(error) = std::fs::write(&path, content) {
+                    logger.log_backend(
+                        LogLevel::Warn,
+                        "commands::data",
+                        "load_data_normalized_save_failed",
+                        "Normalized data could not be written back to disk.",
+                        json!({
+                            "path": path.to_string_lossy().to_string(),
+                            "error": error.to_string(),
+                        }),
+                    );
+                }
+            }
+            Err(error) => logger.log_backend(
+                LogLevel::Warn,
+                "commands::data",
+                "load_data_normalized_serialize_failed",
+                "Normalized data could not be serialized for persistence.",
+                json!({
+                    "path": path.to_string_lossy().to_string(),
+                    "error": error.to_string(),
+                }),
+            ),
+        }
     }
+
+    logger.log_backend(
+        LogLevel::Info,
+        "commands::data",
+        "load_data_completed",
+        "Application data loaded successfully.",
+        json!({
+            "path": path.to_string_lossy().to_string(),
+            "normalized": changed,
+            "durationMs": started_at.elapsed().as_millis(),
+            "categoryCount": data.categories.len(),
+            "taskCount": data.tasks.len(),
+            "linkCount": count_links(&data),
+        }),
+    );
+
     Ok(data)
 }
 
 #[command]
-pub fn save_data(data: AppData) -> Result<(), String> {
+pub fn save_data(data: AppData, logger: State<'_, AppLoggerState>) -> Result<(), String> {
+    let started_at = Instant::now();
     let path = get_data_path();
-    let content = serde_json::to_string_pretty(&data).map_err(|error| error.to_string())?;
-    std::fs::write(path, content).map_err(|error| error.to_string())
+    let path_label = path.to_string_lossy().to_string();
+
+    logger.log_backend(
+        LogLevel::Info,
+        "commands::data",
+        "save_data_started",
+        "Persisting application data to disk.",
+        json!({
+            "path": path_label,
+            "categoryCount": data.categories.len(),
+            "taskCount": data.tasks.len(),
+            "linkCount": count_links(&data),
+        }),
+    );
+
+    let content = match serde_json::to_string_pretty(&data) {
+        Ok(content) => content,
+        Err(error) => {
+            logger.log_backend(
+                LogLevel::Error,
+                "commands::data",
+                "save_data_serialize_failed",
+                "Failed to serialize application data.",
+                json!({
+                    "path": path.to_string_lossy().to_string(),
+                    "error": error.to_string(),
+                    "durationMs": started_at.elapsed().as_millis(),
+                }),
+            );
+            return Err(error.to_string());
+        }
+    };
+
+    if let Err(error) = std::fs::write(&path, &content) {
+        logger.log_backend(
+            LogLevel::Error,
+            "commands::data",
+            "save_data_write_failed",
+            "Failed to write application data to disk.",
+            json!({
+                "path": path.to_string_lossy().to_string(),
+                "error": error.to_string(),
+                "bytes": content.len(),
+                "durationMs": started_at.elapsed().as_millis(),
+            }),
+        );
+        return Err(error.to_string());
+    }
+
+    logger.log_backend(
+        LogLevel::Info,
+        "commands::data",
+        "save_data_completed",
+        "Application data persisted successfully.",
+        json!({
+            "path": path.to_string_lossy().to_string(),
+            "bytes": content.len(),
+            "durationMs": started_at.elapsed().as_millis(),
+            "categoryCount": data.categories.len(),
+            "taskCount": data.tasks.len(),
+            "linkCount": count_links(&data),
+        }),
+    );
+
+    Ok(())
 }
 
 fn normalize_data(raw: Value) -> (AppData, bool) {

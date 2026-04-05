@@ -8,6 +8,7 @@
   import { CATEGORY_TYPE_NOTEBOOK } from "$lib/utils/constants";
   import BoardView from "$lib/views/BoardView.svelte";
   import LinksView from "$lib/views/LinksView.svelte";
+  import LogsView from "$lib/views/LogsView.svelte";
   import NotebookView from "$lib/views/NotebookView.svelte";
   import WelcomeView from "$lib/views/WelcomeView.svelte";
 
@@ -43,6 +44,8 @@
           <LinksView />
         {:else if appState.currentView === "board"}
           <BoardView />
+        {:else if appState.currentView === "logs"}
+          <LogsView />
         {:else}
           <WelcomeView />
         {/if}
