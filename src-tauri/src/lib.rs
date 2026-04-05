@@ -38,9 +38,11 @@ pub fn run() {
             commands::data::load_data,
             commands::data::save_data,
             commands::backup::create_backup,
+            commands::backup::open_backup_directory,
             commands::logs::append_frontend_log,
             commands::logs::get_log_status,
             commands::logs::export_logs,
+            commands::logs::open_log_directory,
             commands::shell::open_url,
         ])
         .run(tauri::generate_context!());

@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-const MAX_SESSION_FILES: usize = 8;
-const MAX_EXPORT_FILES: usize = 8;
+const MAX_SESSION_FILES: usize = 5;
+const MAX_EXPORT_FILES: usize = 5;
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")

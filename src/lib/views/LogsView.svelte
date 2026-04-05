@@ -1,15 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Bug, Download, RefreshCw } from "lucide-svelte";
+  import { Bug, Download, FolderOpen, RefreshCw } from "lucide-svelte";
 
   import Button from "$lib/components/ui/Button.svelte";
-  import { exportLogs, getLogStatus } from "$lib/store/appState.svelte";
+  import { exportLogs, getLogStatus, openLogDirectory } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import type { LogStatus } from "$lib/store/types";
 
   let status = $state<LogStatus | null>(null);
   let loading = $state(true);
   let exporting = $state(false);
+  let openingDirectory = $state(false);
 
   function formatTimestamp(value: string): string {
     const date = new Date(value);
@@ -59,6 +60,26 @@
     }
   }
 
+  async function handleOpenDirectory(): Promise<void> {
+    if (openingDirectory) {
+      return;
+    }
+
+    openingDirectory = true;
+
+    try {
+      await openLogDirectory();
+      showSnackbar("Carpeta de logs abierta.", "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo abrir la carpeta de logs.",
+        "error",
+      );
+    } finally {
+      openingDirectory = false;
+    }
+  }
+
   onMount(() => {
     void refreshStatus();
   });
@@ -84,6 +105,11 @@
       <Button onclick={() => void refreshStatus()} disabled={loading || exporting} class="bg-white/70">
         <RefreshCw size={16} />
         {loading ? "Actualizando..." : "Actualizar"}
+      </Button>
+
+      <Button onclick={() => void handleOpenDirectory()} disabled={openingDirectory || exporting} class="bg-white/70">
+        <FolderOpen size={16} />
+        {openingDirectory ? "Abriendo carpeta..." : "Abrir carpeta de logs"}
       </Button>
 
       <Button variant="primary" onclick={() => void handleExport()} disabled={loading || exporting}>

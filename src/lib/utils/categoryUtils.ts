@@ -92,7 +92,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
       category.parent_id = null;
       continue;
     }
-    if (!category.parent_id || !validCategoryIds.has(category.parent_id)) {
+    if (category.parent_id && !validCategoryIds.has(category.parent_id)) {
       category.parent_id = GENERAL_CATEGORY_ID;
     }
   }

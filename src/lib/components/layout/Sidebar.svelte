@@ -1,9 +1,15 @@
 <script lang="ts">
-  import { Bug, Download, ListChecks, Plus } from "lucide-svelte";
+  import { Bug, Download, FolderOpen, ListChecks, Plus } from "lucide-svelte";
 
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import NavRail from "$lib/components/layout/NavRail.svelte";
-  import { appState, createBackup, showBoard, showLogs } from "$lib/store/appState.svelte";
+  import {
+    appState,
+    createBackup,
+    openBackupDirectory,
+    showBoard,
+    showLogs,
+  } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
 
   let showCategoryDialog = $state(false);
@@ -24,16 +30,23 @@
       );
     }
   }
+
+  async function handleOpenBackups(): Promise<void> {
+    try {
+      await openBackupDirectory();
+      showSnackbar("Carpeta de backups abierta.", "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo abrir la carpeta de backups.",
+        "error",
+      );
+    }
+  }
 </script>
 
 <aside class="flex h-full w-[var(--sidebar-width)] shrink-0 flex-col border-r border-white/70 bg-white/45 backdrop-blur-xl">
-  <div class="px-4 pb-3 pt-5">
-    <div class="rounded-[1.5rem] bg-white/80 p-4 shadow-soft">
-      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-brand-700">Clusiv Data</p>
-      <p class="mt-2 text-sm leading-relaxed text-slate-600">
-        Migración activa a Tauri + Svelte con compatibilidad de datos existente.
-      </p>
-    </div>
+  <div class="px-4 pb-2 pt-5">
+    <p class="px-1 text-lg font-semibold tracking-[0.18em] text-brand-700">Clusiv Data</p>
   </div>
 
   <div class="px-3 pb-2">
@@ -78,11 +91,18 @@
       <Download size={16} />
       Crear Backup
     </button>
+
+    <button
+      class="btn-ghost mt-2 w-full justify-start bg-white/65"
+      onclick={() => void handleOpenBackups()}
+    >
+      <FolderOpen size={16} />
+      Abrir Backups
+    </button>
   </div>
 </aside>
 
 <CategoryDialog
   open={showCategoryDialog}
   onclose={() => (showCategoryDialog = false)}
-  initialParentId={appState.currentCategoryId}
 />

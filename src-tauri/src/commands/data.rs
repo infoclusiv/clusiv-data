@@ -288,10 +288,11 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             continue;
         }
 
-        let parent_is_valid = category
-            .parent_id
-            .as_ref()
-            .is_some_and(|parent_id| valid_category_ids.contains(parent_id));
+        let parent_is_valid = category.parent_id.is_none()
+            || category
+                .parent_id
+                .as_ref()
+                .is_some_and(|parent_id| valid_category_ids.contains(parent_id));
 
         if !parent_is_valid {
             category.parent_id = Some(GENERAL_CATEGORY_ID.to_string());

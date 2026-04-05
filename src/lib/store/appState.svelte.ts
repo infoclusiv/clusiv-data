@@ -21,6 +21,7 @@ import {
   normalizeAppData,
 } from "$lib/utils/categoryUtils";
 import {
+  CATEGORY_TYPE_NOTEBOOK,
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
 } from "$lib/utils/constants";
@@ -129,6 +130,10 @@ function requireAppData(): AppData {
   return appState.appData;
 }
 
+function getAppDataSnapshot(): AppData {
+  return $state.snapshot(requireAppData());
+}
+
 function setAppData(appData: AppData): AppData {
   const normalized = normalizeAppData(appData);
   appState.appData = normalized;
@@ -170,7 +175,7 @@ export async function persistData(): Promise<void> {
     return;
   }
 
-  const normalized = normalizeAppData(appState.appData);
+  const normalized = normalizeAppData(getAppDataSnapshot());
   appState.appData = normalized;
 
   logClientEvent({
@@ -330,6 +335,56 @@ export async function exportLogs(): Promise<string> {
   }
 }
 
+export async function openLogDirectory(): Promise<void> {
+  logClientEvent({
+    source: "appState",
+    action: "open_log_directory_started",
+    message: "User requested to open the local logs directory.",
+  });
+
+  try {
+    await invoke("open_log_directory");
+    logClientEvent({
+      source: "appState",
+      action: "open_log_directory_completed",
+      message: "Local logs directory opened successfully.",
+    });
+  } catch (error) {
+    logClientError(
+      "appState",
+      "open_log_directory_failed",
+      "Failed to open the local logs directory.",
+      error,
+    );
+    throw error;
+  }
+}
+
+export async function openBackupDirectory(): Promise<void> {
+  logClientEvent({
+    source: "appState",
+    action: "open_backup_directory_started",
+    message: "User requested to open the local backups directory.",
+  });
+
+  try {
+    await invoke("open_backup_directory");
+    logClientEvent({
+      source: "appState",
+      action: "open_backup_directory_completed",
+      message: "Local backups directory opened successfully.",
+    });
+  } catch (error) {
+    logClientError(
+      "appState",
+      "open_backup_directory_failed",
+      "Failed to open the local backups directory.",
+      error,
+    );
+    throw error;
+  }
+}
+
 export function selectCategory(categoryId: string): void {
   const category = appState.appData
     ? getCategory(appState.appData, categoryId)
@@ -459,7 +514,7 @@ export async function initializeApp(): Promise<void> {
 export async function mutateAppData(
   mutator: (draft: AppData) => void,
 ): Promise<AppData> {
-  const draft = normalizeAppData(structuredClone(requireAppData()));
+  const draft = normalizeAppData(getAppDataSnapshot());
   mutator(draft);
   const normalized = setAppData(draft);
   await persistData();
@@ -575,10 +630,16 @@ export async function deleteCategory(categoryId: string): Promise<string> {
     throw new Error("No puedes borrar una categoría que tiene subcategorías.");
   }
 
-  const fallbackCategoryId = currentCategory.parent_id || GENERAL_CATEGORY_ID;
-  const reassignedTaskCount = currentData.__SYSTEM_TASKS__.filter(
+  const categoryItemCount = currentData.__SYSTEM_TASKS__.filter(
     (item) => getItemCategoryId(item) === categoryId,
   ).length;
+
+  if (currentCategory.type === CATEGORY_TYPE_NOTEBOOK && categoryItemCount > 0) {
+    throw new Error("No puedes borrar un notebook que todavía tiene notas o tareas.");
+  }
+
+  const fallbackCategoryId = currentCategory.parent_id || GENERAL_CATEGORY_ID;
+  const reassignedItemCount = categoryItemCount;
 
   logClientEvent({
     source: "category",
@@ -588,7 +649,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
       categoryId,
       categoryName: currentCategory.name,
       fallbackCategoryId,
-      reassignedTaskCount,
+      reassignedItemCount,
     },
   });
 
@@ -619,7 +680,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
       context: {
         categoryId,
         fallbackCategoryId: appState.currentCategoryId,
-        reassignedTaskCount,
+        reassignedItemCount,
       },
     });
 
@@ -633,7 +694,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
       {
         categoryId,
         fallbackCategoryId,
-        reassignedTaskCount,
+        reassignedItemCount,
       },
     );
     throw error;

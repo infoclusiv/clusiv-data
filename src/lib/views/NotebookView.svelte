@@ -1,12 +1,21 @@
 <script lang="ts">
-  import { BookOpen, CheckCircle2, Plus, StickyNote } from "lucide-svelte";
+  import { BookOpen, CheckCircle2, Pencil, Plus, StickyNote, Trash2 } from "lucide-svelte";
 
   import NoteCard from "$lib/components/cards/NoteCard.svelte";
   import SubcategoryCard from "$lib/components/cards/SubcategoryCard.svelte";
   import TaskCard from "$lib/components/cards/TaskCard.svelte";
+  import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import ItemDialog from "$lib/components/dialogs/ItemDialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import { appState, deleteItem, getItemIndex, selectCategory, toggleTaskStatus } from "$lib/store/appState.svelte";
+  import IconButton from "$lib/components/ui/IconButton.svelte";
+  import {
+    appState,
+    deleteCategory,
+    deleteItem,
+    getItemIndex,
+    selectCategory,
+    toggleTaskStatus,
+  } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CATEGORY_TYPE_NOTEBOOK, getCategoryTypeLabel } from "$lib/utils/constants";
   import {
@@ -20,9 +29,11 @@
   import type { Item } from "$lib/store/types";
 
   let showItemDialog = $state(false);
+  let showCategoryDialog = $state(false);
   let editingItem = $state<Item | null>(null);
   let editingIndex = $state<number | null>(null);
   let pendingDeleteIndex = $state<number | null>(null);
+  let confirmDeleteCategory = $state(false);
 
   const category = $derived(
     appState.appData && appState.currentCategoryId
@@ -95,21 +106,52 @@
       );
     }
   }
+
+  async function handleDeleteCategory(): Promise<void> {
+    if (!category) {
+      return;
+    }
+
+    try {
+      await deleteCategory(category.id);
+      showSnackbar("Notebook eliminado.", "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo eliminar el notebook.",
+        "error",
+      );
+    } finally {
+      confirmDeleteCategory = false;
+    }
+  }
 </script>
 
 {#if category && appState.appData}
   <div class="page-panel relative flex h-full flex-1 flex-col overflow-hidden">
-    <div class="border-b border-slate-200/70 px-8 py-7">
-      <div class="flex items-center gap-3">
-        <div class="rounded-2xl bg-brand-50 p-3 text-brand-700">
-          <BookOpen size={22} />
+    <div class="flex items-start justify-between gap-4 border-b border-slate-200/70 px-8 py-7">
+      <div>
+        <div class="flex items-center gap-3">
+          <div class="rounded-2xl bg-brand-50 p-3 text-brand-700">
+            <BookOpen size={22} />
+          </div>
+          <div>
+            <p class="section-label">Notebook</p>
+            <h1 class="mt-1 text-3xl font-semibold text-slate-900">{category.name}</h1>
+          </div>
         </div>
-        <div>
-          <p class="section-label">Notebook</p>
-          <h1 class="mt-1 text-3xl font-semibold text-slate-900">{category.name}</h1>
-        </div>
+        <p class="mt-3 text-sm text-slate-500">{breadcrumb}</p>
       </div>
-      <p class="mt-3 text-sm text-slate-500">{breadcrumb}</p>
+
+      <div class="flex flex-wrap items-center gap-1">
+        <IconButton icon={Pencil} label="Editar categoría" onclick={() => (showCategoryDialog = true)} />
+        <IconButton
+          icon={Trash2}
+          label="Borrar notebook"
+          tone="danger"
+          onclick={() => (confirmDeleteCategory = true)}
+          disabled={category.id === "general"}
+        />
+      </div>
     </div>
 
     <div class="flex-1 overflow-y-auto px-8 py-6">
@@ -180,7 +222,7 @@
                 {item}
                 onedit={() => openEditDialog(item)}
                 ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
-                ontoggle={(done) => void handleToggle(item, done)}
+                ontoggle={(done: boolean) => void handleToggle(item, done)}
               />
             {/each}
           </div>
@@ -192,6 +234,12 @@
       <Plus size={22} />
     </button>
   </div>
+
+  <CategoryDialog
+    open={showCategoryDialog}
+    onclose={() => (showCategoryDialog = false)}
+    editingCategoryId={category.id}
+  />
 
   <ItemDialog
     open={showItemDialog}
@@ -210,5 +258,14 @@
     confirmLabel="Sí, borrar"
     oncancel={() => (pendingDeleteIndex = null)}
     onconfirm={() => void handleDeleteItem()}
+  />
+
+  <ConfirmDialog
+    open={confirmDeleteCategory}
+    title="Eliminar Notebook"
+    message="¿Estás seguro de que quieres borrar este notebook? Solo se eliminará si no tiene notas, tareas ni subcategorías."
+    confirmLabel="Sí, borrar"
+    oncancel={() => (confirmDeleteCategory = false)}
+    onconfirm={() => void handleDeleteCategory()}
   />
 {/if}

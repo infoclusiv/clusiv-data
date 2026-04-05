@@ -4,6 +4,7 @@ use std::time::Instant;
 use chrono::Local;
 use serde_json::json;
 use tauri::{command, State};
+use tauri_plugin_shell::ShellExt;
 
 use crate::logging::{AppLoggerState, LogLevel};
 
@@ -124,6 +125,72 @@ pub fn create_backup(manual: bool, logger: State<'_, AppLoggerState>) -> Result<
     );
 
     Ok(format!("Backup creado: {}", backup_name))
+}
+
+#[command]
+#[allow(deprecated)]
+pub async fn open_backup_directory(
+    app: tauri::AppHandle,
+    logger: State<'_, AppLoggerState>,
+) -> Result<(), String> {
+    let started_at = Instant::now();
+    let backup_dir = get_backup_dir();
+    let backup_directory = backup_dir.to_string_lossy().to_string();
+
+    logger.log_backend(
+        LogLevel::Info,
+        "commands::backup",
+        "open_backup_directory_started",
+        "Opening backups directory in the operating system file explorer.",
+        json!({
+            "backupDirectory": backup_directory.clone(),
+        }),
+    );
+
+    if let Err(error) = std::fs::create_dir_all(&backup_dir) {
+        logger.log_backend(
+            LogLevel::Error,
+            "commands::backup",
+            "open_backup_directory_prepare_failed",
+            "Failed to ensure the backup directory exists before opening it.",
+            json!({
+                "backupDirectory": backup_directory,
+                "error": error.to_string(),
+                "durationMs": started_at.elapsed().as_millis(),
+            }),
+        );
+        return Err(error.to_string());
+    }
+
+    match app.shell().open(&backup_directory, None) {
+        Ok(()) => {
+            logger.log_backend(
+                LogLevel::Info,
+                "commands::backup",
+                "open_backup_directory_completed",
+                "Backups directory opened successfully.",
+                json!({
+                    "backupDirectory": backup_directory,
+                    "durationMs": started_at.elapsed().as_millis(),
+                }),
+            );
+            Ok(())
+        }
+        Err(error) => {
+            logger.log_backend(
+                LogLevel::Error,
+                "commands::backup",
+                "open_backup_directory_failed",
+                "Failed to open the backups directory.",
+                json!({
+                    "backupDirectory": backup_directory,
+                    "error": error.to_string(),
+                    "durationMs": started_at.elapsed().as_millis(),
+                }),
+            );
+            Err(error.to_string())
+        }
+    }
 }
 
 fn cleanup_old_backups(max_backups: usize) -> usize {
