@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Bug, Download, FolderOpen, ListChecks, Plus } from "lucide-svelte";
+  import { Bug, Clipboard, Download, FolderOpen, ListChecks, Plus, Search } from "lucide-svelte";
 
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import NavRail from "$lib/components/layout/NavRail.svelte";
@@ -14,6 +14,8 @@
     setSidebarWidth,
     showBoard,
     showLogs,
+    showQuickTexts,
+    showSearch,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
 
@@ -110,6 +112,26 @@
     >
       <Plus size={16} />
       Nueva Categoría
+    </button>
+  </div>
+
+  <div class="px-3 pb-2">
+    <button
+      class={`btn-ghost w-full justify-start ${appState.currentView === "quick-texts" ? "bg-white text-brand-800 shadow-sm ring-1 ring-brand-100" : "bg-white/65"}`}
+      onclick={() => showQuickTexts()}
+    >
+      <Clipboard size={16} />
+      Textos Rápidos
+    </button>
+  </div>
+
+  <div class="px-3 pb-3">
+    <button
+      class={`btn-ghost w-full justify-start ${appState.currentView === "search" ? "bg-white text-brand-800 shadow-sm ring-1 ring-brand-100" : "bg-white/65"}`}
+      onclick={() => showSearch()}
+    >
+      <Search size={16} />
+      Buscar
     </button>
   </div>
 

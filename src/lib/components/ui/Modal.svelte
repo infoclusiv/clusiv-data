@@ -19,20 +19,50 @@
     actions,
   }: Props = $props();
 
+  let backdrop = $state<HTMLDivElement | null>(null);
   let panel = $state<HTMLDivElement | null>(null);
+  let pointerStartedOnBackdrop = $state(false);
 
   $effect(() => {
     if (!open) {
+      pointerStartedOnBackdrop = false;
       return;
     }
 
     queueMicrotask(() => panel?.focus());
   });
 
-  function handleBackdropClick(event: MouseEvent): void {
-    if (event.target === event.currentTarget) {
-      onclose();
+  $effect(() => {
+    if (!open) {
+      return;
     }
+
+    const handleWindowPointerUp = (event: PointerEvent): void => {
+      const releasedOnBackdrop = event.target === backdrop;
+
+      if (pointerStartedOnBackdrop && releasedOnBackdrop) {
+        onclose();
+      }
+
+      pointerStartedOnBackdrop = false;
+    };
+
+    const resetBackdropPointer = (): void => {
+      pointerStartedOnBackdrop = false;
+    };
+
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", resetBackdropPointer);
+
+    return () => {
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", resetBackdropPointer);
+      pointerStartedOnBackdrop = false;
+    };
+  });
+
+  function handleBackdropPointerDown(event: PointerEvent): void {
+    pointerStartedOnBackdrop = event.target === backdrop;
   }
 
   function handleKeydown(event: KeyboardEvent): void {
@@ -45,9 +75,10 @@
 {#if open}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
+    bind:this={backdrop}
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
-    onclick={handleBackdropClick}
     onkeydown={handleKeydown}
+    onpointerdown={handleBackdropPointerDown}
   >
     <div
       bind:this={panel}
@@ -66,11 +97,11 @@
         {/if}
       </div>
 
-      <div class="flex justify-end gap-2 border-t border-slate-200/80 px-6 py-4">
-        {#if actions}
+      {#if actions}
+        <div class="flex justify-end gap-2 border-t border-slate-200/80 px-6 py-4">
           {@render actions()}
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

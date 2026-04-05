@@ -8,11 +8,12 @@ use uuid::Uuid;
 
 use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
-    AppData, Category, Item, ItemImage, ItemType, Link, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
-    SCHEMA_VERSION,
+    AppData, Category, Item, ItemImage, ItemType, Link, QuickText, GENERAL_CATEGORY_ID,
+    GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
 };
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
+const QUICK_TEXTS_KEY: &str = "__SYSTEM_QUICK_TEXTS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
 const TASKS_KEY: &str = "__SYSTEM_TASKS__";
 
@@ -40,6 +41,10 @@ fn count_links(data: &AppData) -> usize {
         .values()
         .map(|category| category.links.len())
         .sum()
+}
+
+fn count_quick_texts(data: &AppData) -> usize {
+    data.quick_texts.len()
 }
 
 #[command]
@@ -72,6 +77,7 @@ pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
                 "categoryCount": data.categories.len(),
                 "taskCount": data.tasks.len(),
                 "linkCount": count_links(&data),
+                "quickTextCount": count_quick_texts(&data),
             }),
         );
         return Ok(data);
@@ -112,6 +118,7 @@ pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
                     "categoryCount": data.categories.len(),
                     "taskCount": data.tasks.len(),
                     "linkCount": count_links(&data),
+                    "quickTextCount": count_quick_texts(&data),
                 }),
             );
             return Ok(data);
@@ -160,6 +167,7 @@ pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
             "categoryCount": data.categories.len(),
             "taskCount": data.tasks.len(),
             "linkCount": count_links(&data),
+            "quickTextCount": count_quick_texts(&data),
         }),
     );
 
@@ -182,6 +190,7 @@ pub fn save_data(data: AppData, logger: State<'_, AppLoggerState>) -> Result<(),
             "categoryCount": data.categories.len(),
             "taskCount": data.tasks.len(),
             "linkCount": count_links(&data),
+            "quickTextCount": count_quick_texts(&data),
         }),
     );
 
@@ -231,6 +240,7 @@ pub fn save_data(data: AppData, logger: State<'_, AppLoggerState>) -> Result<(),
             "categoryCount": data.categories.len(),
             "taskCount": data.tasks.len(),
             "linkCount": count_links(&data),
+            "quickTextCount": count_quick_texts(&data),
         }),
     );
 
@@ -252,11 +262,19 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
     let categories_value = root
         .remove(CATEGORIES_KEY)
         .unwrap_or_else(|| Value::Object(Map::new()));
+    let quick_texts_value = match root.remove(QUICK_TEXTS_KEY) {
+        Some(value) => value,
+        None => {
+            changed = true;
+            Value::Array(Vec::new())
+        }
+    };
     let tasks_value = root
         .remove(TASKS_KEY)
         .unwrap_or_else(|| Value::Array(Vec::new()));
 
     let mut categories = parse_categories(categories_value, &mut changed);
+    let quick_texts = parse_quick_texts(quick_texts_value, &mut changed);
 
     if !categories.contains_key(GENERAL_CATEGORY_ID) {
         categories.insert(
@@ -316,6 +334,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             schema_version: SCHEMA_VERSION,
             categories,
             tasks,
+            quick_texts,
         },
         changed,
     )
@@ -466,6 +485,18 @@ fn parse_items(value: Value, changed: &mut bool) -> Vec<Item> {
     items
         .into_iter()
         .map(|item| item_from_value(item, changed))
+        .collect()
+}
+
+fn parse_quick_texts(value: Value, changed: &mut bool) -> Vec<QuickText> {
+    let Value::Array(entries) = value else {
+        *changed = true;
+        return Vec::new();
+    };
+
+    entries
+        .into_iter()
+        .map(|entry| quick_text_from_value(entry, changed))
         .collect()
 }
 
@@ -682,6 +713,30 @@ fn item_image_from_value(value: Value, changed: &mut bool) -> ItemImage {
     }
 }
 
+fn quick_text_from_value(value: Value, changed: &mut bool) -> QuickText {
+    let Value::Object(mut map) = value else {
+        *changed = true;
+        return QuickText {
+            id: Uuid::new_v4().to_string(),
+            title: String::new(),
+            content: String::new(),
+        };
+    };
+
+    let id = string_value(map.remove("id"), "", changed);
+
+    QuickText {
+        id: if id.is_empty() {
+            *changed = true;
+            Uuid::new_v4().to_string()
+        } else {
+            id
+        },
+        title: string_value(map.remove("title"), "", changed),
+        content: string_value(map.remove("content"), "", changed),
+    }
+}
+
 fn string_from_map(map: &Map<String, Value>, key: &str, default: &str) -> String {
     map.get(key)
         .and_then(Value::as_str)
@@ -766,6 +821,7 @@ mod tests {
         );
         assert_eq!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
         assert!(data.tasks[0].images.is_empty());
+        assert!(data.quick_texts.is_empty());
         assert_eq!(data.schema_version, SCHEMA_VERSION);
     }
 
@@ -805,7 +861,8 @@ mod tests {
                     "done": false,
                     "category_id": "general"
                 }
-            ]
+            ],
+            "__SYSTEM_QUICK_TEXTS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -814,6 +871,40 @@ mod tests {
         assert_eq!(data.tasks[0].images.len(), 1);
         assert_eq!(data.tasks[0].images[0].name, "captura.png");
         assert!(data.tasks[1].images.is_empty());
+        assert!(data.quick_texts.is_empty());
+    }
+
+    #[test]
+    fn normalize_data_preserves_quick_texts() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [
+                {
+                    "id": "qt_1",
+                    "title": "Firma",
+                    "content": "Hola,\nCarlos"
+                }
+            ]
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(!changed);
+        assert_eq!(data.quick_texts.len(), 1);
+        assert_eq!(data.quick_texts[0].id, "qt_1");
+        assert_eq!(data.quick_texts[0].title, "Firma");
+        assert_eq!(data.quick_texts[0].content, "Hola,\nCarlos");
     }
 
     #[test]

@@ -13,10 +13,13 @@
 
   let { item, onedit, ondelete, categoryLabel = null }: Props = $props();
 
+  const explicitTitle = $derived(item.title.trim());
   const hasComment = $derived(item.comment.trim().length > 0);
   const imageCount = $derived(item.images.length);
   const hasImages = $derived(imageCount > 0);
+  const hasTitle = $derived(explicitTitle.length > 0);
   const displayTitle = $derived(getItemDisplayTitle(item));
+  const fallbackTitle = $derived(hasImages ? "Nota con imágenes" : displayTitle);
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === "Enter" || event.key === " ") {
@@ -30,7 +33,7 @@
   class="card-note card-hover flex min-h-[168px] cursor-pointer flex-col gap-3 p-4"
   role="button"
   tabindex="0"
-  title={hasComment ? item.comment : displayTitle}
+  title={hasComment ? item.comment : hasTitle ? explicitTitle : fallbackTitle}
   onclick={onedit}
   onkeydown={handleKeydown}
 >
@@ -42,10 +45,18 @@
 
   <div class="flex items-start gap-2">
     <StickyNote size={16} class="mt-1 shrink-0 text-amber-700" />
-    <p class="line-clamp-3 flex-1 text-sm font-bold text-slate-800">{displayTitle}</p>
+    {#if hasTitle}
+      <p class="line-clamp-3 flex-1 text-sm font-bold text-slate-800">{explicitTitle}</p>
+    {:else if hasComment}
+      <p class="line-clamp-6 flex-1 text-sm font-bold leading-relaxed text-slate-800">
+        {item.comment}
+      </p>
+    {:else}
+      <p class="flex-1 text-sm font-bold text-slate-800">{fallbackTitle}</p>
+    {/if}
   </div>
 
-  {#if hasComment}
+  {#if hasTitle && hasComment}
     <p class="line-clamp-5 text-sm leading-relaxed text-slate-600">{item.comment}</p>
   {/if}
 

@@ -1,11 +1,17 @@
 export type ItemType = "task" | "note";
-export type AppView = "welcome" | "category" | "board" | "logs";
+export type AppView = "welcome" | "category" | "board" | "logs" | "quick-texts" | "search";
 export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 
 export interface Link {
   title: string;
   url: string;
+}
+
+export interface QuickText {
+  id: string;
+  title: string;
+  content: string;
 }
 
 export interface Category {
@@ -36,6 +42,7 @@ export interface AppData {
   __SCHEMA_VERSION__: number;
   __SYSTEM_CATEGORIES__: Record<string, Category>;
   __SYSTEM_TASKS__: Item[];
+  __SYSTEM_QUICK_TEXTS__: QuickText[];
 }
 
 export interface LogStatus {
@@ -77,4 +84,9 @@ export interface ItemFormInput {
   type: ItemType;
   categoryId: string;
   images?: ItemImage[];
+}
+
+export interface QuickTextFormInput {
+  title: string;
+  content: string;
 }

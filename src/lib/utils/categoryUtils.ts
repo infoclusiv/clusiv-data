@@ -1,4 +1,4 @@
-import type { AppData, Category, Item, ItemImage, Link } from "$lib/store/types";
+import type { AppData, Category, Item, ItemImage, Link, QuickText } from "$lib/store/types";
 import {
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
@@ -35,6 +35,7 @@ export function createDefaultAppData(): AppData {
       ),
     },
     __SYSTEM_TASKS__: [],
+    __SYSTEM_QUICK_TEXTS__: [],
   };
 }
 
@@ -59,6 +60,13 @@ export function getTasks(appData: AppData): Item[] {
     appData.__SYSTEM_TASKS__ = [];
   }
   return appData.__SYSTEM_TASKS__;
+}
+
+export function getQuickTexts(appData: AppData): QuickText[] {
+  if (!appData.__SYSTEM_QUICK_TEXTS__) {
+    appData.__SYSTEM_QUICK_TEXTS__ = [];
+  }
+  return appData.__SYSTEM_QUICK_TEXTS__;
 }
 
 function normalizeItemImage(image: unknown, fallbackId: string): ItemImage | null {
@@ -90,11 +98,65 @@ export function normalizeItemImages(images: unknown): ItemImage[] {
     .filter((image): image is ItemImage => image !== null);
 }
 
-function getFirstNonEmptyLine(value: string): string {
+function normalizeQuickText(value: unknown, fallbackId: string): QuickText | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<QuickText>;
+
+  return {
+    id: typeof candidate.id === "string" && candidate.id.trim().length > 0
+      ? candidate.id
+      : fallbackId,
+    title: typeof candidate.title === "string" ? candidate.title : "",
+    content: typeof candidate.content === "string" ? candidate.content : "",
+  };
+}
+
+export function normalizeQuickTexts(value: unknown): QuickText[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry, index) => normalizeQuickText(entry, `quick-text-${index + 1}`))
+    .filter((entry): entry is QuickText => entry !== null);
+}
+
+export function collapseWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+export function getFirstNonEmptyLine(value: string): string {
   return value
     .split(/\r?\n/)
     .map((line) => line.trim())
     .find((line) => line.length > 0) ?? "";
+}
+
+export function getQuickTextDisplayTitle(
+  quickText: Pick<QuickText, "title" | "content">,
+): string {
+  const trimmedTitle = quickText.title.trim();
+  if (trimmedTitle.length > 0) {
+    return trimmedTitle;
+  }
+
+  const firstLine = getFirstNonEmptyLine(quickText.content);
+  return firstLine.length > 0 ? firstLine : "Sin título";
+}
+
+export function getQuickTextPreview(
+  quickText: Pick<QuickText, "content">,
+  maxLength = 140,
+): string {
+  const collapsed = collapseWhitespace(quickText.content);
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+
+  return `${collapsed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
 export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type">): string {
@@ -119,6 +181,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
 
   const categories = getCategoryMap(normalized);
   const tasks = getTasks(normalized);
+  normalized.__SYSTEM_QUICK_TEXTS__ = normalizeQuickTexts(getQuickTexts(normalized));
   const validCategoryIds = new Set(Object.keys(categories));
 
   const generalCategory = categories[GENERAL_CATEGORY_ID];

@@ -11,6 +11,7 @@ import type {
   LogLevel,
   LogStatus,
   NavigationSnapshot,
+  QuickTextFormInput,
 } from "$lib/store/types";
 import {
   buildCategoryRecord,
@@ -34,6 +35,7 @@ export const appState = $state({
   currentView: "welcome" as AppView,
   currentBoardMode: "gallery" as BoardMode,
   currentBoardFilterId: null as string | null,
+  searchQuery: "",
   navigationHistory: [] as NavigationSnapshot[],
   expandedCategoryIds: [] as string[],
   sidebarWidth: 240,
@@ -67,6 +69,10 @@ function countLinks(appData: AppData): number {
   );
 }
 
+function countQuickTexts(appData: AppData): number {
+  return appData.__SYSTEM_QUICK_TEXTS__.length;
+}
+
 function getAppDataSummary(appData: AppData | null): Record<string, unknown> {
   if (!appData) {
     return { hasData: false };
@@ -77,6 +83,7 @@ function getAppDataSummary(appData: AppData | null): Record<string, unknown> {
     categoryCount: Object.keys(appData.__SYSTEM_CATEGORIES__).length,
     taskCount: appData.__SYSTEM_TASKS__.length,
     linkCount: countLinks(appData),
+    quickTextCount: countQuickTexts(appData),
   };
 }
 
@@ -775,6 +782,49 @@ export function showLogs(options: NavigationOptions = {}): void {
   });
 }
 
+export function showQuickTexts(options: NavigationOptions = {}): void {
+  navigate(
+    {
+      view: "quick-texts",
+      categoryId: appState.currentCategoryId,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: null,
+    },
+    options,
+  );
+
+  logClientEvent({
+    source: "navigation",
+    action: "show_quick_texts",
+    message: "Navigated to quick texts view.",
+  });
+}
+
+export function showSearch(options: NavigationOptions = {}): void {
+  navigate(
+    {
+      view: "search",
+      categoryId: appState.currentCategoryId,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: null,
+    },
+    options,
+  );
+
+  logClientEvent({
+    source: "navigation",
+    action: "show_search",
+    message: "Navigated to global search view.",
+    context: {
+      queryLength: appState.searchQuery.trim().length,
+    },
+  });
+}
+
+export function setSearchQuery(query: string): void {
+  appState.searchQuery = query;
+}
+
 export async function initializeApp(): Promise<void> {
   logClientEvent({
     source: "appState",
@@ -1175,6 +1225,131 @@ export async function deleteLink(categoryId: string, linkIndex: number): Promise
         linkIndex,
         title: link?.title ?? null,
         url: link?.url ?? null,
+      },
+    );
+    throw error;
+  }
+}
+
+export async function saveQuickText(
+  input: QuickTextFormInput,
+  editingQuickTextId: string | null = null,
+): Promise<string> {
+  const normalizedInput = {
+    id: editingQuickTextId ?? crypto.randomUUID(),
+    title: input.title.trim(),
+    content: input.content.trim(),
+  };
+
+  logClientEvent({
+    source: "quickTexts",
+    action: editingQuickTextId ? "update_quick_text_started" : "create_quick_text_started",
+    message: editingQuickTextId
+      ? "Updating quick text."
+      : "Creating quick text.",
+    context: {
+      quickTextId: normalizedInput.id,
+      editingQuickTextId,
+      hasTitle: normalizedInput.title.length > 0,
+      contentLength: normalizedInput.content.length,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      const quickTexts = draft.__SYSTEM_QUICK_TEXTS__;
+      const existingIndex = quickTexts.findIndex((entry) => entry.id === normalizedInput.id);
+
+      if (editingQuickTextId) {
+        if (existingIndex === -1) {
+          throw new Error("El texto rápido ya no existe.");
+        }
+
+        quickTexts[existingIndex] = normalizedInput;
+        return;
+      }
+
+      quickTexts.unshift(normalizedInput);
+    });
+
+    logClientEvent({
+      source: "quickTexts",
+      action: editingQuickTextId ? "update_quick_text_completed" : "create_quick_text_completed",
+      message: editingQuickTextId
+        ? "Quick text updated successfully."
+        : "Quick text created successfully.",
+      context: {
+        quickTextId: normalizedInput.id,
+        hasTitle: normalizedInput.title.length > 0,
+        contentLength: normalizedInput.content.length,
+      },
+    });
+
+    return normalizedInput.id;
+  } catch (error) {
+    logClientError(
+      "quickTexts",
+      editingQuickTextId ? "update_quick_text_failed" : "create_quick_text_failed",
+      editingQuickTextId
+        ? "Failed to update quick text."
+        : "Failed to create quick text.",
+      error,
+      {
+        quickTextId: normalizedInput.id,
+        editingQuickTextId,
+        hasTitle: normalizedInput.title.length > 0,
+        contentLength: normalizedInput.content.length,
+      },
+    );
+    throw error;
+  }
+}
+
+export async function deleteQuickText(quickTextId: string): Promise<void> {
+  const quickText = requireAppData().__SYSTEM_QUICK_TEXTS__.find(
+    (entry) => entry.id === quickTextId,
+  );
+
+  logClientEvent({
+    source: "quickTexts",
+    action: "delete_quick_text_started",
+    message: "Deleting quick text.",
+    context: {
+      quickTextId,
+      hasTitle: (quickText?.title.trim().length ?? 0) > 0,
+      contentLength: quickText?.content.length ?? 0,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      const quickTextIndex = draft.__SYSTEM_QUICK_TEXTS__.findIndex(
+        (entry) => entry.id === quickTextId,
+      );
+
+      if (quickTextIndex === -1) {
+        throw new Error("El texto rápido ya no existe.");
+      }
+
+      draft.__SYSTEM_QUICK_TEXTS__.splice(quickTextIndex, 1);
+    });
+
+    logClientEvent({
+      source: "quickTexts",
+      action: "delete_quick_text_completed",
+      message: "Quick text deleted successfully.",
+      context: {
+        quickTextId,
+      },
+    });
+  } catch (error) {
+    logClientError(
+      "quickTexts",
+      "delete_quick_text_failed",
+      "Failed to delete quick text.",
+      error,
+      {
+        quickTextId,
       },
     );
     throw error;

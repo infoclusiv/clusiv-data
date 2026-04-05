@@ -8,6 +8,8 @@
   import CategoryView from "$lib/views/CategoryView.svelte";
   import LogsView from "$lib/views/LogsView.svelte";
   import WelcomeView from "$lib/views/WelcomeView.svelte";
+  import QuickTextsView from "./lib/views/QuickTextsView.svelte";
+  import SearchView from "./lib/views/SearchView.svelte";
 
   let ready = $state(false);
 
@@ -35,6 +37,10 @@
           <BoardView />
         {:else if appState.currentView === "logs"}
           <LogsView />
+        {:else if appState.currentView === "quick-texts"}
+          <QuickTextsView />
+        {:else if appState.currentView === "search"}
+          <SearchView />
         {:else}
           <WelcomeView />
         {/if}

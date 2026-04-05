@@ -40,10 +40,17 @@
   let itemType = $state<ItemType>("task");
   let categoryId = $state(GENERAL_CATEGORY_ID);
   let images = $state<ItemImage[]>([]);
+  let selectedImageId = $state<string | null>(null);
   let titleError = $state<string | null>(null);
   let saving = $state(false);
   let importingImages = $state(false);
   let fileInput = $state<HTMLInputElement | null>(null);
+
+  const selectedImage = $derived(
+    selectedImageId
+      ? images.find((image) => image.id === selectedImageId) ?? null
+      : null,
+  );
 
   const categoryOptions = $derived(
     appState.appData
@@ -53,6 +60,7 @@
 
   $effect(() => {
     if (!open) {
+      selectedImageId = null;
       return;
     }
 
@@ -73,6 +81,16 @@
     itemType = initialType;
     categoryId = initialCategoryId ?? GENERAL_CATEGORY_ID;
     images = [];
+  });
+
+  $effect(() => {
+    if (!selectedImageId) {
+      return;
+    }
+
+    if (!images.some((image) => image.id === selectedImageId)) {
+      selectedImageId = null;
+    }
   });
 
   $effect(() => {
@@ -163,6 +181,14 @@
 
   function removeImage(imageId: string): void {
     images = images.filter((image) => image.id !== imageId);
+  }
+
+  function openImagePreview(imageId: string): void {
+    selectedImageId = imageId;
+  }
+
+  function closeImagePreview(): void {
+    selectedImageId = null;
   }
 
   function getSerializableImages(): ItemImage[] {
@@ -317,7 +343,15 @@
               {#each images as image (image.id)}
                 <div class="overflow-hidden rounded-[1.25rem] border border-white/80 bg-white shadow-sm">
                   <div class="aspect-[4/3] bg-slate-100">
-                    <img src={image.data_url} alt={image.name} class="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      class="h-full w-full cursor-zoom-in"
+                      onclick={() => openImagePreview(image.id)}
+                      title="Ver imagen completa"
+                      aria-label={`Ver imagen completa: ${image.name}`}
+                    >
+                      <img src={image.data_url} alt={image.name} class="h-full w-full object-cover" />
+                    </button>
                   </div>
 
                   <div class="flex items-center gap-2 px-3 py-2">
@@ -349,5 +383,28 @@
     <Button variant="primary" onclick={() => void handleSave()} disabled={saving}>
       {saving ? "Guardando..." : "Guardar"}
     </Button>
+  {/snippet}
+</Modal>
+
+<Modal
+  open={selectedImage !== null}
+  title={selectedImage?.name ?? "Imagen"}
+  onclose={closeImagePreview}
+  widthClass="max-w-6xl"
+>
+  {#snippet children()}
+    {#if selectedImage}
+      <div class="rounded-[1.5rem] bg-slate-950/95 p-4">
+        <img
+          src={selectedImage.data_url}
+          alt={selectedImage.name}
+          class="mx-auto max-h-[calc(100vh-12rem)] w-full object-contain"
+        />
+      </div>
+    {/if}
+  {/snippet}
+
+  {#snippet actions()}
+    <Button onclick={closeImagePreview}>Cerrar</Button>
   {/snippet}
 </Modal>

@@ -6,7 +6,17 @@ use super::{Category, Item};
 
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct QuickText {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub content: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppData {
@@ -16,6 +26,8 @@ pub struct AppData {
     pub categories: HashMap<String, Category>,
     #[serde(rename = "__SYSTEM_TASKS__")]
     pub tasks: Vec<Item>,
+    #[serde(rename = "__SYSTEM_QUICK_TEXTS__", default)]
+    pub quick_texts: Vec<QuickText>,
 }
 
 impl AppData {
@@ -37,6 +49,7 @@ impl AppData {
             schema_version: SCHEMA_VERSION,
             categories,
             tasks: Vec::new(),
+            quick_texts: Vec::new(),
         }
     }
 }
