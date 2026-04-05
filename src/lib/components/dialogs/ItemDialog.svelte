@@ -165,6 +165,16 @@
     images = images.filter((image) => image.id !== imageId);
   }
 
+  function getSerializableImages(): ItemImage[] {
+    return normalizeItemImages(
+      images.map((image) => ({
+        id: image.id,
+        data_url: image.data_url,
+        name: image.name,
+      })),
+    );
+  }
+
   async function handleSave(): Promise<void> {
     if (saving) {
       return;
@@ -178,13 +188,14 @@
 
     titleError = null;
     saving = true;
+    const nextImages = itemType === "note" ? getSerializableImages() : [];
 
     try {
       await saveItem(
         {
           title: trimmedTitle,
           comment: comment.trim(),
-          images: itemType === "note" ? images : [],
+          images: nextImages,
           type: itemType,
           categoryId,
         },

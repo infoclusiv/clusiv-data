@@ -21,6 +21,7 @@ import {
   getFlatCategoryEntries,
   getItemCategoryId,
   normalizeAppData,
+  normalizeItemImages,
 } from "$lib/utils/categoryUtils";
 import {
   GENERAL_CATEGORY_ID,
@@ -147,6 +148,16 @@ function requireAppData(): AppData {
 
 function getAppDataSnapshot(): AppData {
   return $state.snapshot(requireAppData());
+}
+
+function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
+  return {
+    title: input.title,
+    comment: input.comment,
+    type: input.type,
+    categoryId: input.categoryId,
+    images: input.type === "note" ? normalizeItemImages(input.images) : [],
+  };
 }
 
 function canUseLocalStorage(): boolean {
@@ -1178,8 +1189,9 @@ export async function saveItem(
   input: ItemFormInput,
   editingIndex: number | null = null,
 ): Promise<number> {
+  const normalizedInput = normalizeItemFormInput(input);
   let resolvedIndex = editingIndex ?? -1;
-  const images = input.images ?? [];
+  const images = normalizedInput.images ?? [];
 
   logClientEvent({
     source: "items",
@@ -1189,10 +1201,10 @@ export async function saveItem(
       : "Creating note or task.",
     context: {
       editingIndex,
-      title: input.title,
-      type: input.type,
-      categoryId: input.categoryId,
-      hasComment: input.comment.trim().length > 0,
+      title: normalizedInput.title,
+      type: normalizedInput.type,
+      categoryId: normalizedInput.categoryId,
+      hasComment: normalizedInput.comment.trim().length > 0,
       hasImages: images.length > 0,
     },
   });
@@ -1203,22 +1215,22 @@ export async function saveItem(
         const current = draft.__SYSTEM_TASKS__[editingIndex];
         draft.__SYSTEM_TASKS__[editingIndex] = {
           ...current,
-          title: input.title,
-          comment: input.comment,
+          title: normalizedInput.title,
+          comment: normalizedInput.comment,
           images,
-          type: input.type,
-          category_id: input.categoryId,
+          type: normalizedInput.type,
+          category_id: normalizedInput.categoryId,
         };
         return;
       }
 
       draft.__SYSTEM_TASKS__.push({
-        title: input.title,
-        comment: input.comment,
+        title: normalizedInput.title,
+        comment: normalizedInput.comment,
         images,
-        type: input.type,
+        type: normalizedInput.type,
         done: false,
-        category_id: input.categoryId,
+        category_id: normalizedInput.categoryId,
       });
       resolvedIndex = draft.__SYSTEM_TASKS__.length - 1;
     });
@@ -1231,9 +1243,9 @@ export async function saveItem(
         : "Note or task created successfully.",
       context: {
         itemIndex: resolvedIndex,
-        title: input.title,
-        type: input.type,
-        categoryId: input.categoryId,
+        title: normalizedInput.title,
+        type: normalizedInput.type,
+        categoryId: normalizedInput.categoryId,
         hasImages: images.length > 0,
       },
     });
@@ -1249,9 +1261,9 @@ export async function saveItem(
       error,
       {
         editingIndex,
-        title: input.title,
-        type: input.type,
-        categoryId: input.categoryId,
+        title: normalizedInput.title,
+        type: normalizedInput.type,
+        categoryId: normalizedInput.categoryId,
         hasImages: images.length > 0,
       },
     );
