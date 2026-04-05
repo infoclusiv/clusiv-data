@@ -1,7 +1,7 @@
 export const GENERAL_CATEGORY_ID = "general";
 export const GENERAL_CATEGORY_NAME = "General";
 export const ROOT_CATEGORY_OPTION = "__ROOT_CATEGORY__";
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const ICON_KEYS = [
   "Carpeta",

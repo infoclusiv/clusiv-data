@@ -35,11 +35,17 @@ export const appState = $state({
   currentBoardFilterId: null as string | null,
   navigationHistory: [] as NavigationSnapshot[],
   expandedCategoryIds: [] as string[],
+  sidebarWidth: 240,
   editingCategoryId: null as string | null,
   editingItemIndex: null as number | null,
 });
 
 const EXPANDED_CATEGORY_IDS_STORAGE_KEY = "clusiv-data:expanded-category-ids";
+const SIDEBAR_WIDTH_STORAGE_KEY = "clusiv-data:sidebar-width";
+
+export const DEFAULT_SIDEBAR_WIDTH = 240;
+export const MIN_SIDEBAR_WIDTH = 208;
+export const MAX_SIDEBAR_WIDTH = 420;
 
 interface FrontendLogEvent {
   level?: LogLevel;
@@ -147,6 +153,18 @@ function canUseLocalStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
+function sanitizeSidebarWidth(width: unknown): number {
+  const numericWidth = typeof width === "number" ? width : Number(width);
+  if (!Number.isFinite(numericWidth)) {
+    return DEFAULT_SIDEBAR_WIDTH;
+  }
+
+  return Math.min(
+    MAX_SIDEBAR_WIDTH,
+    Math.max(MIN_SIDEBAR_WIDTH, Math.round(numericWidth)),
+  );
+}
+
 function getCurrentNavigation(): NavigationSnapshot {
   return {
     view: appState.currentView,
@@ -231,6 +249,40 @@ function persistExpandedCategoryIds(): void {
 function setExpandedCategoryIds(expandedCategoryIds: string[]): void {
   appState.expandedCategoryIds = expandedCategoryIds;
   persistExpandedCategoryIds();
+}
+
+function persistSidebarWidth(): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      SIDEBAR_WIDTH_STORAGE_KEY,
+      String(appState.sidebarWidth),
+    );
+  } catch {
+    // Ignore local preference persistence failures.
+  }
+}
+
+export function setSidebarWidth(width: number): void {
+  appState.sidebarWidth = sanitizeSidebarWidth(width);
+  persistSidebarWidth();
+}
+
+function restoreSidebarWidth(): void {
+  if (!canUseLocalStorage()) {
+    appState.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+    return;
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    appState.sidebarWidth = sanitizeSidebarWidth(storedValue);
+  } catch {
+    appState.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+  }
 }
 
 function sanitizeExpandedCategoryIds(appData: AppData): void {
@@ -722,6 +774,7 @@ export async function initializeApp(): Promise<void> {
   const data = await loadAppData();
   appState.navigationHistory = [];
   restoreExpandedCategoryIds(data);
+  restoreSidebarWidth();
 
   try {
     await createBackup(false);
@@ -1126,6 +1179,7 @@ export async function saveItem(
   editingIndex: number | null = null,
 ): Promise<number> {
   let resolvedIndex = editingIndex ?? -1;
+  const images = input.images ?? [];
 
   logClientEvent({
     source: "items",
@@ -1139,6 +1193,7 @@ export async function saveItem(
       type: input.type,
       categoryId: input.categoryId,
       hasComment: input.comment.trim().length > 0,
+      hasImages: images.length > 0,
     },
   });
 
@@ -1150,6 +1205,7 @@ export async function saveItem(
           ...current,
           title: input.title,
           comment: input.comment,
+          images,
           type: input.type,
           category_id: input.categoryId,
         };
@@ -1159,6 +1215,7 @@ export async function saveItem(
       draft.__SYSTEM_TASKS__.push({
         title: input.title,
         comment: input.comment,
+        images,
         type: input.type,
         done: false,
         category_id: input.categoryId,
@@ -1177,6 +1234,7 @@ export async function saveItem(
         title: input.title,
         type: input.type,
         categoryId: input.categoryId,
+        hasImages: images.length > 0,
       },
     });
 
@@ -1194,6 +1252,7 @@ export async function saveItem(
         title: input.title,
         type: input.type,
         categoryId: input.categoryId,
+        hasImages: images.length > 0,
       },
     );
     throw error;

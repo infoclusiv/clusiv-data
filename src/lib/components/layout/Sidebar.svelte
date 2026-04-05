@@ -1,22 +1,64 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import { Bug, Download, FolderOpen, ListChecks, Plus } from "lucide-svelte";
 
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import NavRail from "$lib/components/layout/NavRail.svelte";
   import {
+    DEFAULT_SIDEBAR_WIDTH,
+    MAX_SIDEBAR_WIDTH,
+    MIN_SIDEBAR_WIDTH,
     appState,
     createBackup,
     openBackupDirectory,
+    setSidebarWidth,
     showBoard,
     showLogs,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
 
   let showCategoryDialog = $state(false);
+  let stopResize: (() => void) | null = null;
+
+  function cleanupResize(): void {
+    stopResize?.();
+    stopResize = null;
+  }
 
   function openBoardGallery(): void {
     showBoard("gallery");
   }
+
+  function handleResizeStart(event: PointerEvent): void {
+    event.preventDefault();
+
+    const startX = event.clientX;
+    const startWidth = appState.sidebarWidth;
+    const previousCursor = document.body.style.cursor;
+
+    document.body.style.cursor = "col-resize";
+
+    const handlePointerMove = (moveEvent: PointerEvent): void => {
+      setSidebarWidth(startWidth + (moveEvent.clientX - startX));
+    };
+
+    const handlePointerUp = (): void => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      document.body.style.cursor = previousCursor;
+      stopResize = null;
+    };
+
+    cleanupResize();
+    stopResize = handlePointerUp;
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  }
+
+  onDestroy(() => {
+    cleanupResize();
+  });
 
   async function handleBackup(): Promise<void> {
     try {
@@ -43,7 +85,10 @@
   }
 </script>
 
-<aside class="flex h-full w-[var(--sidebar-width)] shrink-0 flex-col border-r border-white/70 bg-white/45 backdrop-blur-xl">
+<aside
+  class="relative flex h-full shrink-0 flex-col overflow-hidden border-r border-white/70 bg-white/45 backdrop-blur-xl"
+  style={`width: ${appState.sidebarWidth}px`}
+>
   <div class="px-4 pb-2 pt-5">
     <p class="px-1 text-lg font-semibold tracking-[0.18em] text-brand-700">Clusiv Data</p>
   </div>
@@ -99,6 +144,16 @@
       Abrir Backups
     </button>
   </div>
+
+  <button
+    class="group absolute inset-y-0 right-0 z-20 w-3 cursor-col-resize bg-transparent"
+    ondblclick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+    onpointerdown={handleResizeStart}
+    title={`Redimensionar panel izquierdo (${MIN_SIDEBAR_WIDTH}px a ${MAX_SIDEBAR_WIDTH}px). Doble clic para restaurar ${DEFAULT_SIDEBAR_WIDTH}px.`}
+    aria-label="Redimensionar panel izquierdo"
+  >
+    <span class="absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full bg-slate-300/75 transition group-hover:bg-brand-300"></span>
+  </button>
 </aside>
 
 <CategoryDialog

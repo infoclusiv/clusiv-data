@@ -54,13 +54,13 @@
       tabindex="-1"
       role="dialog"
       aria-modal="true"
-      class={`w-full overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-soft outline-none ${widthClass}`}
+      class={`flex max-h-[calc(100vh-3rem)] w-full flex-col overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-soft outline-none ${widthClass}`}
     >
       <div class="border-b border-slate-200/80 px-6 py-5">
         <h2 class="text-lg font-semibold text-slate-900">{title}</h2>
       </div>
 
-      <div class="px-6 py-5">
+      <div class="overflow-y-auto px-6 py-5">
         {#if children}
           {@render children()}
         {/if}

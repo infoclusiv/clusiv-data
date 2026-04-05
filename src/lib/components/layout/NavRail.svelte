@@ -8,7 +8,7 @@
   );
 </script>
 
-<nav class="flex-1 overflow-y-auto px-3 pb-4">
+<nav class="flex-1 overflow-x-hidden overflow-y-auto px-2 pb-4">
   <div class="space-y-1">
     {#each rootCategories as category (category.id)}
       <NavRailNode {category} depth={0} />

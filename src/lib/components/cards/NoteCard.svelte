@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { MessageSquare, StickyNote, Trash2 } from "lucide-svelte";
+  import { Image as ImageIcon, MessageSquare, StickyNote, Trash2 } from "lucide-svelte";
 
   import type { Item } from "$lib/store/types";
+  import { getItemDisplayTitle } from "$lib/utils/categoryUtils";
 
   interface Props {
     item: Item;
@@ -13,6 +14,9 @@
   let { item, onedit, ondelete, categoryLabel = null }: Props = $props();
 
   const hasComment = $derived(item.comment.trim().length > 0);
+  const imageCount = $derived(item.images.length);
+  const hasImages = $derived(imageCount > 0);
+  const displayTitle = $derived(getItemDisplayTitle(item));
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === "Enter" || event.key === " ") {
@@ -26,7 +30,7 @@
   class="card-note card-hover flex min-h-[168px] cursor-pointer flex-col gap-3 p-4"
   role="button"
   tabindex="0"
-  title={hasComment ? item.comment : "Sin comentarios adicionales"}
+  title={hasComment ? item.comment : displayTitle}
   onclick={onedit}
   onkeydown={handleKeydown}
 >
@@ -38,7 +42,7 @@
 
   <div class="flex items-start gap-2">
     <StickyNote size={16} class="mt-1 shrink-0 text-amber-700" />
-    <p class="line-clamp-3 flex-1 text-sm font-bold text-slate-800">{item.title}</p>
+    <p class="line-clamp-3 flex-1 text-sm font-bold text-slate-800">{displayTitle}</p>
   </div>
 
   {#if hasComment}
@@ -46,8 +50,19 @@
   {/if}
 
   <div class="mt-auto flex items-center justify-end gap-2 pt-1">
-    {#if hasComment}
-      <MessageSquare size={14} class="mr-auto text-brand-600" />
+    {#if hasImages || hasComment}
+      <div class="mr-auto flex items-center gap-2">
+        {#if hasImages}
+          <div class="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-1 text-[11px] font-semibold text-amber-700">
+            <ImageIcon size={13} />
+            <span>{imageCount}</span>
+          </div>
+        {/if}
+
+        {#if hasComment}
+          <MessageSquare size={14} class="text-brand-600" />
+        {/if}
+      </div>
     {/if}
 
     <button

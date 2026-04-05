@@ -242,8 +242,9 @@
 {#if category && appState.appData}
   {@const CategoryIcon = getCategoryIcon(category)}
 
-  <div class="page-panel relative flex h-full flex-1 flex-col overflow-hidden">
-    <div class="border-b border-slate-200/70 px-8 py-7">
+  <div class="relative flex h-full flex-1">
+    <div class="page-panel relative flex h-full flex-1 flex-col overflow-hidden">
+      <div class="border-b border-slate-200/70 px-8 py-7">
       <div class="mb-5 flex items-start justify-between gap-4">
         <button class="btn-ghost -ml-1" onclick={goBack} disabled={!canGoBack}>
           <ArrowLeft size={16} />
@@ -264,7 +265,7 @@
         </div>
       </div>
 
-      <div class="flex items-start gap-3">
+        <div class="flex items-start gap-3">
         <div class="rounded-2xl bg-brand-50 p-3 text-brand-700">
           <CategoryIcon size={22} />
         </div>
@@ -286,130 +287,131 @@
             </span>
           </div>
         </div>
+        </div>
       </div>
-    </div>
 
-    <div class="flex-1 overflow-y-auto px-8 py-6">
-      {#if childCategories.length > 0}
+      <div class="flex-1 overflow-y-auto px-8 py-6">
+        {#if childCategories.length > 0}
+          <section class="mb-8">
+            <p class="section-label mb-4">Subcategorías</p>
+            <div class="flex flex-wrap gap-4">
+              {#each childCategories as child}
+                {@const Icon = getCategoryIcon(child)}
+                <SubcategoryCard
+                  label={child.name}
+                  subtitle={getSubcategorySubtitle(child)}
+                  icon={Icon}
+                  onopen={() => selectCategory(child.id)}
+                />
+              {/each}
+            </div>
+          </section>
+        {/if}
+
         <section class="mb-8">
-          <p class="section-label mb-4">Subcategorías</p>
-          <div class="flex flex-wrap gap-4">
-            {#each childCategories as child}
-              {@const Icon = getCategoryIcon(child)}
-              <SubcategoryCard
-                label={child.name}
-                subtitle={getSubcategorySubtitle(child)}
-                icon={Icon}
-                onopen={() => selectCategory(child.id)}
-              />
-            {/each}
-          </div>
-        </section>
-      {/if}
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <Link2 size={18} class="text-brand-700" />
+              <div>
+                <p class="section-label">Enlaces</p>
+                <p class="mt-1 text-sm text-slate-500">
+                  {links.length === 0 ? "No hay enlaces en esta categoría." : `${links.length} enlaces disponibles.`}
+                </p>
+              </div>
+            </div>
 
-      <section class="mb-8">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <Link2 size={18} class="text-brand-700" />
+            <div class="flex flex-wrap gap-2">
+              <button class="btn-ghost bg-white/70" onclick={() => (showLinkDialog = true)}>
+                <Link2 size={16} />
+                Agregar Enlace
+              </button>
+              <button class="btn-ghost bg-white/70" onclick={() => (showBulkDialog = true)}>
+                <Upload size={16} />
+                Importar
+              </button>
+              {#if links.length > 0}
+                <button class="btn-ghost bg-white/70" onclick={() => void handleOpenAll()}>
+                  <Rocket size={16} />
+                  Abrir Todos
+                </button>
+              {/if}
+            </div>
+          </div>
+
+          {#if links.length === 0}
+            <div class="card border-dashed p-8 text-center text-sm text-slate-500">
+              Empieza agregando enlaces individuales o importándolos en bloque.
+            </div>
+          {:else}
+            <div class="space-y-3">
+              {#each links as link, index}
+                <LinkCard
+                  {link}
+                  onopen={(url) => void openUrl(url)}
+                  ondelete={() => (pendingDeleteLinkIndex = index)}
+                />
+              {/each}
+            </div>
+          {/if}
+        </section>
+
+        <section class="mb-8">
+          <div class="mb-4 flex items-center gap-3">
+            <StickyNote size={18} class="text-amber-700" />
             <div>
-              <p class="section-label">Enlaces</p>
+              <p class="section-label">Notas</p>
               <p class="mt-1 text-sm text-slate-500">
-                {links.length === 0 ? "No hay enlaces en esta categoría." : `${links.length} enlaces disponibles.`}
+                {notes.length === 0 ? "No hay notas en esta categoría." : `${notes.length} notas disponibles.`}
               </p>
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-2">
-            <button class="btn-ghost bg-white/70" onclick={() => (showLinkDialog = true)}>
-              <Link2 size={16} />
-              Agregar Enlace
-            </button>
-            <button class="btn-ghost bg-white/70" onclick={() => (showBulkDialog = true)}>
-              <Upload size={16} />
-              Importar
-            </button>
-            {#if links.length > 0}
-              <button class="btn-ghost bg-white/70" onclick={() => void handleOpenAll()}>
-                <Rocket size={16} />
-                Abrir Todos
-              </button>
-            {/if}
-          </div>
-        </div>
+          {#if notes.length === 0}
+            <div class="card border-dashed p-8 text-center text-sm text-slate-500">
+              No hay notas en esta categoría.
+            </div>
+          {:else}
+            <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {#each notes as item}
+                <NoteCard
+                  {item}
+                  onedit={() => openEditDialog(item)}
+                  ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
+                />
+              {/each}
+            </div>
+          {/if}
+        </section>
 
-        {#if links.length === 0}
-          <div class="card border-dashed p-8 text-center text-sm text-slate-500">
-            Empieza agregando enlaces individuales o importándolos en bloque.
+        <section>
+          <div class="mb-4 flex items-center gap-3">
+            <CheckCircle2 size={18} class="text-emerald-700" />
+            <div>
+              <p class="section-label">Tareas</p>
+              <p class="mt-1 text-sm text-slate-500">
+                {tasks.length === 0 ? "No hay tareas en esta categoría." : `${tasks.length} tareas disponibles.`}
+              </p>
+            </div>
           </div>
-        {:else}
-          <div class="space-y-3">
-            {#each links as link, index}
-              <LinkCard
-                {link}
-                onopen={(url) => void openUrl(url)}
-                ondelete={() => (pendingDeleteLinkIndex = index)}
-              />
-            {/each}
-          </div>
-        {/if}
-      </section>
 
-      <section class="mb-8">
-        <div class="mb-4 flex items-center gap-3">
-          <StickyNote size={18} class="text-amber-700" />
-          <div>
-            <p class="section-label">Notas</p>
-            <p class="mt-1 text-sm text-slate-500">
-              {notes.length === 0 ? "No hay notas en esta categoría." : `${notes.length} notas disponibles.`}
-            </p>
-          </div>
-        </div>
-
-        {#if notes.length === 0}
-          <div class="card border-dashed p-8 text-center text-sm text-slate-500">
-            No hay notas en esta categoría.
-          </div>
-        {:else}
-          <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {#each notes as item}
-              <NoteCard
-                {item}
-                onedit={() => openEditDialog(item)}
-                ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
-              />
-            {/each}
-          </div>
-        {/if}
-      </section>
-
-      <section>
-        <div class="mb-4 flex items-center gap-3">
-          <CheckCircle2 size={18} class="text-emerald-700" />
-          <div>
-            <p class="section-label">Tareas</p>
-            <p class="mt-1 text-sm text-slate-500">
-              {tasks.length === 0 ? "No hay tareas en esta categoría." : `${tasks.length} tareas disponibles.`}
-            </p>
-          </div>
-        </div>
-
-        {#if tasks.length === 0}
-          <div class="card border-dashed p-8 text-center text-sm text-slate-500">
-            No hay tareas en esta categoría.
-          </div>
-        {:else}
-          <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {#each tasks as item}
-              <TaskCard
-                {item}
-                onedit={() => openEditDialog(item)}
-                ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
-                ontoggle={(done) => void handleToggle(item, done)}
-              />
-            {/each}
-          </div>
-        {/if}
-      </section>
+          {#if tasks.length === 0}
+            <div class="card border-dashed p-8 text-center text-sm text-slate-500">
+              No hay tareas en esta categoría.
+            </div>
+          {:else}
+            <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {#each tasks as item}
+                <TaskCard
+                  {item}
+                  onedit={() => openEditDialog(item)}
+                  ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
+                  ontoggle={(done) => void handleToggle(item, done)}
+                />
+              {/each}
+            </div>
+          {/if}
+        </section>
+      </div>
     </div>
 
     <FloatingActionMenu

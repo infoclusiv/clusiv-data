@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
-    AppData, Category, Item, ItemType, Link, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
+    AppData, Category, Item, ItemImage, ItemType, Link, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
     SCHEMA_VERSION,
 };
 
@@ -519,6 +519,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
         return Item {
             title: String::new(),
             comment: String::new(),
+            images: Vec::new(),
             item_type: ItemType::Task,
             done: false,
             category_id: GENERAL_CATEGORY_ID.to_string(),
@@ -527,6 +528,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
 
     let title = string_value(map.remove("title"), "", changed);
     let comment = string_value(map.remove("comment"), "", changed);
+    let images = item_images_value(map.remove("images"), changed);
     let item_type = item_type_value(map.remove("type"), changed);
     let done = bool_value(map.remove("done"), false, changed);
     let category_id = string_value(map.remove("category_id"), GENERAL_CATEGORY_ID, changed);
@@ -534,6 +536,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
     Item {
         title,
         comment,
+        images,
         item_type,
         done,
         category_id,
@@ -626,6 +629,20 @@ fn links_value(value: Option<Value>, changed: &mut bool) -> Vec<Link> {
     }
 }
 
+fn item_images_value(value: Option<Value>, changed: &mut bool) -> Vec<ItemImage> {
+    match value {
+        Some(Value::Array(values)) => values
+            .into_iter()
+            .map(|value| item_image_from_value(value, changed))
+            .collect(),
+        Some(_) => {
+            *changed = true;
+            Vec::new()
+        }
+        None => Vec::new(),
+    }
+}
+
 fn link_from_value(value: Value, changed: &mut bool) -> Link {
     let Value::Object(mut map) = value else {
         *changed = true;
@@ -638,6 +655,30 @@ fn link_from_value(value: Value, changed: &mut bool) -> Link {
     Link {
         title: string_value(map.remove("title"), "", changed),
         url: string_value(map.remove("url"), "", changed),
+    }
+}
+
+fn item_image_from_value(value: Value, changed: &mut bool) -> ItemImage {
+    let Value::Object(mut map) = value else {
+        *changed = true;
+        return ItemImage {
+            id: Uuid::new_v4().to_string(),
+            data_url: String::new(),
+            name: "Imagen".to_string(),
+        };
+    };
+
+    let id = string_value(map.remove("id"), "", changed);
+
+    ItemImage {
+        id: if id.is_empty() {
+            *changed = true;
+            Uuid::new_v4().to_string()
+        } else {
+            id
+        },
+        data_url: string_value(map.remove("data_url"), "", changed),
+        name: string_value(map.remove("name"), "Imagen", changed),
     }
 }
 
@@ -724,7 +765,55 @@ mod tests {
             None
         );
         assert_eq!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
+        assert!(data.tasks[0].images.is_empty());
         assert_eq!(data.schema_version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn normalize_data_preserves_images_and_defaults_missing_image_arrays() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [
+                {
+                    "title": "",
+                    "comment": "Primera línea\nSegunda línea",
+                    "images": [
+                        {
+                            "id": "img_1",
+                            "data_url": "data:image/png;base64,abc",
+                            "name": "captura.png"
+                        }
+                    ],
+                    "type": "note",
+                    "done": false,
+                    "category_id": "general"
+                },
+                {
+                    "title": "Tarea",
+                    "comment": "",
+                    "type": "task",
+                    "done": false,
+                    "category_id": "general"
+                }
+            ]
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(!changed);
+        assert_eq!(data.tasks[0].images.len(), 1);
+        assert_eq!(data.tasks[0].images[0].name, "captura.png");
+        assert!(data.tasks[1].images.is_empty());
     }
 
     #[test]

@@ -17,9 +17,16 @@ export interface Category {
   notes: string;
 }
 
+export interface ItemImage {
+  id: string;
+  data_url: string;
+  name: string;
+}
+
 export interface Item {
   title: string;
   comment: string;
+  images: ItemImage[];
   type: ItemType;
   done: boolean;
   category_id: string;
@@ -69,4 +76,5 @@ export interface ItemFormInput {
   comment: string;
   type: ItemType;
   categoryId: string;
+  images?: ItemImage[];
 }

@@ -30,13 +30,13 @@
 
 {#if menuOpen}
   <button
-    class="fixed inset-0 z-30 bg-transparent"
+    class="fixed inset-0 z-50 bg-transparent"
     onclick={closeMenu}
     aria-label="Cerrar menú de creación"
   ></button>
 {/if}
 
-<div class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+<div class="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-3">
   {#if menuOpen}
     <div class="flex flex-col items-end gap-2">
       {#each actions as action (action.id)}
@@ -53,10 +53,11 @@
   {/if}
 
   <button
-    class="fab"
+    class="fab-button"
     onclick={() => (menuOpen = !menuOpen)}
     title={title}
     aria-label={title}
+    aria-expanded={menuOpen}
   >
     <Plus size={22} class={`transition-transform ${menuOpen ? "rotate-45" : ""}`} />
   </button>

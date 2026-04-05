@@ -1,4 +1,4 @@
-import type { AppData, Category, Item, Link } from "$lib/store/types";
+import type { AppData, Category, Item, ItemImage, Link } from "$lib/store/types";
 import {
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
@@ -61,6 +61,58 @@ export function getTasks(appData: AppData): Item[] {
   return appData.__SYSTEM_TASKS__;
 }
 
+function normalizeItemImage(image: unknown, fallbackId: string): ItemImage | null {
+  if (!image || typeof image !== "object") {
+    return null;
+  }
+
+  const candidate = image as Partial<ItemImage>;
+  if (typeof candidate.data_url !== "string" || candidate.data_url.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    id: typeof candidate.id === "string" && candidate.id.trim().length > 0
+      ? candidate.id
+      : fallbackId,
+    data_url: candidate.data_url,
+    name: typeof candidate.name === "string" ? candidate.name : "Imagen",
+  };
+}
+
+export function normalizeItemImages(images: unknown): ItemImage[] {
+  if (!Array.isArray(images)) {
+    return [];
+  }
+
+  return images
+    .map((image, index) => normalizeItemImage(image, `image-${index + 1}`))
+    .filter((image): image is ItemImage => image !== null);
+}
+
+function getFirstNonEmptyLine(value: string): string {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0) ?? "";
+}
+
+export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type">): string {
+  const trimmedTitle = item.title.trim();
+  if (trimmedTitle.length > 0) {
+    return trimmedTitle;
+  }
+
+  if (item.type === "note") {
+    const firstLine = getFirstNonEmptyLine(item.comment);
+    if (firstLine.length > 0) {
+      return firstLine;
+    }
+  }
+
+  return "Sin título";
+}
+
 export function normalizeAppData(appData: AppData | null | undefined): AppData {
   const normalized = structuredClone(appData ?? createDefaultAppData());
   normalized.__SCHEMA_VERSION__ = SCHEMA_VERSION;
@@ -95,7 +147,9 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   }
 
   for (const item of tasks) {
+    item.title ||= "";
     item.comment ||= "";
+    item.images = normalizeItemImages(item.images);
     item.type ||= "task";
     item.done ||= false;
     if (!item.category_id || !validCategoryIds.has(item.category_id)) {

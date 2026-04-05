@@ -39,11 +39,11 @@
   }
 </script>
 
-<div class="space-y-1" style={`padding-left: ${depth * 0.8}rem`}>
-  <div class="flex items-center gap-1">
+<div class="space-y-1" style={`padding-left: ${depth * 0.55}rem`}>
+  <div class="flex min-w-0 items-center gap-0.5">
     {#if childCategories.length > 0}
       <button
-        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/70 hover:text-brand-800"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-white/70 hover:text-brand-800"
         onclick={handleToggle}
         title={expanded ? "Colapsar subcategorías" : "Expandir subcategorías"}
         aria-label={expanded ? "Colapsar subcategorías" : "Expandir subcategorías"}
@@ -51,15 +51,15 @@
         <ChevronRight size={16} class={`transition-transform ${expanded ? "rotate-90" : ""}`} />
       </button>
     {:else}
-      <span class="h-8 w-8 shrink-0"></span>
+      <span class="h-7 w-7 shrink-0"></span>
     {/if}
 
     <button
-      class={`nav-item flex-1 ${appState.currentCategoryId === category.id && appState.currentView === "category" ? "nav-item-active" : ""}`}
+      class={`nav-item min-w-0 flex-1 ${appState.currentCategoryId === category.id && appState.currentView === "category" ? "nav-item-active" : ""}`}
       onclick={() => selectCategory(category.id)}
       title={category.name}
     >
-      <Icon size={16} />
+      <Icon size={15} class="shrink-0" />
       <span class="truncate">{category.name}</span>
     </button>
   </div>
