@@ -15,7 +15,6 @@
   let showCategoryDialog = $state(false);
 
   function openBoardGallery(): void {
-    appState.currentCategoryId = null;
     showBoard("gallery");
   }
 
@@ -55,7 +54,7 @@
       onclick={openBoardGallery}
     >
       <ListChecks size={16} />
-      Notas y Tareas
+      Categorías
     </button>
   </div>
 
@@ -78,7 +77,7 @@
   <div class="px-3 py-4">
     <button
       class="btn-ghost mb-2 w-full justify-start bg-white/65"
-      onclick={showLogs}
+      onclick={() => showLogs()}
     >
       <Bug size={16} />
       Depuración

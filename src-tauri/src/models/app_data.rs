@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Category, CategoryType, Item};
+use super::{Category, Item};
 
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppData {
@@ -28,7 +28,6 @@ impl AppData {
                 name: GENERAL_CATEGORY_NAME.to_string(),
                 parent_id: None,
                 icon: "Carpeta".to_string(),
-                category_type: CategoryType::Niche,
                 links: Vec::new(),
                 notes: String::new(),
             },

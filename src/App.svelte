@@ -4,21 +4,12 @@
   import Sidebar from "$lib/components/layout/Sidebar.svelte";
   import Snackbar from "$lib/components/ui/Snackbar.svelte";
   import { appState, initializeApp } from "$lib/store/appState.svelte";
-  import { getCategory } from "$lib/utils/categoryUtils";
-  import { CATEGORY_TYPE_NOTEBOOK } from "$lib/utils/constants";
   import BoardView from "$lib/views/BoardView.svelte";
-  import LinksView from "$lib/views/LinksView.svelte";
+  import CategoryView from "$lib/views/CategoryView.svelte";
   import LogsView from "$lib/views/LogsView.svelte";
-  import NotebookView from "$lib/views/NotebookView.svelte";
   import WelcomeView from "$lib/views/WelcomeView.svelte";
 
   let ready = $state(false);
-
-  const currentCategoryType = $derived(
-    appState.appData && appState.currentCategoryId
-      ? getCategory(appState.appData, appState.currentCategoryId)?.type ?? null
-      : null,
-  );
 
   onMount(async () => {
     await initializeApp();
@@ -38,10 +29,8 @@
       <div class="flex h-full">
         {#if appState.currentView === "welcome"}
           <WelcomeView />
-        {:else if appState.currentView === "category" && currentCategoryType === CATEGORY_TYPE_NOTEBOOK}
-          <NotebookView />
         {:else if appState.currentView === "category"}
-          <LinksView />
+          <CategoryView />
         {:else if appState.currentView === "board"}
           <BoardView />
         {:else if appState.currentView === "logs"}

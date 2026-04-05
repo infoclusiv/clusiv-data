@@ -14,14 +14,11 @@
     wouldCreateCycle,
   } from "$lib/utils/categoryUtils";
   import {
-    CATEGORY_TYPE_NICHE,
-    CATEGORY_TYPE_NOTEBOOK,
     GENERAL_CATEGORY_ID,
     GENERAL_CATEGORY_NAME,
     ICON_KEYS,
     ROOT_CATEGORY_OPTION,
   } from "$lib/utils/constants";
-  import type { CategoryType } from "$lib/store/types";
 
   interface Props {
     open: boolean;
@@ -39,7 +36,6 @@
 
   let name = $state("");
   let icon = $state("Carpeta");
-  let categoryType = $state<CategoryType>(CATEGORY_TYPE_NICHE);
   let parentId = $state(ROOT_CATEGORY_OPTION);
   let nameError = $state<string | null>(null);
   let parentError = $state<string | null>(null);
@@ -81,14 +77,12 @@
 
       name = category.name;
       icon = category.icon || "Carpeta";
-      categoryType = category.type;
       parentId = category.parent_id ?? ROOT_CATEGORY_OPTION;
       return;
     }
 
     name = "";
     icon = "Carpeta";
-    categoryType = CATEGORY_TYPE_NICHE;
     parentId = initialParentId ?? ROOT_CATEGORY_OPTION;
   });
 
@@ -136,7 +130,6 @@
           name: trimmedName,
           parentId: resolvedParentId,
           icon,
-          type: categoryType,
         },
         editingCategoryId,
       );
@@ -164,41 +157,6 @@
 >
   {#snippet children()}
     <div class="flex flex-col gap-4">
-      {#if !isEditing}
-        <div class="flex flex-col gap-2">
-          <span class="section-label">Tipo</span>
-          <div class="grid gap-2 sm:grid-cols-2">
-            <label class="card cursor-pointer p-3 text-sm text-slate-700">
-              <div class="flex items-center gap-2">
-                <input
-                  type="radio"
-                  bind:group={categoryType}
-                  value={CATEGORY_TYPE_NICHE}
-                  class="accent-brand-700"
-                />
-                Nicho (con enlaces)
-              </div>
-            </label>
-            <label class="card cursor-pointer p-3 text-sm text-slate-700">
-              <div class="flex items-center gap-2">
-                <input
-                  type="radio"
-                  bind:group={categoryType}
-                  value={CATEGORY_TYPE_NOTEBOOK}
-                  class="accent-brand-700"
-                />
-                Bloc de notas
-              </div>
-            </label>
-          </div>
-        </div>
-      {:else}
-        <p class="text-xs text-slate-500">
-          Tipo: {categoryType === CATEGORY_TYPE_NOTEBOOK ? "Bloc de notas" : "Nicho (con enlaces)"}
-          (no editable)
-        </p>
-      {/if}
-
       <Input
         label="Nombre"
         bind:value={name}

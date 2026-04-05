@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     ClipboardList,
+    Inbox,
     Pencil,
     Plus,
     Rocket,
@@ -26,9 +27,14 @@
     showBoard,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
-  import { CATEGORY_TYPE_NOTEBOOK, getCategoryTypeLabel } from "$lib/utils/constants";
-  import { getCategory, getCategoryBreadcrumb, getChildCategories } from "$lib/utils/categoryUtils";
-  import { getIcon, NOTEBOOK_ICON } from "$lib/utils/getIconComponent";
+  import { GENERAL_CATEGORY_ID } from "$lib/utils/constants";
+  import {
+    getCategory,
+    getCategoryBreadcrumb,
+    getCategoryChildrenSummary,
+    getChildCategories,
+  } from "$lib/utils/categoryUtils";
+  import { getIcon } from "$lib/utils/getIconComponent";
 
   let showLinkDialog = $state(false);
   let showBulkDialog = $state(false);
@@ -146,10 +152,10 @@
           </div>
           <div class="flex flex-wrap gap-4">
             {#each childCategories as child}
-              {@const Icon = child.type === CATEGORY_TYPE_NOTEBOOK ? NOTEBOOK_ICON : getIcon(child.icon)}
+              {@const Icon = child.id === GENERAL_CATEGORY_ID ? Inbox : getIcon(child.icon)}
               <SubcategoryCard
                 label={child.name}
-                subtitle={getCategoryTypeLabel(child.type)}
+                subtitle={getCategoryChildrenSummary(appState.appData, child.id)}
                 icon={Icon}
                 onopen={() => selectCategory(child.id)}
               />

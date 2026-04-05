@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BookOpen, CheckCircle2, Pencil, Plus, StickyNote, Trash2 } from "lucide-svelte";
+  import { CheckCircle2, Inbox, Pencil, Plus, StickyNote, Trash2 } from "lucide-svelte";
 
   import NoteCard from "$lib/components/cards/NoteCard.svelte";
   import SubcategoryCard from "$lib/components/cards/SubcategoryCard.svelte";
@@ -17,15 +17,16 @@
     toggleTaskStatus,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
-  import { CATEGORY_TYPE_NOTEBOOK, getCategoryTypeLabel } from "$lib/utils/constants";
+  import { GENERAL_CATEGORY_ID } from "$lib/utils/constants";
   import {
     getCategory,
     getCategoryBreadcrumb,
+    getCategoryChildrenSummary,
     getChildCategories,
     getNotesForCategory,
     getTasksForCategory,
   } from "$lib/utils/categoryUtils";
-  import { getIcon, NOTEBOOK_ICON } from "$lib/utils/getIconComponent";
+  import { getIcon } from "$lib/utils/getIconComponent";
   import type { Item } from "$lib/store/types";
 
   let showItemDialog = $state(false);
@@ -63,6 +64,14 @@
     appState.appData && category
       ? getTasksForCategory(appState.appData, category.id)
       : [],
+  );
+
+  const CategoryIcon = $derived(
+    category
+      ? category.id === GENERAL_CATEGORY_ID
+        ? Inbox
+        : getIcon(category.icon)
+      : Inbox,
   );
 
   function openNewDialog(): void {
@@ -114,10 +123,10 @@
 
     try {
       await deleteCategory(category.id);
-      showSnackbar("Notebook eliminado.", "success");
+      showSnackbar("Categoría eliminada.", "success");
     } catch (error) {
       showSnackbar(
-        error instanceof Error ? error.message : "No se pudo eliminar el notebook.",
+        error instanceof Error ? error.message : "No se pudo eliminar la categoría.",
         "error",
       );
     } finally {
@@ -132,10 +141,10 @@
       <div>
         <div class="flex items-center gap-3">
           <div class="rounded-2xl bg-brand-50 p-3 text-brand-700">
-            <BookOpen size={22} />
+            <CategoryIcon size={22} />
           </div>
           <div>
-            <p class="section-label">Notebook</p>
+            <p class="section-label">Categoría</p>
             <h1 class="mt-1 text-3xl font-semibold text-slate-900">{category.name}</h1>
           </div>
         </div>
@@ -146,7 +155,7 @@
         <IconButton icon={Pencil} label="Editar categoría" onclick={() => (showCategoryDialog = true)} />
         <IconButton
           icon={Trash2}
-          label="Borrar notebook"
+          label="Borrar categoría"
           tone="danger"
           onclick={() => (confirmDeleteCategory = true)}
           disabled={category.id === "general"}
@@ -160,10 +169,10 @@
           <p class="section-label mb-4">Subcategorías</p>
           <div class="flex flex-wrap gap-4">
             {#each childCategories as child}
-              {@const Icon = child.type === CATEGORY_TYPE_NOTEBOOK ? NOTEBOOK_ICON : getIcon(child.icon)}
+              {@const Icon = child.id === GENERAL_CATEGORY_ID ? Inbox : getIcon(child.icon)}
               <SubcategoryCard
                 label={child.name}
-                subtitle={getCategoryTypeLabel(child.type)}
+                subtitle={getCategoryChildrenSummary(appState.appData, child.id)}
                 icon={Icon}
                 onopen={() => selectCategory(child.id)}
               />
@@ -262,8 +271,8 @@
 
   <ConfirmDialog
     open={confirmDeleteCategory}
-    title="Eliminar Notebook"
-    message="¿Estás seguro de que quieres borrar este notebook? Solo se eliminará si no tiene notas, tareas ni subcategorías."
+    title="Eliminar Categoría"
+    message="¿Estás seguro de que quieres borrar esta categoría?"
     confirmLabel="Sí, borrar"
     oncancel={() => (confirmDeleteCategory = false)}
     onconfirm={() => void handleDeleteCategory()}

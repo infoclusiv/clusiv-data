@@ -1,4 +1,3 @@
-export type CategoryType = "niche" | "notebook";
 export type ItemType = "task" | "note";
 export type AppView = "welcome" | "category" | "board" | "logs";
 export type BoardMode = "gallery" | "detail";
@@ -14,7 +13,6 @@ export interface Category {
   name: string;
   parent_id: string | null;
   icon: string;
-  type: CategoryType;
   links: Link[];
   notes: string;
 }
@@ -53,11 +51,17 @@ export interface UIState {
   currentBoardFilterId: string | null;
 }
 
+export interface NavigationSnapshot {
+  view: AppView;
+  categoryId: string | null;
+  boardMode: BoardMode;
+  boardFilterId: string | null;
+}
+
 export interface CategoryFormInput {
   name: string;
   parentId: string | null;
   icon: string;
-  type: CategoryType;
 }
 
 export interface ItemFormInput {

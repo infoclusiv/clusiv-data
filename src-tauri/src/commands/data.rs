@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
-    AppData, Category, CategoryType, Item, ItemType, Link, GENERAL_CATEGORY_ID,
-    GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
+    AppData, Category, Item, ItemType, Link, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
+    SCHEMA_VERSION,
 };
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
@@ -266,7 +266,6 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
                 GENERAL_CATEGORY_NAME.to_string(),
                 None,
                 "Carpeta".to_string(),
-                CategoryType::Niche,
                 Vec::new(),
                 String::new(),
             ),
@@ -359,7 +358,6 @@ fn migrate_legacy_data(raw: Value) -> AppData {
     if let Some(payload) = legacy_general_payload {
         if let Some(general_category) = new_data.categories.get_mut(GENERAL_CATEGORY_ID) {
             general_category.icon = string_from_map(&payload, "icon", "Carpeta");
-            general_category.category_type = category_type_from_map(&payload, "type");
             general_category.links = links_from_map(&payload, "links");
             general_category.notes = string_from_map(&payload, "notes", "");
         }
@@ -376,7 +374,6 @@ fn migrate_legacy_data(raw: Value) -> AppData {
                 legacy_name.clone(),
                 Some(GENERAL_CATEGORY_ID.to_string()),
                 string_from_map(&payload, "icon", "Carpeta"),
-                category_type_from_map(&payload, "type"),
                 links_from_map(&payload, "links"),
                 string_from_map(&payload, "notes", ""),
             ),
@@ -425,7 +422,6 @@ fn root_tasks(
                         category_name.clone(),
                         Some(GENERAL_CATEGORY_ID.to_string()),
                         "Carpeta".to_string(),
-                        CategoryType::Niche,
                         Vec::new(),
                         String::new(),
                     ),
@@ -485,7 +481,6 @@ fn category_from_value(category_id: String, value: Value, changed: &mut bool) ->
             },
             None,
             "Carpeta".to_string(),
-            CategoryType::Niche,
             Vec::new(),
             String::new(),
         );
@@ -509,11 +504,13 @@ fn category_from_value(category_id: String, value: Value, changed: &mut bool) ->
     };
     let parent_id = optional_string_value(map.remove("parent_id"), changed);
     let icon = string_value(map.remove("icon"), "Carpeta", changed);
-    let category_type = category_type_value(map.remove("type"), changed);
+    if map.remove("type").is_some() {
+        *changed = true;
+    }
     let links = links_value(map.remove("links"), changed);
     let notes = string_value(map.remove("notes"), "", changed);
 
-    build_category(id, name, parent_id, icon, category_type, links, notes)
+    build_category(id, name, parent_id, icon, links, notes)
 }
 
 fn item_from_value(value: Value, changed: &mut bool) -> Item {
@@ -548,7 +545,6 @@ fn build_category(
     name: String,
     parent_id: Option<String>,
     icon: String,
-    category_type: CategoryType,
     links: Vec<Link>,
     notes: String,
 ) -> Category {
@@ -557,7 +553,6 @@ fn build_category(
         name,
         parent_id,
         icon,
-        category_type,
         links,
         notes,
     }
@@ -601,22 +596,6 @@ fn bool_value(value: Option<Value>, default: bool, changed: &mut bool) -> bool {
             default
         }
         None => default,
-    }
-}
-
-fn category_type_value(value: Option<Value>, changed: &mut bool) -> CategoryType {
-    match value {
-        Some(Value::String(value)) if value == "notebook" => CategoryType::Notebook,
-        Some(Value::String(value)) if value == "niche" => CategoryType::Niche,
-        Some(Value::String(_)) => {
-            *changed = true;
-            CategoryType::Niche
-        }
-        Some(_) => {
-            *changed = true;
-            CategoryType::Niche
-        }
-        None => CategoryType::Niche,
     }
 }
 
@@ -667,13 +646,6 @@ fn string_from_map(map: &Map<String, Value>, key: &str, default: &str) -> String
         .and_then(Value::as_str)
         .unwrap_or(default)
         .to_string()
-}
-
-fn category_type_from_map(map: &Map<String, Value>, key: &str) -> CategoryType {
-    match map.get(key).and_then(Value::as_str) {
-        Some("notebook") => CategoryType::Notebook,
-        _ => CategoryType::Niche,
-    }
 }
 
 fn links_from_map(map: &Map<String, Value>, key: &str) -> Vec<Link> {
@@ -749,7 +721,7 @@ mod tests {
         assert!(data.categories.contains_key(GENERAL_CATEGORY_ID));
         assert_eq!(
             data.categories.get("alpha").and_then(|category| category.parent_id.as_deref()),
-            Some(GENERAL_CATEGORY_ID)
+            None
         );
         assert_eq!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
         assert_eq!(data.schema_version, SCHEMA_VERSION);

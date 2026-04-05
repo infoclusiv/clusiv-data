@@ -10,18 +10,19 @@ import type {
   Link,
   LogLevel,
   LogStatus,
+  NavigationSnapshot,
 } from "$lib/store/types";
 import {
   buildCategoryRecord,
   categoryHasChildren,
   generateCategoryId,
   getCategory,
+  getCategoryPathIds,
   getFlatCategoryEntries,
   getItemCategoryId,
   normalizeAppData,
 } from "$lib/utils/categoryUtils";
 import {
-  CATEGORY_TYPE_NOTEBOOK,
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
 } from "$lib/utils/constants";
@@ -32,9 +33,13 @@ export const appState = $state({
   currentView: "welcome" as AppView,
   currentBoardMode: "gallery" as BoardMode,
   currentBoardFilterId: null as string | null,
+  navigationHistory: [] as NavigationSnapshot[],
+  expandedCategoryIds: [] as string[],
   editingCategoryId: null as string | null,
   editingItemIndex: null as number | null,
 });
+
+const EXPANDED_CATEGORY_IDS_STORAGE_KEY = "clusiv-data:expanded-category-ids";
 
 interface FrontendLogEvent {
   level?: LogLevel;
@@ -42,6 +47,10 @@ interface FrontendLogEvent {
   action: string;
   message: string;
   context?: Record<string, unknown> | null;
+}
+
+interface NavigationOptions {
+  recordHistory?: boolean;
 }
 
 function countLinks(appData: AppData): number {
@@ -134,9 +143,176 @@ function getAppDataSnapshot(): AppData {
   return $state.snapshot(requireAppData());
 }
 
+function canUseLocalStorage(): boolean {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function getCurrentNavigation(): NavigationSnapshot {
+  return {
+    view: appState.currentView,
+    categoryId: appState.currentCategoryId,
+    boardMode: appState.currentBoardMode,
+    boardFilterId: appState.currentBoardFilterId,
+  };
+}
+
+function navigationMatches(
+  left: NavigationSnapshot,
+  right: NavigationSnapshot,
+): boolean {
+  return left.view === right.view
+    && left.categoryId === right.categoryId
+    && left.boardMode === right.boardMode
+    && left.boardFilterId === right.boardFilterId;
+}
+
+function sanitizeNavigationHistory(appData: AppData): void {
+  const validCategoryIds = new Set(Object.keys(appData.__SYSTEM_CATEGORIES__));
+  const nextHistory: NavigationSnapshot[] = [];
+
+  for (const snapshot of appState.navigationHistory) {
+    if (
+      snapshot.view === "category"
+      && (!snapshot.categoryId || !validCategoryIds.has(snapshot.categoryId))
+    ) {
+      continue;
+    }
+
+    const nextSnapshot: NavigationSnapshot = {
+      ...snapshot,
+      categoryId: snapshot.categoryId && validCategoryIds.has(snapshot.categoryId)
+        ? snapshot.categoryId
+        : null,
+      boardFilterId: snapshot.boardFilterId && validCategoryIds.has(snapshot.boardFilterId)
+        ? snapshot.boardFilterId
+        : null,
+    };
+
+    if (snapshot.boardFilterId && !nextSnapshot.boardFilterId) {
+      nextSnapshot.boardMode = "gallery";
+    }
+
+    nextHistory.push(nextSnapshot);
+  }
+
+  appState.navigationHistory = nextHistory;
+}
+
+function getSanitizedExpandedCategoryIds(
+  appData: AppData,
+  expandedCategoryIds: string[],
+): string[] {
+  const validExpandedIds = new Set(
+    Object.keys(appData.__SYSTEM_CATEGORIES__).filter((categoryId) =>
+      categoryHasChildren(appData, categoryId)
+    ),
+  );
+
+  return [...new Set(expandedCategoryIds)].filter((categoryId) =>
+    validExpandedIds.has(categoryId)
+  );
+}
+
+function persistExpandedCategoryIds(): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      EXPANDED_CATEGORY_IDS_STORAGE_KEY,
+      JSON.stringify(appState.expandedCategoryIds),
+    );
+  } catch {
+    // Ignore local preference persistence failures.
+  }
+}
+
+function setExpandedCategoryIds(expandedCategoryIds: string[]): void {
+  appState.expandedCategoryIds = expandedCategoryIds;
+  persistExpandedCategoryIds();
+}
+
+function sanitizeExpandedCategoryIds(appData: AppData): void {
+  setExpandedCategoryIds(
+    getSanitizedExpandedCategoryIds(appData, appState.expandedCategoryIds),
+  );
+}
+
+function restoreExpandedCategoryIds(appData: AppData): void {
+  if (!canUseLocalStorage()) {
+    sanitizeExpandedCategoryIds(appData);
+    return;
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(EXPANDED_CATEGORY_IDS_STORAGE_KEY);
+    const parsedValue = storedValue ? JSON.parse(storedValue) : [];
+    const expandedCategoryIds = Array.isArray(parsedValue)
+      ? parsedValue.filter((value): value is string => typeof value === "string")
+      : [];
+
+    setExpandedCategoryIds(
+      getSanitizedExpandedCategoryIds(appData, expandedCategoryIds),
+    );
+  } catch {
+    sanitizeExpandedCategoryIds(appData);
+  }
+}
+
+function expandCategoryPath(categoryId: string | null): void {
+  if (!appState.appData || !categoryId) {
+    return;
+  }
+
+  const pathIds = getCategoryPathIds(appState.appData, categoryId)
+    .slice(0, -1)
+    .filter((pathCategoryId) => categoryHasChildren(appState.appData as AppData, pathCategoryId));
+
+  if (pathIds.length === 0) {
+    return;
+  }
+
+  setExpandedCategoryIds(
+    getSanitizedExpandedCategoryIds(appState.appData, [
+      ...appState.expandedCategoryIds,
+      ...pathIds,
+    ]),
+  );
+}
+
+function applyNavigation(snapshot: NavigationSnapshot): void {
+  appState.currentView = snapshot.view;
+  appState.currentCategoryId = snapshot.categoryId;
+  appState.currentBoardMode = snapshot.boardMode;
+  appState.currentBoardFilterId = snapshot.boardFilterId;
+}
+
+function navigate(
+  snapshot: NavigationSnapshot,
+  { recordHistory = true }: NavigationOptions = {},
+): void {
+  const currentNavigation = getCurrentNavigation();
+
+  if (recordHistory && !navigationMatches(currentNavigation, snapshot)) {
+    appState.navigationHistory = [
+      ...appState.navigationHistory,
+      currentNavigation,
+    ];
+  }
+
+  applyNavigation(snapshot);
+
+  if (snapshot.view === "category") {
+    expandCategoryPath(snapshot.categoryId);
+  }
+}
+
 function setAppData(appData: AppData): AppData {
   const normalized = normalizeAppData(appData);
   appState.appData = normalized;
+  sanitizeNavigationHistory(normalized);
+  sanitizeExpandedCategoryIds(normalized);
   return normalized;
 }
 
@@ -385,14 +561,78 @@ export async function openBackupDirectory(): Promise<void> {
   }
 }
 
-export function selectCategory(categoryId: string): void {
+export function isCategoryExpanded(categoryId: string): boolean {
+  return appState.expandedCategoryIds.includes(categoryId);
+}
+
+export function toggleCategoryExpansion(categoryId: string): void {
+  if (!appState.appData || !categoryHasChildren(appState.appData, categoryId)) {
+    return;
+  }
+
+  if (isCategoryExpanded(categoryId)) {
+    setExpandedCategoryIds(
+      appState.expandedCategoryIds.filter((expandedCategoryId) => expandedCategoryId !== categoryId),
+    );
+    return;
+  }
+
+  setExpandedCategoryIds(
+    getSanitizedExpandedCategoryIds(appState.appData, [
+      ...appState.expandedCategoryIds,
+      categoryId,
+    ]),
+  );
+}
+
+export function goBack(): void {
+  const previousNavigation = appState.navigationHistory.at(-1);
+
+  if (!previousNavigation) {
+    return;
+  }
+
+  appState.navigationHistory = appState.navigationHistory.slice(0, -1);
+  applyNavigation(previousNavigation);
+
+  if (previousNavigation.view === "category") {
+    expandCategoryPath(previousNavigation.categoryId);
+  }
+
+  logClientEvent({
+    source: "navigation",
+    action: "go_back",
+    message: "Navigated back to the previous view.",
+    context: {
+      view: previousNavigation.view,
+      categoryId: previousNavigation.categoryId,
+      boardMode: previousNavigation.boardMode,
+      boardFilterId: previousNavigation.boardFilterId,
+    },
+  });
+}
+
+export function selectCategory(
+  categoryId: string,
+  options: NavigationOptions = {},
+): void {
   const category = appState.appData
     ? getCategory(appState.appData, categoryId)
     : null;
 
-  appState.currentCategoryId = categoryId;
-  appState.currentView = "category";
-  appState.currentBoardFilterId = null;
+  if (appState.appData && !category) {
+    return;
+  }
+
+  navigate(
+    {
+      view: "category",
+      categoryId,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: null,
+    },
+    options,
+  );
 
   logClientEvent({
     source: "navigation",
@@ -401,19 +641,28 @@ export function selectCategory(categoryId: string): void {
     context: {
       categoryId,
       categoryName: category?.name ?? null,
-      categoryType: category?.type ?? null,
     },
   });
 }
 
-export function showBoard(mode: BoardMode, filterId: string | null = null): void {
+export function showBoard(
+  mode: BoardMode,
+  filterId: string | null = null,
+  options: NavigationOptions = {},
+): void {
   const category = filterId && appState.appData
     ? getCategory(appState.appData, filterId)
     : null;
 
-  appState.currentView = "board";
-  appState.currentBoardMode = mode;
-  appState.currentBoardFilterId = filterId;
+  navigate(
+    {
+      view: "board",
+      categoryId: mode === "detail" ? filterId : null,
+      boardMode: mode,
+      boardFilterId: filterId,
+    },
+    options,
+  );
 
   logClientEvent({
     source: "navigation",
@@ -427,10 +676,16 @@ export function showBoard(mode: BoardMode, filterId: string | null = null): void
   });
 }
 
-export function showWelcome(): void {
-  appState.currentView = "welcome";
-  appState.currentCategoryId = null;
-  appState.currentBoardFilterId = null;
+export function showWelcome(options: NavigationOptions = {}): void {
+  navigate(
+    {
+      view: "welcome",
+      categoryId: null,
+      boardMode: "gallery",
+      boardFilterId: null,
+    },
+    options,
+  );
 
   logClientEvent({
     source: "navigation",
@@ -439,9 +694,16 @@ export function showWelcome(): void {
   });
 }
 
-export function showLogs(): void {
-  appState.currentView = "logs";
-  appState.currentBoardFilterId = null;
+export function showLogs(options: NavigationOptions = {}): void {
+  navigate(
+    {
+      view: "logs",
+      categoryId: appState.currentCategoryId,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: null,
+    },
+    options,
+  );
 
   logClientEvent({
     source: "navigation",
@@ -458,6 +720,8 @@ export async function initializeApp(): Promise<void> {
   });
 
   const data = await loadAppData();
+  appState.navigationHistory = [];
+  restoreExpandedCategoryIds(data);
 
   try {
     await createBackup(false);
@@ -475,7 +739,7 @@ export async function initializeApp(): Promise<void> {
   }
 
   if (getCategory(data, GENERAL_CATEGORY_ID)) {
-    selectCategory(GENERAL_CATEGORY_ID);
+    selectCategory(GENERAL_CATEGORY_ID, { recordHistory: false });
     logClientEvent({
       source: "appState",
       action: "initialize_app_completed",
@@ -490,7 +754,7 @@ export async function initializeApp(): Promise<void> {
 
   const firstCategoryId = getFlatCategoryEntries(data)[0]?.[0].id ?? null;
   if (firstCategoryId) {
-    selectCategory(firstCategoryId);
+    selectCategory(firstCategoryId, { recordHistory: false });
     logClientEvent({
       source: "appState",
       action: "initialize_app_completed",
@@ -501,7 +765,7 @@ export async function initializeApp(): Promise<void> {
       },
     });
   } else {
-    showWelcome();
+    showWelcome({ recordHistory: false });
     logClientEvent({
       source: "appState",
       action: "initialize_app_completed",
@@ -538,7 +802,6 @@ export async function saveCategory(
       name: input.name,
       parentId: input.parentId,
       icon: input.icon,
-      type: input.type,
     },
   });
 
@@ -567,7 +830,6 @@ export async function saveCategory(
           input.name,
           input.parentId,
           input.icon,
-          input.type,
         );
       }
     });
@@ -576,8 +838,7 @@ export async function saveCategory(
       throw new Error("No se pudo resolver la categoría guardada.");
     }
 
-    appState.currentCategoryId = resolvedCategoryId;
-    appState.currentView = "category";
+    selectCategory(resolvedCategoryId);
 
     logClientEvent({
       source: "category",
@@ -590,7 +851,6 @@ export async function saveCategory(
         name: editingCategoryId === GENERAL_CATEGORY_ID ? GENERAL_CATEGORY_NAME : input.name,
         parentId: editingCategoryId === GENERAL_CATEGORY_ID ? null : input.parentId,
         icon: input.icon,
-        type: input.type,
       },
     });
 
@@ -608,7 +868,6 @@ export async function saveCategory(
         name: input.name,
         parentId: input.parentId,
         icon: input.icon,
-        type: input.type,
       },
     );
     throw error;
@@ -634,12 +893,9 @@ export async function deleteCategory(categoryId: string): Promise<string> {
     (item) => getItemCategoryId(item) === categoryId,
   ).length;
 
-  if (currentCategory.type === CATEGORY_TYPE_NOTEBOOK && categoryItemCount > 0) {
-    throw new Error("No puedes borrar un notebook que todavía tiene notas o tareas.");
-  }
-
   const fallbackCategoryId = currentCategory.parent_id || GENERAL_CATEGORY_ID;
   const reassignedItemCount = categoryItemCount;
+  const removedLinkCount = currentCategory.links.length;
 
   logClientEvent({
     source: "category",
@@ -650,6 +906,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
       categoryName: currentCategory.name,
       fallbackCategoryId,
       reassignedItemCount,
+      removedLinkCount,
     },
   });
 
@@ -657,7 +914,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
     await mutateAppData((draft) => {
       for (const item of draft.__SYSTEM_TASKS__) {
         if (getItemCategoryId(item) === categoryId) {
-          item.category_id = GENERAL_CATEGORY_ID;
+          item.category_id = fallbackCategoryId;
         }
       }
 
@@ -665,13 +922,19 @@ export async function deleteCategory(categoryId: string): Promise<string> {
     });
 
     if (appState.currentBoardFilterId === categoryId) {
-      appState.currentBoardMode = "gallery";
-      appState.currentBoardFilterId = null;
+      showBoard("gallery", null, { recordHistory: false });
     }
 
-    appState.currentCategoryId = getCategory(requireAppData(), fallbackCategoryId)
+    const nextCategoryId = getCategory(requireAppData(), fallbackCategoryId)
       ? fallbackCategoryId
       : GENERAL_CATEGORY_ID;
+
+    if (appState.currentView === "category" && appState.currentCategoryId === categoryId) {
+      selectCategory(nextCategoryId, { recordHistory: false });
+    } else {
+      appState.currentCategoryId = nextCategoryId;
+      expandCategoryPath(nextCategoryId);
+    }
 
     logClientEvent({
       source: "category",
@@ -681,6 +944,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
         categoryId,
         fallbackCategoryId: appState.currentCategoryId,
         reassignedItemCount,
+        removedLinkCount,
       },
     });
 
@@ -695,6 +959,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
         categoryId,
         fallbackCategoryId,
         reassignedItemCount,
+        removedLinkCount,
       },
     );
     throw error;

@@ -3,5 +3,5 @@ pub mod category;
 pub mod item;
 
 pub use app_data::{AppData, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME, SCHEMA_VERSION};
-pub use category::{Category, CategoryType, Link};
+pub use category::{Category, Link};
 pub use item::{Item, ItemType};

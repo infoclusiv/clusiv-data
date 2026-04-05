@@ -1,6 +1,5 @@
 import type { AppData, Category, Item, Link } from "$lib/store/types";
 import {
-  CATEGORY_TYPE_NICHE,
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
   ROOT_CATEGORY_OPTION,
@@ -12,7 +11,6 @@ export function buildCategoryRecord(
   name: string,
   parentId: string | null,
   icon = "Carpeta",
-  categoryType: Category["type"] = CATEGORY_TYPE_NICHE,
   links: Link[] = [],
   notes = "",
 ): Category {
@@ -21,7 +19,6 @@ export function buildCategoryRecord(
     name,
     parent_id: parentId,
     icon,
-    type: categoryType,
     links: [...links],
     notes,
   };
@@ -77,17 +74,17 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   generalCategory.name = GENERAL_CATEGORY_NAME;
   generalCategory.parent_id = null;
   generalCategory.icon ||= "Carpeta";
-  generalCategory.type ||= CATEGORY_TYPE_NICHE;
   generalCategory.links ||= [];
   generalCategory.notes ||= "";
+  delete (generalCategory as Category & { type?: string }).type;
 
   for (const [categoryId, category] of Object.entries(categories)) {
     category.id ||= categoryId;
     category.name ||= categoryId === GENERAL_CATEGORY_ID ? GENERAL_CATEGORY_NAME : "Sin nombre";
     category.icon ||= "Carpeta";
-    category.type ||= CATEGORY_TYPE_NICHE;
     category.links ||= [];
     category.notes ||= "";
+    delete (category as Category & { type?: string }).type;
     if (categoryId === GENERAL_CATEGORY_ID) {
       category.parent_id = null;
       continue;
@@ -247,6 +244,28 @@ export function getCategoryBreadcrumb(
   }
 
   return parts.length > 0 ? parts.join(" / ") : GENERAL_CATEGORY_NAME;
+}
+
+export function getCategoryPathIds(appData: AppData, categoryId: string | null): string[] {
+  if (!categoryId) {
+    return [];
+  }
+
+  const pathIds: string[] = [];
+  const seen = new Set<string>();
+  let current = getCategory(appData, categoryId);
+
+  while (current) {
+    if (seen.has(current.id)) {
+      break;
+    }
+
+    seen.add(current.id);
+    pathIds.unshift(current.id);
+    current = current.parent_id ? getCategory(appData, current.parent_id) : null;
+  }
+
+  return pathIds;
 }
 
 export function getAvailableParentEntries(
