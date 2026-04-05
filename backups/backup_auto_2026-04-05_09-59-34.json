@@ -1,0 +1,496 @@
+{
+  "__SCHEMA_VERSION__": 3,
+  "__SYSTEM_CATEGORIES__": {
+    "cat_1488b0fb41": {
+      "id": "cat_1488b0fb41",
+      "name": "Social Security",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://www.youtube.com/@RetireesBenefits",
+          "url": "https://www.youtube.com/@RetireesBenefits"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_870b09e765": {
+      "id": "cat_870b09e765",
+      "name": "IDE",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_7845533581": {
+      "id": "cat_7845533581",
+      "name": "Generación imágenes",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_22191641bb": {
+      "id": "cat_22191641bb",
+      "name": "Consejos Financieros",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://www.youtube.com/@TaeKimFinancialTortoise",
+          "url": "https://www.youtube.com/@TaeKimFinancialTortoise"
+        },
+        {
+          "title": "https://www.youtube.com/@humphrey/videos",
+          "url": "https://www.youtube.com/@humphrey/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@nischa/videos",
+          "url": "https://www.youtube.com/@nischa/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@TobyMathis/videos",
+          "url": "https://www.youtube.com/@TobyMathis/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@itsrosehan/videos",
+          "url": "https://www.youtube.com/@itsrosehan/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@foundryfinancial/videos",
+          "url": "https://www.youtube.com/@foundryfinancial/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@GeorgeGammon/videos",
+          "url": "https://www.youtube.com/@GeorgeGammon/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@JamesShack/videos",
+          "url": "https://www.youtube.com/@JamesShack/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@alux/videos",
+          "url": "https://www.youtube.com/@alux/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@marktilbury/videos",
+          "url": "https://www.youtube.com/@marktilbury/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@SmartMoneyBro/videos",
+          "url": "https://www.youtube.com/@SmartMoneyBro/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@MinorityMindset/videos",
+          "url": "https://www.youtube.com/@MinorityMindset/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@AzulWells/videos",
+          "url": "https://www.youtube.com/@AzulWells/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@karltondennis/videos",
+          "url": "https://www.youtube.com/@karltondennis/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@MatSorensen/videos",
+          "url": "https://www.youtube.com/@MatSorensen/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@onedegreeadvisors/videos",
+          "url": "https://www.youtube.com/@onedegreeadvisors/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@taxleverage/videos",
+          "url": "https://www.youtube.com/@taxleverage/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@LowIncomeRelief/videos",
+          "url": "https://www.youtube.com/@LowIncomeRelief/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@moneyinstructor",
+          "url": "https://www.youtube.com/@moneyinstructor"
+        },
+        {
+          "title": "https://www.youtube.com/@SiliconValleyGirl/videos",
+          "url": "https://www.youtube.com/@SiliconValleyGirl/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@nickinvestsUS",
+          "url": "https://www.youtube.com/@nickinvestsUS"
+        },
+        {
+          "title": "https://www.youtube.com/@bobinvestsUS",
+          "url": "https://www.youtube.com/@bobinvestsUS"
+        },
+        {
+          "title": "https://www.youtube.com/@EconemyMeetHistory",
+          "url": "https://www.youtube.com/@EconemyMeetHistory"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_fe55075b54": {
+      "id": "cat_fe55075b54",
+      "name": "AI",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_dd4592d9f6": {
+      "id": "cat_dd4592d9f6",
+      "name": "YT",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_27cc4ed622": {
+      "id": "cat_27cc4ed622",
+      "name": "Multilogin Session",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Ideas",
+      "links": [],
+      "notes": ""
+    },
+    "cat_166dc7a314": {
+      "id": "cat_166dc7a314",
+      "name": "Nichos YT",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_fda9895a7a": {
+      "id": "cat_fda9895a7a",
+      "name": "Gym",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "Phantom Core",
+          "url": "https://www.youtube.com/@phantomcorefitness"
+        },
+        {
+          "title": "BlueGym Animation",
+          "url": "https://www.youtube.com/@Bluegymanimation"
+        },
+        {
+          "title": "Captain Workout",
+          "url": "https://www.youtube.com/@captainworkoutYT"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_37b5949c63": {
+      "id": "cat_37b5949c63",
+      "name": "Animación 3D",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Juegos",
+      "links": [],
+      "notes": ""
+    },
+    "cat_156583ef87": {
+      "id": "cat_156583ef87",
+      "name": "News",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://www.youtube.com/@SnyderReports",
+          "url": "https://www.youtube.com/@SnyderReports"
+        },
+        {
+          "title": "https://www.youtube.com/@lenapetrova/videos",
+          "url": "https://www.youtube.com/@lenapetrova/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@eurodollaruniversity/videos",
+          "url": "https://www.youtube.com/@eurodollaruniversity/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@OrlandoMiner/videos",
+          "url": "https://www.youtube.com/@OrlandoMiner/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@NeilMcCoyWard/videos",
+          "url": "https://www.youtube.com/@NeilMcCoyWard/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@CyrusJanssen/videos",
+          "url": "https://www.youtube.com/@CyrusJanssen/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@GeorgeGammon/videos",
+          "url": "https://www.youtube.com/@GeorgeGammon/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@SeanFooGold/videos",
+          "url": "https://www.youtube.com/@SeanFooGold/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@clearvaluetax9382/videos",
+          "url": "https://www.youtube.com/@clearvaluetax9382/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@HeresyFinancial/videos",
+          "url": "https://www.youtube.com/@HeresyFinancial/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@RJTalksTV/videos",
+          "url": "https://www.youtube.com/@RJTalksTV/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@MeetKevin/videos",
+          "url": "https://www.youtube.com/@MeetKevin/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@thedavidpakmanshow",
+          "url": "https://www.youtube.com/@thedavidpakmanshow"
+        },
+        {
+          "title": "https://www.youtube.com/@NewsNation",
+          "url": "https://www.youtube.com/@NewsNation"
+        },
+        {
+          "title": "https://www.youtube.com/@Reuters/videos",
+          "url": "https://www.youtube.com/@Reuters/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@TLDRdaily/videos",
+          "url": "https://www.youtube.com/@TLDRdaily/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@its-jimmy/streams",
+          "url": "https://www.youtube.com/@its-jimmy/streams"
+        },
+        {
+          "title": "https://www.youtube.com/@HustleBitch/videos",
+          "url": "https://www.youtube.com/@HustleBitch/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@depressedginger/videos",
+          "url": "https://www.youtube.com/@depressedginger/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@stateofdaniel",
+          "url": "https://www.youtube.com/@stateofdaniel"
+        },
+        {
+          "title": "https://www.youtube.com/@wjactv4598/videos",
+          "url": "https://www.youtube.com/@wjactv4598/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@realchris/videos",
+          "url": "https://www.youtube.com/@realchris/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@TheTECShow/videos",
+          "url": "https://www.youtube.com/@TheTECShow/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@France24_en/videos",
+          "url": "https://www.youtube.com/@France24_en/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@PaulJWarburg/videos",
+          "url": "https://www.youtube.com/@PaulJWarburg/videos"
+        },
+        {
+          "title": "Politics With George",
+          "url": "https://www.youtube.com/@PoliticsWithGeorge"
+        },
+        {
+          "title": "https://www.youtube.com/@egovhaze8053",
+          "url": "https://www.youtube.com/@egovhaze8053"
+        },
+        {
+          "title": "https://www.youtube.com/@LiberalHivemind",
+          "url": "https://www.youtube.com/@LiberalHivemind"
+        }
+      ],
+      "notes": ""
+    },
+    "general": {
+      "id": "general",
+      "name": "General",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_c440a1a783": {
+      "id": "cat_c440a1a783",
+      "name": "TTS",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Música",
+      "links": [],
+      "notes": ""
+    }
+  },
+  "__SYSTEM_TASKS__": [
+    {
+      "title": "Revisar estructura gramatical pas",
+      "comment": "https://aistudio.google.com/app/prompts?state=%7B%22ids%22:%5B%2219fd7g1NYr8iJ5Qeidz4XzespfQ3Nc75_%22%5D,%22action%22:%22open%22,%22userId%22:%22115024792818966513257%22,%22resourceKeys%22:%7B%7D%7D&usp=sharing",
+      "type": "task",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Temas para crear canales",
+      "comment": "Social Security\nLiberal Hivemind con muñeco hablando y tomar thumbnails de otros nichos que hayan funcionado\nAI news (Con imagenes videos y slides generados por AI)\nGYM con muñeco",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Fuentes de contenido",
+      "comment": "Tomar tematicas diarias con buenas vistas desde canales de noticias y seleccionar las que se pueden criticar contra la izquierda\n\nTocaria seguir cuentas que permitan al algoritmo de x.com que me diera videos virales pero no violentos",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_156583ef87"
+    },
+    {
+      "title": "SVG Animation 3d",
+      "comment": "Revisar que ahora gemini puede hacer svg animation en 3d\nIgualmente probar con las librerias GSAP, animista\nBuscar ejemplos avanzados en x.com",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_37b5949c63"
+    },
+    {
+      "title": "Tipos de transcript",
+      "comment": "Phantom Core - AI\nCaptain Workout - Human\nBlueGym Animation - Human\nBioforceman - AI\nIronvayne - Human\nYellow Dude | Gravgear - Human",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_fda9895a7a"
+    },
+    {
+      "title": "Aprender a utilizar Threejs",
+      "comment": "Estoy viendo mejores ejemplos con Threejs que con blender\n\nhttps://x.com/threejs/status/2024116274377449520",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_37b5949c63"
+    },
+    {
+      "title": "Automatizar ilustraciones a mano alzada",
+      "comment": "https://www.reddit.com/r/learnmachinelearning/comments/190r0ym/ai_assisted_video_generation_whiteboard/",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Diseño videos",
+      "comment": "El canal puede ir con muñeco 2d hablando",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_156583ef87"
+    },
+    {
+      "title": "La generación de personajes 2d se ha desbloqueado un monton",
+      "comment": "Una de las mejores opciones seria competirle a kurzgesagt",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Dreamina puede mejorar el video si las imagenes son con diferentes angulos",
+      "comment": "https://x.com/dreamina_ai/status/1992950001459421381?t=21ZhM0kTq6IxI5-fMaVYOQ&s=19",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Implementar estrategia de a lo ultimo del video sugerir para que se vea otro video",
+      "comment": "",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Youtube premia contenido que la gente tiene interes por ver por eso videos sobre noticas actuales funcionan",
+      "comment": "",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Se podria crear el personaje que sea chica",
+      "comment": "",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Revivir un canal shadowbanneado YT",
+      "comment": "https://x.com/grundstromleo/status/1997681347574538672?s=20",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Crear un canal como asmongold clips",
+      "comment": "",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Oportunidad canal",
+      "comment": "Si heygen llega a evolucionar y ser lo suficientemente bueno traduciendo se podria probar haciendo un canal a lo asmongold clips",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "Accesos maxun",
+      "comment": "infoclusiv@gmail.com\n2ASDfoj2334",
+      "type": "note",
+      "done": false,
+      "category_id": "general"
+    },
+    {
+      "title": "NaturalReader",
+      "comment": "https://chromewebstore.google.com/detail/naturalreader-ai-text-to/kohfgcgbkjodfcfkcackpagifgbcmimk",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_c440a1a783"
+    },
+    {
+      "title": "Anyvoicelab",
+      "comment": "https://anyvoicelab.com/",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_c440a1a783"
+    },
+    {
+      "title": "CloakBrowser",
+      "comment": "https://github.com/CloakHQ/CloakBrowser",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_27cc4ed622"
+    },
+    {
+      "title": "Blackbox",
+      "comment": "https://www.blackbox.ai/",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_870b09e765"
+    },
+    {
+      "title": "Kani tts 2",
+      "comment": "Kani tts 2 corre en 3gb vram",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_c440a1a783"
+    },
+    {
+      "title": "Fuentes",
+      "comment": "Automatización:\nGrok\nMeta",
+      "type": "note",
+      "done": false,
+      "category_id": "cat_7845533581"
+    }
+  ]
+}

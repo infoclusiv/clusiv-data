@@ -1,6 +1,3 @@
-# Backups
-backups/
-
 # Node / frontend
 node_modules/
 dist/
