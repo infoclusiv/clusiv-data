@@ -1,0 +1,54 @@
+export type CategoryType = "niche" | "notebook";
+export type ItemType = "task" | "note";
+export type AppView = "welcome" | "category" | "board";
+export type BoardMode = "gallery" | "detail";
+
+export interface Link {
+  title: string;
+  url: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  icon: string;
+  type: CategoryType;
+  links: Link[];
+  notes: string;
+}
+
+export interface Item {
+  title: string;
+  comment: string;
+  type: ItemType;
+  done: boolean;
+  category_id: string;
+}
+
+export interface AppData {
+  __SCHEMA_VERSION__: number;
+  __SYSTEM_CATEGORIES__: Record<string, Category>;
+  __SYSTEM_TASKS__: Item[];
+}
+
+export interface UIState {
+  currentCategoryId: string | null;
+  currentView: AppView;
+  currentBoardMode: BoardMode;
+  currentBoardFilterId: string | null;
+}
+
+export interface CategoryFormInput {
+  name: string;
+  parentId: string | null;
+  icon: string;
+  type: CategoryType;
+}
+
+export interface ItemFormInput {
+  title: string;
+  comment: string;
+  type: ItemType;
+  categoryId: string;
+}
