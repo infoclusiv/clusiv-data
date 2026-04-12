@@ -48,11 +48,11 @@
     {#if hasTitle}
       <p class="line-clamp-3 flex-1 text-sm font-bold text-slate-800">{explicitTitle}</p>
     {:else if hasComment}
-      <p class="line-clamp-6 flex-1 text-sm font-bold leading-relaxed text-slate-800">
+      <p class="line-clamp-6 flex-1 text-sm font-normal leading-relaxed text-slate-800">
         {item.comment}
       </p>
     {:else}
-      <p class="flex-1 text-sm font-bold text-slate-800">{fallbackTitle}</p>
+      <p class="flex-1 text-sm font-normal text-slate-800">{fallbackTitle}</p>
     {/if}
   </div>
 

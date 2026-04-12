@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { Inbox } from "lucide-svelte";
+  import { Inbox, Plus } from "lucide-svelte";
 
+  import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import { appState, selectCategory } from "$lib/store/appState.svelte";
   import { GENERAL_CATEGORY_ID } from "$lib/utils/constants";
   import {
@@ -11,6 +12,8 @@
   } from "$lib/utils/categoryUtils";
   import { getIcon } from "$lib/utils/getIconComponent";
   import type { Category } from "$lib/store/types";
+
+  let showCategoryDialog = $state(false);
 
   const rootCategories = $derived(
     appState.appData ? getRootCategories(appState.appData) : [],
@@ -90,5 +93,19 @@
         {/each}
       </div>
     </div>
+
+    <button
+      class="fab"
+      onclick={() => (showCategoryDialog = true)}
+      title="Nueva categoría"
+      aria-label="Nueva categoría"
+    >
+      <Plus size={22} />
+    </button>
   </div>
+
+  <CategoryDialog
+    open={showCategoryDialog}
+    onclose={() => (showCategoryDialog = false)}
+  />
 {/if}

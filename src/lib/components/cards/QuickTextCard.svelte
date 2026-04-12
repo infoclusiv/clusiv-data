@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Clipboard, Copy, Trash2 } from "lucide-svelte";
+  import { Clipboard, Pencil, Trash2 } from "lucide-svelte";
 
   import type { QuickText } from "$lib/store/types";
   import { getQuickTextDisplayTitle, getQuickTextPreview } from "$lib/utils/categoryUtils";
@@ -21,7 +21,7 @@
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      onedit();
+      oncopy();
     }
   }
 </script>
@@ -31,7 +31,7 @@
   role="button"
   tabindex="0"
   title={preview}
-  onclick={onedit}
+  onclick={oncopy}
   onkeydown={handleKeydown}
 >
   <div class="rounded-xl bg-emerald-50 p-2 text-emerald-700">
@@ -51,12 +51,12 @@
     class="rounded-xl p-2 text-emerald-700 transition hover:bg-emerald-50 hover:text-emerald-800"
     onclick={(event) => {
       event.stopPropagation();
-      oncopy();
+      onedit();
     }}
-    title="Copiar"
-    aria-label="Copiar texto rápido"
+    title="Editar"
+    aria-label="Editar texto rápido"
   >
-    <Copy size={16} />
+    <Pencil size={16} />
   </button>
 
   <button

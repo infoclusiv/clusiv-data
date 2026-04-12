@@ -99,29 +99,28 @@ export function searchAppData(appData: AppData, query: string): SearchResult[] {
     const name = category.name.trim();
     const notes = category.notes.trim();
     const combined = normalizeSearchValue([name, notes, breadcrumb].join(" "));
+    const categoryMatches = includesAllTokens(combined, tokens);
 
-    if (!includesAllTokens(combined, tokens)) {
-      continue;
+    if (categoryMatches) {
+      const normalizedName = normalizeSearchValue(name);
+      const normalizedNotes = normalizeSearchValue(notes);
+      const matchLabel = includesAllTokens(normalizedName, tokens)
+        ? "Nombre"
+        : includesAllTokens(normalizedNotes, tokens)
+          ? "Notas"
+          : "Ruta";
+
+      results.push({
+        id: `category:${category.id}`,
+        type: "category",
+        title: name,
+        preview: notes ? createSnippet(notes) : "Abrir categoría",
+        breadcrumb,
+        categoryId: category.id,
+        matchLabel,
+        score: calculateScore(tokens, [name], [notes, breadcrumb]),
+      });
     }
-
-    const normalizedName = normalizeSearchValue(name);
-    const normalizedNotes = normalizeSearchValue(notes);
-    const matchLabel = includesAllTokens(normalizedName, tokens)
-      ? "Nombre"
-      : includesAllTokens(normalizedNotes, tokens)
-        ? "Notas"
-        : "Ruta";
-
-    results.push({
-      id: `category:${category.id}`,
-      type: "category",
-      title: name,
-      preview: notes ? createSnippet(notes) : "Abrir categoría",
-      breadcrumb,
-      categoryId: category.id,
-      matchLabel,
-      score: calculateScore(tokens, [name], [notes, breadcrumb]),
-    });
 
     for (const [index, link] of category.links.entries()) {
       const linkTitle = link.title.trim() || link.url.trim();

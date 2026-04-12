@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Bug, Clipboard, Download, FolderOpen, ListChecks, Plus, Search } from "lucide-svelte";
+  import { Bug, Clipboard, Download, FolderOpen, ListChecks, Search } from "lucide-svelte";
 
-  import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import NavRail from "$lib/components/layout/NavRail.svelte";
   import {
     DEFAULT_SIDEBAR_WIDTH,
@@ -19,7 +18,6 @@
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
 
-  let showCategoryDialog = $state(false);
   let stopResize: (() => void) | null = null;
 
   function cleanupResize(): void {
@@ -105,16 +103,6 @@
     </button>
   </div>
 
-  <div class="px-3 pb-3">
-    <button
-      class="btn-ghost w-full justify-start bg-white/65"
-      onclick={() => (showCategoryDialog = true)}
-    >
-      <Plus size={16} />
-      Nueva Categoría
-    </button>
-  </div>
-
   <div class="px-3 pb-2">
     <button
       class={`btn-ghost w-full justify-start ${appState.currentView === "quick-texts" ? "bg-white text-brand-800 shadow-sm ring-1 ring-brand-100" : "bg-white/65"}`}
@@ -177,8 +165,3 @@
     <span class="absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full bg-slate-300/75 transition group-hover:bg-brand-300"></span>
   </button>
 </aside>
-
-<CategoryDialog
-  open={showCategoryDialog}
-  onclose={() => (showCategoryDialog = false)}
-/>
