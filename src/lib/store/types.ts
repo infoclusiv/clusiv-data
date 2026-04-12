@@ -8,6 +8,30 @@ export type AiChatMessageStatus = "done" | "streaming" | "error";
 export type AiKnowledgeEntryType = "category" | "note" | "task" | "link" | "quick-text";
 export type AiChatStreamEventKind = "started" | "delta" | "complete" | "error";
 
+export interface AiFloatParameterProfile {
+  defaultValue: number;
+  min: number;
+  max: number | null;
+  step: number;
+}
+
+export interface AiIntegerParameterProfile {
+  defaultValue: number;
+  min: number;
+  max: number | null;
+  step: number;
+}
+
+export interface AiModelProfile {
+  key: string;
+  label: string;
+  description: string;
+  isKnown: boolean;
+  temperature: AiFloatParameterProfile;
+  topP: AiFloatParameterProfile;
+  maxTokens: AiIntegerParameterProfile;
+}
+
 export interface Link {
   title: string;
   url: string;
@@ -105,6 +129,8 @@ export interface AiConfig {
   maxTokens: number;
   hasApiKey: boolean;
   apiKeyMask: string | null;
+  availableProfiles: AiModelProfile[];
+  activeModelProfile: AiModelProfile;
 }
 
 export interface AiConfigInput {

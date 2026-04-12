@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use tauri::{command, AppHandle, Emitter, State};
 
 use crate::logging::{AppLoggerState, LogLevel};
+use crate::models::llm::resolve_model_profile;
 use crate::models::{AiChatRequest, AiChatStreamEvent, AiConfig, AiConfigInput, AiStoredConfig};
 
 const AI_CHAT_STREAM_EVENT: &str = "ai-chat-stream";
@@ -71,20 +72,119 @@ fn normalize_provider(value: &str) -> Result<String, String> {
     Ok(trimmed)
 }
 
-fn validate_generation_params(temperature: f32, top_p: f32, max_tokens: u32) -> Result<(), String> {
-    if !temperature.is_finite() || !(0.0..=2.0).contains(&temperature) {
-        return Err("Temperature debe estar entre 0 y 2.".to_string());
+fn format_float_value(value: f32) -> String {
+    let rounded = if (value.fract()).abs() < f32::EPSILON {
+        format!("{:.0}", value)
+    } else {
+        format!("{:.2}", value)
+    };
+
+    if !rounded.contains('.') {
+        return rounded;
     }
 
-    if !top_p.is_finite() || !(0.0..=1.0).contains(&top_p) {
-        return Err("Top P debe estar entre 0 y 1.".to_string());
+    rounded
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
+}
+
+fn validate_float_param(name: &str, value: f32, min: f32, max: Option<f32>) -> Result<(), String> {
+    if !value.is_finite() {
+        return Err(format!("{} debe ser un numero finito.", name));
     }
 
-    if !(1..=8192).contains(&max_tokens) {
-        return Err("Max Tokens debe estar entre 1 y 8192.".to_string());
+    if value < min {
+        return Err(match max {
+            Some(max_value) => format!(
+                "{} debe estar entre {} y {}.",
+                name,
+                format_float_value(min),
+                format_float_value(max_value)
+            ),
+            None => format!("{} debe ser mayor o igual a {}.", name, format_float_value(min)),
+        });
+    }
+
+    if let Some(max_value) = max {
+        if value > max_value {
+            return Err(format!(
+                "{} debe estar entre {} y {}.",
+                name,
+                format_float_value(min),
+                format_float_value(max_value)
+            ));
+        }
     }
 
     Ok(())
+}
+
+fn validate_integer_param(name: &str, value: u32, min: u32, max: Option<u32>) -> Result<(), String> {
+    if value < min {
+        return Err(match max {
+            Some(max_value) => format!("{} debe estar entre {} y {}.", name, min, max_value),
+            None => format!("{} debe ser mayor o igual a {}.", name, min),
+        });
+    }
+
+    if let Some(max_value) = max {
+        if value > max_value {
+            return Err(format!("{} debe estar entre {} y {}.", name, min, max_value));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_generation_params(model: &str, temperature: f32, top_p: f32, max_tokens: u32) -> Result<(), String> {
+    let model_profile = resolve_model_profile(model);
+
+    validate_float_param(
+        "Temperature",
+        temperature,
+        model_profile.temperature.min,
+        model_profile.temperature.max,
+    )?;
+    validate_float_param("Top P", top_p, model_profile.top_p.min, model_profile.top_p.max)?;
+    validate_integer_param(
+        "Max Tokens",
+        max_tokens,
+        model_profile.max_tokens.min,
+        model_profile.max_tokens.max,
+    )?;
+
+    Ok(())
+}
+
+fn build_test_generation_payload(config: &AiStoredConfig) -> Value {
+    let model_profile = resolve_model_profile(&config.model);
+    let test_temperature = model_profile.temperature.default_value;
+    let test_top_p = model_profile.top_p.default_value;
+    let mut test_max_tokens = model_profile
+        .max_tokens
+        .default_value
+        .max(model_profile.max_tokens.min);
+
+    if let Some(max_value) = model_profile.max_tokens.max {
+        test_max_tokens = test_max_tokens.min(max_value);
+    }
+
+    test_max_tokens = test_max_tokens.min(128);
+
+    json!({
+        "model": config.model,
+        "messages": [
+            {
+                "role": "user",
+                "content": "Responde exactamente con OK"
+            }
+        ],
+        "temperature": test_temperature,
+        "top_p": test_top_p,
+        "max_tokens": test_max_tokens,
+        "stream": false,
+    })
 }
 
 fn ensure_api_key(config: &AiStoredConfig) -> Result<(), String> {
@@ -129,7 +229,11 @@ fn persist_stored_config(config: &AiStoredConfig) -> Result<(), String> {
 }
 
 fn merge_config_input(input: AiConfigInput, existing: &AiStoredConfig) -> Result<AiStoredConfig, String> {
-    validate_generation_params(input.temperature, input.top_p, input.max_tokens)?;
+    let provider = normalize_provider(&input.provider)?;
+    let api_base = normalize_api_base(&input.api_base)?;
+    let model = normalize_model(&input.model)?;
+
+    validate_generation_params(&model, input.temperature, input.top_p, input.max_tokens)?;
 
     let api_key = match input.api_key {
         Some(value) => {
@@ -144,9 +248,9 @@ fn merge_config_input(input: AiConfigInput, existing: &AiStoredConfig) -> Result
     };
 
     Ok(AiStoredConfig {
-        provider: normalize_provider(&input.provider)?,
-        api_base: normalize_api_base(&input.api_base)?,
-        model: normalize_model(&input.model)?,
+        provider,
+        api_base,
+        model,
         api_key,
         temperature: input.temperature,
         top_p: input.top_p,
@@ -255,19 +359,7 @@ async fn run_test_request(config: &AiStoredConfig) -> Result<String, String> {
     let response = build_http_client()?
         .post(build_chat_url(config))
         .bearer_auth(config.api_key.trim())
-        .json(&json!({
-            "model": config.model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "Responde exactamente con OK"
-                }
-            ],
-            "temperature": 0.0,
-            "top_p": 0.1,
-            "max_tokens": 16,
-            "stream": false,
-        }))
+        .json(&build_test_generation_payload(config))
         .send()
         .await
         .map_err(|error| format!("No se pudo contactar a NVIDIA: {}", error))?;
@@ -538,4 +630,41 @@ pub fn start_ai_chat_stream(
     });
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_input(model: &str, max_tokens: u32) -> AiConfigInput {
+        AiConfigInput {
+            provider: "nvidia".to_string(),
+            api_base: "https://integrate.api.nvidia.com/v1".to_string(),
+            model: model.to_string(),
+            api_key: Some("nvapi-test".to_string()),
+            temperature: 1.0,
+            top_p: 0.9,
+            max_tokens,
+        }
+    }
+
+    #[test]
+    fn validate_generation_params_accepts_stepfun_known_limit() {
+        assert!(validate_generation_params("stepfun-ai/step-3.5-flash", 1.0, 0.9, 16384).is_ok());
+    }
+
+    #[test]
+    fn validate_generation_params_rejects_stepfun_beyond_limit() {
+        let result = validate_generation_params("stepfun-ai/step-3.5-flash", 1.0, 0.9, 16385);
+
+        assert_eq!(result.unwrap_err(), "Max Tokens debe estar entre 1 y 16384.");
+    }
+
+    #[test]
+    fn merge_config_input_keeps_unknown_model_flexible() {
+        let result = merge_config_input(sample_input("custom/provider-model", 32768), &AiStoredConfig::default());
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().max_tokens, 32768);
+    }
 }

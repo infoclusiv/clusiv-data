@@ -23,12 +23,16 @@
     resetAiConversation,
     saveAiConfig,
     sendAiMessage,
+    syncAiDraftModelProfile,
     testAiConfig,
+    updateAiDraftModel,
   } from "$lib/store/aiAssistant.svelte";
   import { appState } from "$lib/store/appState.svelte";
   import { getCategoryBreadcrumb } from "$lib/utils/categoryUtils";
 
   let composerText = $state("");
+  let modelInput = $state<HTMLInputElement | null>(null);
+  let showContextPanel = $state(false);
 
   const providerOptions = [{ value: "nvidia", label: "NVIDIA" }];
 
@@ -46,8 +50,34 @@
       && !aiAssistantState.isStreaming,
   );
 
+  const contextCoverage = $derived(
+    appState.appData
+      ? {
+          categoryCount: aiAssistantState.lastContext?.summary.categoryCount ?? Object.keys(appState.appData.__SYSTEM_CATEGORIES__).length,
+          itemCount: aiAssistantState.lastContext?.summary.itemCount ?? appState.appData.__SYSTEM_TASKS__.length,
+          evidenceCount: aiAssistantState.lastContext?.summary.evidenceCount ?? 0,
+        }
+      : {
+          categoryCount: 0,
+          itemCount: 0,
+          evidenceCount: 0,
+        },
+  );
+
+  const knownModelProfiles = $derived(
+    aiAssistantState.config.availableProfiles.filter((profile) => profile.isKnown),
+  );
+
   onMount(() => {
     void initializeAiAssistant();
+  });
+
+  $effect(() => {
+    if (!aiAssistantState.isConfigOpen || !modelInput) {
+      return;
+    }
+
+    queueMicrotask(() => modelInput?.focus());
   });
 
   function handleSubmit(): void {
@@ -90,6 +120,22 @@
 
     return "mr-auto border border-white/70 bg-white/85 text-slate-800 shadow-soft";
   }
+
+  function formatNumericValue(value: number): string {
+    if (Number.isInteger(value)) {
+      return String(value);
+    }
+
+    return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  }
+
+  function formatRange(min: number, max: number | null): string {
+    if (max == null) {
+      return `>= ${formatNumericValue(min)}`;
+    }
+
+    return `${formatNumericValue(min)} a ${formatNumericValue(max)}`;
+  }
 </script>
 
 {#if appState.appData}
@@ -99,7 +145,7 @@
         <div>
           <p class="section-label">Asistente</p>
           <h1 class="mt-2 text-3xl font-semibold text-slate-900">Asistente AI</h1>
-          <p class="mt-2 max-w-3xl text-sm text-slate-500">
+          <p class="mt-2 max-w-5xl text-sm text-slate-500">
             Conversa con tu base de conocimiento usando NVIDIA. El asistente debe responder solo con la información guardada en tus categorías, subcategorías, notas, tareas, enlaces y textos rápidos.
           </p>
         </div>
@@ -117,6 +163,11 @@
           <button class="btn-ghost bg-white/75" onclick={openAiConfig}>
             <Settings2 size={16} />
             Configuración
+          </button>
+
+          <button class={`btn-ghost ${showContextPanel ? "bg-slate-100/90 text-slate-900" : "bg-white/75"}`} onclick={() => showContextPanel = !showContextPanel}>
+            <Database size={16} />
+            {showContextPanel ? "Ocultar contexto" : "Mostrar contexto"}
           </button>
 
           <button
@@ -154,15 +205,39 @@
       {/if}
     </div>
 
-    <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <div class="flex min-h-0 flex-1 flex-col border-b border-slate-200/70 lg:border-b-0 lg:border-r">
-        <div class="flex-1 overflow-y-auto px-8 py-6">
+    <div class={`flex min-h-0 flex-1 flex-col ${showContextPanel ? "xl:flex-row" : ""}`}>
+      <div class={`flex min-h-0 flex-1 flex-col ${showContextPanel ? "border-b border-slate-200/70 xl:border-b-0 xl:border-r" : ""}`}>
+        <div class="flex-1 overflow-y-auto px-8 py-6 xl:px-10">
+          {#if !showContextPanel}
+            <div class="mb-5 grid gap-3 lg:grid-cols-2">
+              <div class="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 px-5 py-4">
+                <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Database size={16} />
+                  Cobertura disponible
+                </div>
+                <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                  {contextCoverage.categoryCount} categorías y {contextCoverage.itemCount} notas o tareas disponibles para grounding.
+                </p>
+              </div>
+
+              <div class="rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 px-5 py-4">
+                <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <KeyRound size={16} />
+                  Última recuperación
+                </div>
+                <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                  {contextCoverage.evidenceCount} fragmentos relevantes usados en la última consulta.
+                </p>
+              </div>
+            </div>
+          {/if}
+
           {#if aiAssistantState.isLoadingConfig && !aiAssistantState.isInitialized}
             <div class="card border-dashed p-10 text-center text-sm text-slate-500">
               Cargando la configuración del asistente...
             </div>
           {:else if aiAssistantState.messages.length === 0}
-            <div class="grid gap-4 lg:grid-cols-3">
+            <div class="grid gap-4 xl:grid-cols-3">
               <div class="card p-5">
                 <p class="section-label">Grounding</p>
                 <p class="mt-3 text-lg font-semibold text-slate-900">Solo tus datos</p>
@@ -191,7 +266,7 @@
             <div class="space-y-4">
               {#each aiAssistantState.messages as message}
                 <div class={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div class={`max-w-3xl rounded-[1.5rem] px-5 py-4 ${getBubbleClasses(message.role, message.status)}`}>
+                  <div class={`${message.role === "user" ? "max-w-[56rem]" : "max-w-[68rem]"} w-full rounded-[1.5rem] px-5 py-4 ${getBubbleClasses(message.role, message.status)}`}>
                     <div class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] opacity-80">
                       {#if message.role === "assistant"}
                         <Bot size={14} />
@@ -226,9 +301,9 @@
           <div class="rounded-[1.5rem] border border-slate-200/80 bg-white/85 p-3 shadow-sm">
             <textarea
               bind:value={composerText}
-              rows="4"
+              rows="5"
               placeholder="Haz una pregunta sobre tu conocimiento guardado..."
-              class="input-base min-h-[7rem] resize-none border-0 bg-transparent px-2 py-2 shadow-none focus:ring-0"
+              class="input-base min-h-[8rem] resize-none border-0 bg-transparent px-2 py-2 shadow-none focus:ring-0"
               disabled={aiAssistantState.isStreaming || !aiAssistantState.isInitialized}
               onkeydown={handleComposerKeydown}
             ></textarea>
@@ -247,94 +322,96 @@
         </div>
       </div>
 
-      <aside class="w-full shrink-0 overflow-y-auto bg-slate-50/35 px-6 py-6 lg:w-[23rem]">
-        <div class="card p-5">
-          <p class="section-label">Contexto Recuperado</p>
-          <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <div class="rounded-2xl bg-white/80 p-4">
-              <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                <Database size={16} />
-                Cobertura
+      {#if showContextPanel}
+        <aside class="w-full shrink-0 overflow-y-auto border-t border-slate-200/70 bg-slate-50/35 px-6 py-6 xl:w-[24rem] xl:border-t-0">
+          <div class="card p-5">
+            <p class="section-label">Contexto Recuperado</p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div class="rounded-2xl bg-white/80 p-4">
+                <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Database size={16} />
+                  Cobertura
+                </div>
+                <p class="mt-2 text-sm text-slate-600">
+                  {contextCoverage.categoryCount} categorías
+                  • {contextCoverage.itemCount} notas y tareas
+                </p>
               </div>
-              <p class="mt-2 text-sm text-slate-600">
-                {aiAssistantState.lastContext?.summary.categoryCount ?? Object.keys(appState.appData.__SYSTEM_CATEGORIES__).length} categorías
-                • {aiAssistantState.lastContext?.summary.itemCount ?? appState.appData.__SYSTEM_TASKS__.length} notas y tareas
-              </p>
-            </div>
 
-            <div class="rounded-2xl bg-white/80 p-4">
-              <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                <KeyRound size={16} />
-                Evidencias
+              <div class="rounded-2xl bg-white/80 p-4">
+                <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <KeyRound size={16} />
+                  Evidencias
+                </div>
+                <p class="mt-2 text-sm text-slate-600">
+                  {contextCoverage.evidenceCount} fragmentos seleccionados para la última consulta.
+                </p>
               </div>
-              <p class="mt-2 text-sm text-slate-600">
-                {aiAssistantState.lastContext?.summary.evidenceCount ?? 0} fragmentos seleccionados para la última consulta.
-              </p>
             </div>
           </div>
-        </div>
 
-        {#if aiAssistantState.lastContext?.activeCategory}
+          {#if aiAssistantState.lastContext?.activeCategory}
+            <div class="card mt-4 p-5">
+              <p class="section-label">Categoría Activa</p>
+              <p class="mt-3 text-sm font-semibold text-slate-900">{aiAssistantState.lastContext.activeCategory.title}</p>
+              <p class="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                {aiAssistantState.lastContext.activeCategory.breadcrumb}
+              </p>
+              <p class="mt-3 text-sm leading-relaxed text-slate-600">
+                {aiAssistantState.lastContext.activeCategory.preview}
+              </p>
+            </div>
+          {/if}
+
           <div class="card mt-4 p-5">
-            <p class="section-label">Categoría Activa</p>
-            <p class="mt-3 text-sm font-semibold text-slate-900">{aiAssistantState.lastContext.activeCategory.title}</p>
-            <p class="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-              {aiAssistantState.lastContext.activeCategory.breadcrumb}
-            </p>
-            <p class="mt-3 text-sm leading-relaxed text-slate-600">
-              {aiAssistantState.lastContext.activeCategory.preview}
-            </p>
-          </div>
-        {/if}
+            <p class="section-label">Evidencias Relevantes</p>
+            {#if aiAssistantState.lastContext && aiAssistantState.lastContext.evidence.length > 0}
+              <div class="mt-4 space-y-3">
+                {#each aiAssistantState.lastContext.evidence as entry}
+                  <div class="rounded-2xl bg-white/80 p-4">
+                    <div class="flex items-start justify-between gap-2">
+                      <p class="text-sm font-semibold text-slate-900">{entry.title}</p>
+                      <span class="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        {entry.type}
+                      </span>
+                    </div>
 
-        <div class="card mt-4 p-5">
-          <p class="section-label">Evidencias Relevantes</p>
-          {#if aiAssistantState.lastContext && aiAssistantState.lastContext.evidence.length > 0}
-            <div class="mt-4 space-y-3">
-              {#each aiAssistantState.lastContext.evidence as entry}
-                <div class="rounded-2xl bg-white/80 p-4">
-                  <div class="flex items-start justify-between gap-2">
-                    <p class="text-sm font-semibold text-slate-900">{entry.title}</p>
-                    <span class="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      {entry.type}
-                    </span>
+                    <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                      {entry.breadcrumb}
+                    </p>
+
+                    <p class="mt-2 text-sm leading-relaxed text-slate-600">{entry.preview}</p>
                   </div>
+                {/each}
+              </div>
+            {:else}
+              <p class="mt-4 text-sm leading-relaxed text-slate-500">
+                Aquí verás los fragmentos recuperados desde tu conocimiento para la última pregunta enviada.
+              </p>
+            {/if}
+          </div>
 
-                  <p class="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                    {entry.breadcrumb}
-                  </p>
-
-                  <p class="mt-2 text-sm leading-relaxed text-slate-600">{entry.preview}</p>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <p class="mt-4 text-sm leading-relaxed text-slate-500">
-              Aquí verás los fragmentos recuperados desde tu conocimiento para la última pregunta enviada.
-            </p>
-          {/if}
-        </div>
-
-        <div class="card mt-4 p-5">
-          <p class="section-label">Jerarquía Enviada</p>
-          {#if aiAssistantState.lastContext && aiAssistantState.lastContext.hierarchyOutline.length > 0}
-            <div class="mt-4 space-y-2">
-              {#each aiAssistantState.lastContext.hierarchyOutline as entry}
-                <div class="rounded-2xl bg-white/80 px-4 py-3">
-                  <p class="text-sm font-semibold text-slate-800" style={`padding-left: ${entry.depth * 0.55}rem`}>
-                    {entry.name}
-                  </p>
-                  <p class="mt-1 text-xs text-slate-500">{entry.childCount} subcategorías • {entry.itemCount} items • {entry.linkCount} enlaces</p>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <p class="mt-4 text-sm leading-relaxed text-slate-500">
-              El árbol relevante aparecerá aquí una vez envíes una consulta.
-            </p>
-          {/if}
-        </div>
-      </aside>
+          <div class="card mt-4 p-5">
+            <p class="section-label">Jerarquía Enviada</p>
+            {#if aiAssistantState.lastContext && aiAssistantState.lastContext.hierarchyOutline.length > 0}
+              <div class="mt-4 space-y-2">
+                {#each aiAssistantState.lastContext.hierarchyOutline as entry}
+                  <div class="rounded-2xl bg-white/80 px-4 py-3">
+                    <p class="text-sm font-semibold text-slate-800" style={`padding-left: ${entry.depth * 0.55}rem`}>
+                      {entry.name}
+                    </p>
+                    <p class="mt-1 text-xs text-slate-500">{entry.childCount} subcategorías • {entry.itemCount} items • {entry.linkCount} enlaces</p>
+                  </div>
+                {/each}
+              </div>
+            {:else}
+              <p class="mt-4 text-sm leading-relaxed text-slate-500">
+                El árbol relevante aparecerá aquí una vez envíes una consulta.
+              </p>
+            {/if}
+          </div>
+        </aside>
+      {/if}
     </div>
   </div>
 
@@ -353,12 +430,27 @@
           disabled={true}
         />
 
-        <Input
-          label="Modelo"
-          bind:value={aiAssistantState.draft.model}
-          placeholder="minimaxai/minimax-m2.7"
-          autofocus={true}
-        />
+        <div class="flex flex-col gap-1.5">
+          <label class="section-label" for="ai-model">Modelo</label>
+          <input
+            bind:this={modelInput}
+            id="ai-model"
+            type="text"
+            value={aiAssistantState.draft.model}
+            list="ai-model-list"
+            placeholder="stepfun-ai/step-3.5-flash"
+            class="input-base"
+            oninput={(event) => updateAiDraftModel((event.currentTarget as HTMLInputElement).value)}
+          />
+          <datalist id="ai-model-list">
+            {#each knownModelProfiles as profile}
+              <option value={profile.key}>{profile.label}</option>
+            {/each}
+          </datalist>
+          <p class="text-xs text-slate-500">
+            Al cambiar a un modelo conocido, Clusiv carga automáticamente sus presets y límites recomendados.
+          </p>
+        </div>
 
         <Input
           label="API Base"
@@ -373,17 +465,47 @@
           placeholder={aiAssistantState.config.apiKeyMask ?? "Pega aquí tu NVIDIA API key"}
         />
 
+        <div class="flex flex-wrap gap-2 md:col-span-2">
+          {#each knownModelProfiles as profile}
+            <button
+              type="button"
+              class={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${aiAssistantState.draftModelProfile.key === profile.key ? "border-brand-300 bg-brand-50 text-brand-800" : "border-slate-200 bg-white/80 text-slate-600 hover:border-slate-300 hover:text-slate-900"}`}
+              onclick={() => updateAiDraftModel(profile.key)}
+            >
+              {profile.label}
+            </button>
+          {/each}
+        </div>
+
+        <div class="rounded-[1.4rem] border border-slate-200/80 bg-slate-50/85 px-4 py-4 md:col-span-2">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="section-label">Perfil activo</p>
+              <p class="mt-2 text-base font-semibold text-slate-900">{aiAssistantState.draftModelProfile.label}</p>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">{aiAssistantState.draftModelProfile.description}</p>
+            </div>
+
+            <span class={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${aiAssistantState.draftModelProfile.isKnown ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {aiAssistantState.draftModelProfile.isKnown ? "Preset verificado" : "Modelo personalizado"}
+            </span>
+          </div>
+        </div>
+
         <div class="flex flex-col gap-1.5">
           <label class="section-label" for="ai-temperature">Temperature</label>
           <input
             id="ai-temperature"
             type="number"
-            min="0"
-            max="2"
-            step="0.05"
+            min={aiAssistantState.draftModelProfile.temperature.min}
+            max={aiAssistantState.draftModelProfile.temperature.max ?? undefined}
+            step={aiAssistantState.draftModelProfile.temperature.step}
             bind:value={aiAssistantState.draft.temperature}
             class="input-base"
+            oninput={syncAiDraftModelProfile}
           />
+          <p class="text-xs text-slate-500">
+            Rango: {formatRange(aiAssistantState.draftModelProfile.temperature.min, aiAssistantState.draftModelProfile.temperature.max)} · Preset: {formatNumericValue(aiAssistantState.draftModelProfile.temperature.defaultValue)}
+          </p>
         </div>
 
         <div class="flex flex-col gap-1.5">
@@ -391,12 +513,16 @@
           <input
             id="ai-top-p"
             type="number"
-            min="0"
-            max="1"
-            step="0.01"
+            min={aiAssistantState.draftModelProfile.topP.min}
+            max={aiAssistantState.draftModelProfile.topP.max ?? undefined}
+            step={aiAssistantState.draftModelProfile.topP.step}
             bind:value={aiAssistantState.draft.topP}
             class="input-base"
+            oninput={syncAiDraftModelProfile}
           />
+          <p class="text-xs text-slate-500">
+            Rango: {formatRange(aiAssistantState.draftModelProfile.topP.min, aiAssistantState.draftModelProfile.topP.max)} · Preset: {formatNumericValue(aiAssistantState.draftModelProfile.topP.defaultValue)}
+          </p>
         </div>
 
         <div class="flex flex-col gap-1.5 md:col-span-2">
@@ -404,12 +530,16 @@
           <input
             id="ai-max-tokens"
             type="number"
-            min="1"
-            max="8192"
-            step="1"
+            min={aiAssistantState.draftModelProfile.maxTokens.min}
+            max={aiAssistantState.draftModelProfile.maxTokens.max ?? undefined}
+            step={aiAssistantState.draftModelProfile.maxTokens.step}
             bind:value={aiAssistantState.draft.maxTokens}
             class="input-base"
+            oninput={syncAiDraftModelProfile}
           />
+          <p class="text-xs text-slate-500">
+            Rango: {formatRange(aiAssistantState.draftModelProfile.maxTokens.min, aiAssistantState.draftModelProfile.maxTokens.max)} · Preset: {formatNumericValue(aiAssistantState.draftModelProfile.maxTokens.defaultValue)}
+          </p>
         </div>
       </div>
 

@@ -1,11 +1,11 @@
 {
   "__SCHEMA_VERSION__": 5,
   "__SYSTEM_CATEGORIES__": {
-    "cat_37b5949c63": {
-      "id": "cat_37b5949c63",
-      "name": "Animación 3D",
-      "parent_id": "cat_825972068f",
-      "icon": "Juegos",
+    "cat_089a690520": {
+      "id": "cat_089a690520",
+      "name": "Desarrollo web",
+      "parent_id": null,
+      "icon": "Código",
       "links": [],
       "notes": ""
     },
@@ -17,12 +17,144 @@
       "links": [],
       "notes": ""
     },
-    "cat_825972068f": {
-      "id": "cat_825972068f",
-      "name": "Edición",
+    "cat_27cc4ed622": {
+      "id": "cat_27cc4ed622",
+      "name": "Multilogin Session",
+      "parent_id": "cat_eb5122363a",
+      "icon": "Ideas",
+      "links": [],
+      "notes": ""
+    },
+    "cat_842e206757": {
+      "id": "cat_842e206757",
+      "name": "Branding",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_166dc7a314": {
+      "id": "cat_166dc7a314",
+      "name": "Nichos YT",
       "parent_id": "cat_dd4592d9f6",
       "icon": "Carpeta",
       "links": [],
+      "notes": ""
+    },
+    "cat_86c43d66ca": {
+      "id": "cat_86c43d66ca",
+      "name": "Second Brain",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://x.com/carlosazaustre/status/2040855361410789749?s=20",
+          "url": "https://x.com/carlosazaustre/status/2040855361410789749?s=20"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_c0a05915f7": {
+      "id": "cat_c0a05915f7",
+      "name": "Nombres Marcas",
+      "parent_id": "cat_842e206757",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_d5994bbbbf": {
+      "id": "cat_d5994bbbbf",
+      "name": "Configuración Canal",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_c0797a66fa": {
+      "id": "cat_c0797a66fa",
+      "name": "Taxes",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_c440a1a783": {
+      "id": "cat_c440a1a783",
+      "name": "TTS",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Música",
+      "links": [],
+      "notes": ""
+    },
+    "cat_fda9895a7a": {
+      "id": "cat_fda9895a7a",
+      "name": "Gym",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "Phantom Core",
+          "url": "https://www.youtube.com/@phantomcorefitness"
+        },
+        {
+          "title": "BlueGym Animation",
+          "url": "https://www.youtube.com/@Bluegymanimation"
+        },
+        {
+          "title": "Captain Workout",
+          "url": "https://www.youtube.com/@captainworkoutYT"
+        }
+      ],
+      "notes": ""
+    },
+    "general": {
+      "id": "general",
+      "name": "General",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_251f9bf53d": {
+      "id": "cat_251f9bf53d",
+      "name": "Tools",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "Dominios gratuitos",
+          "url": "https://github.com/DigitalPlatDev/FreeDomain"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_7845533581": {
+      "id": "cat_7845533581",
+      "name": "Generación imágenes",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_eb5122363a": {
+      "id": "cat_eb5122363a",
+      "name": "YTA",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_1488b0fb41": {
+      "id": "cat_1488b0fb41",
+      "name": "Social Security",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://www.youtube.com/@RetireesBenefits",
+          "url": "https://www.youtube.com/@RetireesBenefits"
+        }
+      ],
       "notes": ""
     },
     "cat_22191641bb": {
@@ -126,31 +258,10 @@
       ],
       "notes": ""
     },
-    "cat_166dc7a314": {
-      "id": "cat_166dc7a314",
-      "name": "Nichos YT",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_178f6f0ee4": {
-      "id": "cat_178f6f0ee4",
-      "name": "Scraping",
-      "parent_id": "cat_fe55075b54",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://github.com/SaifyXPRO/HeadlessX",
-          "url": "https://github.com/SaifyXPRO/HeadlessX"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_870b09e765": {
-      "id": "cat_870b09e765",
-      "name": "IDE",
-      "parent_id": "cat_fe55075b54",
+    "cat_c0688f1904": {
+      "id": "cat_c0688f1904",
+      "name": "GYM",
+      "parent_id": null,
       "icon": "Carpeta",
       "links": [],
       "notes": ""
@@ -172,43 +283,11 @@
       ],
       "notes": ""
     },
-    "cat_5a0f0da494": {
-      "id": "cat_5a0f0da494",
-      "name": "Creación Script",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_842e206757": {
-      "id": "cat_842e206757",
-      "name": "Branding",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_c0688f1904": {
-      "id": "cat_c0688f1904",
-      "name": "GYM",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_c440a1a783": {
-      "id": "cat_c440a1a783",
-      "name": "TTS",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Música",
-      "links": [],
-      "notes": ""
-    },
-    "cat_d5994bbbbf": {
-      "id": "cat_d5994bbbbf",
-      "name": "Configuración Canal",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
+    "cat_37b5949c63": {
+      "id": "cat_37b5949c63",
+      "name": "Animación 3D",
+      "parent_id": "cat_825972068f",
+      "icon": "Juegos",
       "links": [],
       "notes": ""
     },
@@ -216,6 +295,27 @@
       "id": "cat_25b17b96df",
       "name": "Mejora app clusiv data",
       "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_178f6f0ee4": {
+      "id": "cat_178f6f0ee4",
+      "name": "Scraping",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://github.com/SaifyXPRO/HeadlessX",
+          "url": "https://github.com/SaifyXPRO/HeadlessX"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_5a0f0da494": {
+      "id": "cat_5a0f0da494",
+      "name": "Creación Script",
+      "parent_id": "cat_dd4592d9f6",
       "icon": "Carpeta",
       "links": [],
       "notes": ""
@@ -228,46 +328,9 @@
       "links": [],
       "notes": ""
     },
-    "cat_eb5122363a": {
-      "id": "cat_eb5122363a",
-      "name": "YTA",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_fda9895a7a": {
-      "id": "cat_fda9895a7a",
-      "name": "Gym",
-      "parent_id": "cat_166dc7a314",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "Phantom Core",
-          "url": "https://www.youtube.com/@phantomcorefitness"
-        },
-        {
-          "title": "BlueGym Animation",
-          "url": "https://www.youtube.com/@Bluegymanimation"
-        },
-        {
-          "title": "Captain Workout",
-          "url": "https://www.youtube.com/@captainworkoutYT"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_27cc4ed622": {
-      "id": "cat_27cc4ed622",
-      "name": "Multilogin Session",
-      "parent_id": "cat_eb5122363a",
-      "icon": "Ideas",
-      "links": [],
-      "notes": ""
-    },
-    "cat_7845533581": {
-      "id": "cat_7845533581",
-      "name": "Generación imágenes",
+    "cat_825972068f": {
+      "id": "cat_825972068f",
+      "name": "Edición",
       "parent_id": "cat_dd4592d9f6",
       "icon": "Carpeta",
       "links": [],
@@ -402,65 +465,10 @@
       ],
       "notes": ""
     },
-    "cat_251f9bf53d": {
-      "id": "cat_251f9bf53d",
-      "name": "Tools",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "Dominios gratuitos",
-          "url": "https://github.com/DigitalPlatDev/FreeDomain"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_1488b0fb41": {
-      "id": "cat_1488b0fb41",
-      "name": "Social Security",
-      "parent_id": "cat_166dc7a314",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://www.youtube.com/@RetireesBenefits",
-          "url": "https://www.youtube.com/@RetireesBenefits"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_86c43d66ca": {
-      "id": "cat_86c43d66ca",
-      "name": "Second Brain",
+    "cat_870b09e765": {
+      "id": "cat_870b09e765",
+      "name": "IDE",
       "parent_id": "cat_fe55075b54",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://x.com/carlosazaustre/status/2040855361410789749?s=20",
-          "url": "https://x.com/carlosazaustre/status/2040855361410789749?s=20"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_c0797a66fa": {
-      "id": "cat_c0797a66fa",
-      "name": "Taxes",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "general": {
-      "id": "general",
-      "name": "General",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_c0a05915f7": {
-      "id": "cat_c0a05915f7",
-      "name": "Nombres Marcas",
-      "parent_id": "cat_842e206757",
       "icon": "Carpeta",
       "links": [],
       "notes": ""
@@ -953,7 +961,7 @@
     },
     {
       "title": "Mejoras",
-      "comment": "Las notas que no tienen titulo en la previsualización me deben mostrar el (contenido / comentario) pero no en negrilla\nEl buscador no esta buscando en los enlaces por ejemplo busque esto: https://github.com/oxylabs/google-ai-mode-scraper y no lo reconocio y ya estaba en los enlaces\nEl botón de nueva categoria debe ser quitado y lo que lo debe reemplazar es un botón como el del más que aparezca en la sección de categorias\nEn la sección de textos rapidos la caja que guarde el texto debe tener un botón para editar esto con el fin de que yo le pueda dar clic en cualquier parte de la caja y que copie automaticamente el texto al clipboard y no que abre el modal de edición como lo hace actualmente",
+      "comment": "Necesito en el sidepanel integrar una sección que se llame: (Asistente AI) y en esta sección lo que necesito es desarrollar una sección tipo chat, que me permita hablar y utilizar un modelo llm desde el proveedor nvidia al cual yo le pueda realizar una pregunta y este me responda en base a todo mi conocimiento que tengo guardado (categorias, subcategorias, notas, tareas, enlaces) para esto necesito que el llm entienda el contexto de como esta estructurada y guardada la información por ejemplo con sus jerarquias (categorias, subcategorias)",
       "images": [],
       "type": "note",
       "done": false,
@@ -974,9 +982,30 @@
       "type": "note",
       "done": false,
       "category_id": "cat_dd4592d9f6"
+    },
+    {
+      "title": "",
+      "comment": "Siempre es mejor utilizar la estrategia de dividir en pequeños pasos la realización de un proyecto o mejora, para alcanzar el objetivo más grande",
+      "images": [],
+      "type": "note",
+      "done": false,
+      "category_id": "cat_fe55075b54"
+    },
+    {
+      "title": "Fuentes para desarrollo web",
+      "comment": "https://fontsource.org/\nhttps://x.com/midudev/status/2043351754775933264?s=20",
+      "images": [],
+      "type": "note",
+      "done": false,
+      "category_id": "cat_089a690520"
     }
   ],
   "__SYSTEM_QUICK_TEXTS__": [
+    {
+      "id": "1f8b90a0-646a-4d4f-90f3-59b44bd57365",
+      "title": "Prompt AI Asistente",
+      "content": "Dame toda la información relacionada a:"
+    },
     {
       "id": "435d8e6e-83af-4a24-9132-b038d999afa2",
       "title": "caniuse",

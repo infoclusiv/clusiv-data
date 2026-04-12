@@ -11,11 +11,67 @@ import type {
   AiConfig,
   AiConfigInput,
   AiKnowledgeContext,
+  AiModelProfile,
 } from "$lib/store/types";
 import { buildAiKnowledgeContext } from "$lib/utils/aiContext";
 
 interface AiConfigDraft extends AiConfigInput {
   apiKey: string;
+}
+
+function normalizeModelKey(model: string): string {
+  return model.trim().toLowerCase();
+}
+
+function createFallbackModelProfile(
+  model: string,
+  temperature: number,
+  topP: number,
+  maxTokens: number,
+): AiModelProfile {
+  const trimmedModel = model.trim();
+  const safeTemperature = Number.isFinite(temperature) ? temperature : 0.7;
+  const safeTopP = Number.isFinite(topP) ? topP : 0.95;
+  const safeMaxTokens = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.floor(maxTokens) : 8192;
+
+  return {
+    key: trimmedModel || "custom",
+    label: trimmedModel || "Modelo personalizado",
+    description: "Perfil flexible para modelos personalizados. La validación definitiva la hace el backend.",
+    isKnown: false,
+    temperature: {
+      defaultValue: safeTemperature,
+      min: 0,
+      max: 2,
+      step: 0.05,
+    },
+    topP: {
+      defaultValue: safeTopP,
+      min: 0,
+      max: 1,
+      step: 0.01,
+    },
+    maxTokens: {
+      defaultValue: safeMaxTokens,
+      min: 1,
+      max: null,
+      step: 1,
+    },
+  };
+}
+
+function getMatchingModelProfile(model: string, availableProfiles: AiModelProfile[]): AiModelProfile | null {
+  const nextModelKey = normalizeModelKey(model);
+  if (!nextModelKey) {
+    return null;
+  }
+
+  return availableProfiles.find((profile) => normalizeModelKey(profile.key) === nextModelKey) ?? null;
+}
+
+function resolveDraftModelProfile(config: AiConfig, draft: AiConfigDraft): AiModelProfile {
+  return getMatchingModelProfile(draft.model, config.availableProfiles)
+    ?? createFallbackModelProfile(draft.model, Number(draft.temperature), Number(draft.topP), Number(draft.maxTokens));
 }
 
 function createDefaultAiConfig(): AiConfig {
@@ -28,6 +84,8 @@ function createDefaultAiConfig(): AiConfig {
     maxTokens: 8192,
     hasApiKey: false,
     apiKeyMask: null,
+    availableProfiles: [],
+    activeModelProfile: createFallbackModelProfile("minimaxai/minimax-m2.7", 0.2, 0.95, 8192),
   };
 }
 
@@ -59,9 +117,12 @@ function createMessage(
   };
 }
 
+const defaultAiConfig = createDefaultAiConfig();
+
 export const aiAssistantState = $state({
-  config: createDefaultAiConfig(),
-  draft: createDraftFromConfig(createDefaultAiConfig()),
+  config: defaultAiConfig,
+  draft: createDraftFromConfig(defaultAiConfig),
+  draftModelProfile: defaultAiConfig.activeModelProfile,
   messages: [] as AiChatMessage[],
   lastContext: null as AiKnowledgeContext | null,
   includeCurrentCategory: true,
@@ -76,9 +137,16 @@ export const aiAssistantState = $state({
 });
 
 let streamListenerPromise: Promise<UnlistenFn> | null = null;
+let lastAutoAppliedPresetModelKey: string | null = normalizeModelKey(defaultAiConfig.model) || null;
 
 function syncDraftFromConfig(config: AiConfig): void {
   aiAssistantState.draft = createDraftFromConfig(config);
+  aiAssistantState.draftModelProfile = resolveDraftModelProfile(config, aiAssistantState.draft);
+  lastAutoAppliedPresetModelKey = normalizeModelKey(config.model) || null;
+}
+
+function refreshDraftModelProfile(): void {
+  aiAssistantState.draftModelProfile = resolveDraftModelProfile(aiAssistantState.config, aiAssistantState.draft);
 }
 
 function findAssistantMessageIndex(requestId: string): number {
@@ -260,7 +328,6 @@ export async function loadAiConfig(): Promise<void> {
     });
 
     showSnackbar(aiAssistantState.lastError, "error");
-    throw error;
   } finally {
     aiAssistantState.isLoadingConfig = false;
   }
@@ -299,6 +366,35 @@ export function resetAiConversation(): void {
   aiAssistantState.lastError = null;
 }
 
+export function updateAiDraftModel(model: string): void {
+  aiAssistantState.draft.model = model;
+
+  const matchingProfile = getMatchingModelProfile(model, aiAssistantState.config.availableProfiles);
+  if (!matchingProfile) {
+    lastAutoAppliedPresetModelKey = null;
+    refreshDraftModelProfile();
+    return;
+  }
+
+  const nextPresetKey = normalizeModelKey(matchingProfile.key);
+  if (nextPresetKey !== lastAutoAppliedPresetModelKey) {
+    aiAssistantState.draft.temperature = matchingProfile.temperature.defaultValue;
+    aiAssistantState.draft.topP = matchingProfile.topP.defaultValue;
+    aiAssistantState.draft.maxTokens = matchingProfile.maxTokens.defaultValue;
+  }
+
+  lastAutoAppliedPresetModelKey = nextPresetKey;
+  aiAssistantState.draftModelProfile = matchingProfile;
+}
+
+export function syncAiDraftModelProfile(): void {
+  if (!getMatchingModelProfile(aiAssistantState.draft.model, aiAssistantState.config.availableProfiles)) {
+    lastAutoAppliedPresetModelKey = null;
+  }
+
+  refreshDraftModelProfile();
+}
+
 export async function saveAiConfig(): Promise<void> {
   if (aiAssistantState.isSavingConfig) {
     return;
@@ -322,7 +418,6 @@ export async function saveAiConfig(): Promise<void> {
       ? error.message
       : "No se pudo guardar la configuración del asistente.";
     showSnackbar(aiAssistantState.lastError, "error");
-    throw error;
   } finally {
     aiAssistantState.isSavingConfig = false;
   }
@@ -345,7 +440,6 @@ export async function testAiConfig(): Promise<void> {
       error instanceof Error ? error.message : "No se pudo validar la conexión con NVIDIA.",
       "error",
     );
-    throw error;
   } finally {
     aiAssistantState.isTestingConfig = false;
   }
