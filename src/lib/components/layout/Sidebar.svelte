@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Bug, Clipboard, Download, FolderOpen, ListChecks, Search } from "lucide-svelte";
+  import { Bot, Bug, Clipboard, Download, FolderOpen, ListChecks, Search } from "lucide-svelte";
 
   import NavRail from "$lib/components/layout/NavRail.svelte";
   import {
@@ -10,6 +10,7 @@
     appState,
     createBackup,
     openBackupDirectory,
+    showAiAssistant,
     setSidebarWidth,
     showBoard,
     showLogs,
@@ -120,6 +121,16 @@
     >
       <Search size={16} />
       Buscar
+    </button>
+  </div>
+
+  <div class="px-3 pb-3">
+    <button
+      class={`btn-ghost w-full justify-start ${appState.currentView === "ai-assistant" ? "bg-white text-brand-800 shadow-sm ring-1 ring-brand-100" : "bg-white/65"}`}
+      onclick={() => showAiAssistant()}
+    >
+      <Bot size={16} />
+      Asistente AI
     </button>
   </div>
 

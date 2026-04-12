@@ -37,6 +37,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::data::load_data,
             commands::data::save_data,
+            commands::llm::get_ai_config,
+            commands::llm::save_ai_config,
+            commands::llm::test_ai_config,
+            commands::llm::start_ai_chat_stream,
             commands::backup::create_backup,
             commands::backup::open_backup_directory,
             commands::logs::append_frontend_log,

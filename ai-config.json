@@ -1,0 +1,9 @@
+{
+  "provider": "nvidia",
+  "apiBase": "https://integrate.api.nvidia.com/v1",
+  "model": "stepfun-ai/step-3.5-flash",
+  "apiKey": "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",
+  "temperature": 0.2,
+  "topP": 0.95,
+  "maxTokens": 8192
+}

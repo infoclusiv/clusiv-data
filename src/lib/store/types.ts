@@ -1,7 +1,12 @@
 export type ItemType = "task" | "note";
-export type AppView = "welcome" | "category" | "board" | "logs" | "quick-texts" | "search";
+export type AppView = "welcome" | "category" | "board" | "logs" | "quick-texts" | "search" | "ai-assistant";
 export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
+export type AiProvider = "nvidia";
+export type AiChatRole = "user" | "assistant";
+export type AiChatMessageStatus = "done" | "streaming" | "error";
+export type AiKnowledgeEntryType = "category" | "note" | "task" | "link" | "quick-text";
+export type AiChatStreamEventKind = "started" | "delta" | "complete" | "error";
 
 export interface Link {
   title: string;
@@ -89,4 +94,89 @@ export interface ItemFormInput {
 export interface QuickTextFormInput {
   title: string;
   content: string;
+}
+
+export interface AiConfig {
+  provider: AiProvider;
+  apiBase: string;
+  model: string;
+  temperature: number;
+  topP: number;
+  maxTokens: number;
+  hasApiKey: boolean;
+  apiKeyMask: string | null;
+}
+
+export interface AiConfigInput {
+  provider: AiProvider;
+  apiBase: string;
+  model: string;
+  temperature: number;
+  topP: number;
+  maxTokens: number;
+  apiKey?: string;
+}
+
+export interface AiChatMessage {
+  id: string;
+  role: AiChatRole;
+  content: string;
+  createdAt: string;
+  status: AiChatMessageStatus;
+  requestId: string | null;
+}
+
+export interface AiKnowledgeSummary {
+  categoryCount: number;
+  itemCount: number;
+  linkCount: number;
+  quickTextCount: number;
+  evidenceCount: number;
+}
+
+export interface AiCategoryOutlineEntry {
+  id: string;
+  name: string;
+  breadcrumb: string;
+  depth: number;
+  childCount: number;
+  itemCount: number;
+  linkCount: number;
+  notesPreview: string;
+}
+
+export interface AiKnowledgeEntry {
+  id: string;
+  type: AiKnowledgeEntryType;
+  title: string;
+  breadcrumb: string;
+  preview: string;
+  score: number;
+  content: string;
+}
+
+export interface AiKnowledgeContext {
+  query: string;
+  summary: AiKnowledgeSummary;
+  hierarchyOutline: AiCategoryOutlineEntry[];
+  activeCategory: AiKnowledgeEntry | null;
+  evidence: AiKnowledgeEntry[];
+}
+
+export interface AiChatRequestMessage {
+  role: AiChatRole;
+  content: string;
+}
+
+export interface AiChatRequest {
+  requestId: string;
+  messages: AiChatRequestMessage[];
+  context: AiKnowledgeContext;
+}
+
+export interface AiChatStreamEvent {
+  requestId: string;
+  kind: AiChatStreamEventKind;
+  delta?: string;
+  message?: string;
 }
