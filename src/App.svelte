@@ -4,7 +4,6 @@
   import Sidebar from "$lib/components/layout/Sidebar.svelte";
   import Snackbar from "$lib/components/ui/Snackbar.svelte";
   import { appState, initializeApp } from "$lib/store/appState.svelte";
-  import AiAssistantView from "$lib/views/AiAssistantView.svelte";
   import BoardView from "$lib/views/BoardView.svelte";
   import CategoryView from "$lib/views/CategoryView.svelte";
   import LogsView from "$lib/views/LogsView.svelte";
@@ -42,8 +41,6 @@
           <QuickTextsView />
         {:else if appState.currentView === "search"}
           <SearchView />
-        {:else if appState.currentView === "ai-assistant"}
-          <AiAssistantView />
         {:else}
           <WelcomeView />
         {/if}

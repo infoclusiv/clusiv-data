@@ -821,27 +821,6 @@ export function showSearch(options: NavigationOptions = {}): void {
   });
 }
 
-export function showAiAssistant(options: NavigationOptions = {}): void {
-  navigate(
-    {
-      view: "ai-assistant",
-      categoryId: appState.currentCategoryId,
-      boardMode: appState.currentBoardMode,
-      boardFilterId: null,
-    },
-    options,
-  );
-
-  logClientEvent({
-    source: "navigation",
-    action: "show_ai_assistant",
-    message: "Navigated to AI assistant view.",
-    context: {
-      currentCategoryId: appState.currentCategoryId,
-    },
-  });
-}
-
 export function setSearchQuery(query: string): void {
   appState.searchQuery = query;
 }

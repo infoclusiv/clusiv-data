@@ -1,27 +1,11 @@
 {
   "__SCHEMA_VERSION__": 5,
   "__SYSTEM_CATEGORIES__": {
-    "cat_089a690520": {
-      "id": "cat_089a690520",
-      "name": "Desarrollo web",
+    "cat_dd4592d9f6": {
+      "id": "cat_dd4592d9f6",
+      "name": "YT",
       "parent_id": null,
-      "icon": "Código",
-      "links": [],
-      "notes": ""
-    },
-    "cat_6d0de53028": {
-      "id": "cat_6d0de53028",
-      "name": "Skills",
-      "parent_id": "cat_fe55075b54",
       "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_27cc4ed622": {
-      "id": "cat_27cc4ed622",
-      "name": "Multilogin Session",
-      "parent_id": "cat_eb5122363a",
-      "icon": "Ideas",
       "links": [],
       "notes": ""
     },
@@ -33,313 +17,10 @@
       "links": [],
       "notes": ""
     },
-    "cat_166dc7a314": {
-      "id": "cat_166dc7a314",
-      "name": "Nichos YT",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_86c43d66ca": {
-      "id": "cat_86c43d66ca",
-      "name": "Second Brain",
-      "parent_id": "cat_fe55075b54",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://x.com/carlosazaustre/status/2040855361410789749?s=20",
-          "url": "https://x.com/carlosazaustre/status/2040855361410789749?s=20"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_c0a05915f7": {
-      "id": "cat_c0a05915f7",
-      "name": "Nombres Marcas",
-      "parent_id": "cat_842e206757",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_d5994bbbbf": {
-      "id": "cat_d5994bbbbf",
-      "name": "Configuración Canal",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_c0797a66fa": {
-      "id": "cat_c0797a66fa",
-      "name": "Taxes",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_c440a1a783": {
-      "id": "cat_c440a1a783",
-      "name": "TTS",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Música",
-      "links": [],
-      "notes": ""
-    },
-    "cat_fda9895a7a": {
-      "id": "cat_fda9895a7a",
-      "name": "Gym",
-      "parent_id": "cat_166dc7a314",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "Phantom Core",
-          "url": "https://www.youtube.com/@phantomcorefitness"
-        },
-        {
-          "title": "BlueGym Animation",
-          "url": "https://www.youtube.com/@Bluegymanimation"
-        },
-        {
-          "title": "Captain Workout",
-          "url": "https://www.youtube.com/@captainworkoutYT"
-        }
-      ],
-      "notes": ""
-    },
-    "general": {
-      "id": "general",
-      "name": "General",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_251f9bf53d": {
-      "id": "cat_251f9bf53d",
-      "name": "Tools",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "Dominios gratuitos",
-          "url": "https://github.com/DigitalPlatDev/FreeDomain"
-        }
-      ],
-      "notes": ""
-    },
     "cat_7845533581": {
       "id": "cat_7845533581",
       "name": "Generación imágenes",
       "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_eb5122363a": {
-      "id": "cat_eb5122363a",
-      "name": "YTA",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_1488b0fb41": {
-      "id": "cat_1488b0fb41",
-      "name": "Social Security",
-      "parent_id": "cat_166dc7a314",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://www.youtube.com/@RetireesBenefits",
-          "url": "https://www.youtube.com/@RetireesBenefits"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_22191641bb": {
-      "id": "cat_22191641bb",
-      "name": "Consejos Financieros",
-      "parent_id": "cat_166dc7a314",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://www.youtube.com/@TaeKimFinancialTortoise",
-          "url": "https://www.youtube.com/@TaeKimFinancialTortoise"
-        },
-        {
-          "title": "https://www.youtube.com/@humphrey/videos",
-          "url": "https://www.youtube.com/@humphrey/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@nischa/videos",
-          "url": "https://www.youtube.com/@nischa/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@TobyMathis/videos",
-          "url": "https://www.youtube.com/@TobyMathis/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@itsrosehan/videos",
-          "url": "https://www.youtube.com/@itsrosehan/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@foundryfinancial/videos",
-          "url": "https://www.youtube.com/@foundryfinancial/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@GeorgeGammon/videos",
-          "url": "https://www.youtube.com/@GeorgeGammon/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@JamesShack/videos",
-          "url": "https://www.youtube.com/@JamesShack/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@alux/videos",
-          "url": "https://www.youtube.com/@alux/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@marktilbury/videos",
-          "url": "https://www.youtube.com/@marktilbury/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@SmartMoneyBro/videos",
-          "url": "https://www.youtube.com/@SmartMoneyBro/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@MinorityMindset/videos",
-          "url": "https://www.youtube.com/@MinorityMindset/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@AzulWells/videos",
-          "url": "https://www.youtube.com/@AzulWells/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@karltondennis/videos",
-          "url": "https://www.youtube.com/@karltondennis/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@MatSorensen/videos",
-          "url": "https://www.youtube.com/@MatSorensen/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@onedegreeadvisors/videos",
-          "url": "https://www.youtube.com/@onedegreeadvisors/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@taxleverage/videos",
-          "url": "https://www.youtube.com/@taxleverage/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@LowIncomeRelief/videos",
-          "url": "https://www.youtube.com/@LowIncomeRelief/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@moneyinstructor",
-          "url": "https://www.youtube.com/@moneyinstructor"
-        },
-        {
-          "title": "https://www.youtube.com/@SiliconValleyGirl/videos",
-          "url": "https://www.youtube.com/@SiliconValleyGirl/videos"
-        },
-        {
-          "title": "https://www.youtube.com/@nickinvestsUS",
-          "url": "https://www.youtube.com/@nickinvestsUS"
-        },
-        {
-          "title": "https://www.youtube.com/@bobinvestsUS",
-          "url": "https://www.youtube.com/@bobinvestsUS"
-        },
-        {
-          "title": "https://www.youtube.com/@EconemyMeetHistory",
-          "url": "https://www.youtube.com/@EconemyMeetHistory"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_c0688f1904": {
-      "id": "cat_c0688f1904",
-      "name": "GYM",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_bdf8fbe9eb": {
-      "id": "cat_bdf8fbe9eb",
-      "name": "API's Free",
-      "parent_id": "cat_fe55075b54",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://github.com/cheahjs/free-llm-api-resources",
-          "url": "https://github.com/cheahjs/free-llm-api-resources"
-        },
-        {
-          "title": "https://genaipro.vn/",
-          "url": "https://genaipro.vn/"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_37b5949c63": {
-      "id": "cat_37b5949c63",
-      "name": "Animación 3D",
-      "parent_id": "cat_825972068f",
-      "icon": "Juegos",
-      "links": [],
-      "notes": ""
-    },
-    "cat_25b17b96df": {
-      "id": "cat_25b17b96df",
-      "name": "Mejora app clusiv data",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_178f6f0ee4": {
-      "id": "cat_178f6f0ee4",
-      "name": "Scraping",
-      "parent_id": "cat_fe55075b54",
-      "icon": "Carpeta",
-      "links": [
-        {
-          "title": "https://github.com/SaifyXPRO/HeadlessX",
-          "url": "https://github.com/SaifyXPRO/HeadlessX"
-        }
-      ],
-      "notes": ""
-    },
-    "cat_5a0f0da494": {
-      "id": "cat_5a0f0da494",
-      "name": "Creación Script",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_dd4592d9f6": {
-      "id": "cat_dd4592d9f6",
-      "name": "YT",
-      "parent_id": null,
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_825972068f": {
-      "id": "cat_825972068f",
-      "name": "Edición",
-      "parent_id": "cat_dd4592d9f6",
-      "icon": "Carpeta",
-      "links": [],
-      "notes": ""
-    },
-    "cat_fe55075b54": {
-      "id": "cat_fe55075b54",
-      "name": "AI",
-      "parent_id": null,
       "icon": "Carpeta",
       "links": [],
       "notes": ""
@@ -465,12 +146,353 @@
       ],
       "notes": ""
     },
+    "cat_25b17b96df": {
+      "id": "cat_25b17b96df",
+      "name": "Mejora app clusiv data",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_c440a1a783": {
+      "id": "cat_c440a1a783",
+      "name": "TTS",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Música",
+      "links": [],
+      "notes": ""
+    },
+    "cat_166dc7a314": {
+      "id": "cat_166dc7a314",
+      "name": "Nichos YT",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_eb5122363a": {
+      "id": "cat_eb5122363a",
+      "name": "YTA",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_fda9895a7a": {
+      "id": "cat_fda9895a7a",
+      "name": "Gym",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "Phantom Core",
+          "url": "https://www.youtube.com/@phantomcorefitness"
+        },
+        {
+          "title": "BlueGym Animation",
+          "url": "https://www.youtube.com/@Bluegymanimation"
+        },
+        {
+          "title": "Captain Workout",
+          "url": "https://www.youtube.com/@captainworkoutYT"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_1488b0fb41": {
+      "id": "cat_1488b0fb41",
+      "name": "Social Security",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://www.youtube.com/@RetireesBenefits",
+          "url": "https://www.youtube.com/@RetireesBenefits"
+        }
+      ],
+      "notes": ""
+    },
+    "general": {
+      "id": "general",
+      "name": "General",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_37b5949c63": {
+      "id": "cat_37b5949c63",
+      "name": "Animación 3D",
+      "parent_id": "cat_825972068f",
+      "icon": "Juegos",
+      "links": [],
+      "notes": ""
+    },
+    "cat_6d0de53028": {
+      "id": "cat_6d0de53028",
+      "name": "Skills",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://x.com/midudev/status/2044399617450660023",
+          "url": "https://x.com/midudev/status/2044399617450660023"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_27cc4ed622": {
+      "id": "cat_27cc4ed622",
+      "name": "Multilogin Session",
+      "parent_id": "cat_eb5122363a",
+      "icon": "Ideas",
+      "links": [],
+      "notes": ""
+    },
+    "cat_86c43d66ca": {
+      "id": "cat_86c43d66ca",
+      "name": "Second Brain",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://x.com/carlosazaustre/status/2040855361410789749?s=20",
+          "url": "https://x.com/carlosazaustre/status/2040855361410789749?s=20"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_825972068f": {
+      "id": "cat_825972068f",
+      "name": "Edición",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_bdf8fbe9eb": {
+      "id": "cat_bdf8fbe9eb",
+      "name": "API's Free",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://github.com/cheahjs/free-llm-api-resources",
+          "url": "https://github.com/cheahjs/free-llm-api-resources"
+        },
+        {
+          "title": "https://genaipro.vn/",
+          "url": "https://genaipro.vn/"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_c0797a66fa": {
+      "id": "cat_c0797a66fa",
+      "name": "Taxes",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_089a690520": {
+      "id": "cat_089a690520",
+      "name": "Desarrollo web",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Código",
+      "links": [],
+      "notes": ""
+    },
+    "cat_178f6f0ee4": {
+      "id": "cat_178f6f0ee4",
+      "name": "Scraping",
+      "parent_id": "cat_fe55075b54",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://github.com/SaifyXPRO/HeadlessX",
+          "url": "https://github.com/SaifyXPRO/HeadlessX"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_22191641bb": {
+      "id": "cat_22191641bb",
+      "name": "Consejos Financieros",
+      "parent_id": "cat_166dc7a314",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://www.youtube.com/@TaeKimFinancialTortoise",
+          "url": "https://www.youtube.com/@TaeKimFinancialTortoise"
+        },
+        {
+          "title": "https://www.youtube.com/@humphrey/videos",
+          "url": "https://www.youtube.com/@humphrey/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@nischa/videos",
+          "url": "https://www.youtube.com/@nischa/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@TobyMathis/videos",
+          "url": "https://www.youtube.com/@TobyMathis/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@itsrosehan/videos",
+          "url": "https://www.youtube.com/@itsrosehan/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@foundryfinancial/videos",
+          "url": "https://www.youtube.com/@foundryfinancial/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@GeorgeGammon/videos",
+          "url": "https://www.youtube.com/@GeorgeGammon/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@JamesShack/videos",
+          "url": "https://www.youtube.com/@JamesShack/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@alux/videos",
+          "url": "https://www.youtube.com/@alux/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@marktilbury/videos",
+          "url": "https://www.youtube.com/@marktilbury/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@SmartMoneyBro/videos",
+          "url": "https://www.youtube.com/@SmartMoneyBro/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@MinorityMindset/videos",
+          "url": "https://www.youtube.com/@MinorityMindset/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@AzulWells/videos",
+          "url": "https://www.youtube.com/@AzulWells/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@karltondennis/videos",
+          "url": "https://www.youtube.com/@karltondennis/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@MatSorensen/videos",
+          "url": "https://www.youtube.com/@MatSorensen/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@onedegreeadvisors/videos",
+          "url": "https://www.youtube.com/@onedegreeadvisors/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@taxleverage/videos",
+          "url": "https://www.youtube.com/@taxleverage/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@LowIncomeRelief/videos",
+          "url": "https://www.youtube.com/@LowIncomeRelief/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@moneyinstructor",
+          "url": "https://www.youtube.com/@moneyinstructor"
+        },
+        {
+          "title": "https://www.youtube.com/@SiliconValleyGirl/videos",
+          "url": "https://www.youtube.com/@SiliconValleyGirl/videos"
+        },
+        {
+          "title": "https://www.youtube.com/@nickinvestsUS",
+          "url": "https://www.youtube.com/@nickinvestsUS"
+        },
+        {
+          "title": "https://www.youtube.com/@bobinvestsUS",
+          "url": "https://www.youtube.com/@bobinvestsUS"
+        },
+        {
+          "title": "https://www.youtube.com/@EconemyMeetHistory",
+          "url": "https://www.youtube.com/@EconemyMeetHistory"
+        }
+      ],
+      "notes": ""
+    },
     "cat_870b09e765": {
       "id": "cat_870b09e765",
       "name": "IDE",
       "parent_id": "cat_fe55075b54",
       "icon": "Carpeta",
       "links": [],
+      "notes": ""
+    },
+    "cat_9c280ab35d": {
+      "id": "cat_9c280ab35d",
+      "name": "Creación canal",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "https://grok.com/share/bGVnYWN5_1484ccd7-651e-43bd-9a56-176da9766fde",
+          "url": "https://grok.com/share/bGVnYWN5_1484ccd7-651e-43bd-9a56-176da9766fde"
+        },
+        {
+          "title": "https://x.com/i/grok/share/956a5a23e6804129b50a360199a3b33e",
+          "url": "https://x.com/i/grok/share/956a5a23e6804129b50a360199a3b33e"
+        }
+      ],
+      "notes": ""
+    },
+    "cat_fe55075b54": {
+      "id": "cat_fe55075b54",
+      "name": "AI",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_5a0f0da494": {
+      "id": "cat_5a0f0da494",
+      "name": "Creación Script",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_d5994bbbbf": {
+      "id": "cat_d5994bbbbf",
+      "name": "Configuración Canal",
+      "parent_id": "cat_dd4592d9f6",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_c0a05915f7": {
+      "id": "cat_c0a05915f7",
+      "name": "Nombres Marcas",
+      "parent_id": "cat_842e206757",
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_c0688f1904": {
+      "id": "cat_c0688f1904",
+      "name": "GYM",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [],
+      "notes": ""
+    },
+    "cat_251f9bf53d": {
+      "id": "cat_251f9bf53d",
+      "name": "Tools",
+      "parent_id": null,
+      "icon": "Carpeta",
+      "links": [
+        {
+          "title": "Dominios gratuitos",
+          "url": "https://github.com/DigitalPlatDev/FreeDomain"
+        }
+      ],
       "notes": ""
     }
   },
@@ -489,7 +511,7 @@
       "images": [],
       "type": "note",
       "done": false,
-      "category_id": "cat_dd4592d9f6"
+      "category_id": "cat_166dc7a314"
     },
     {
       "title": "Fuentes de contenido",
@@ -529,7 +551,7 @@
       "images": [],
       "type": "note",
       "done": false,
-      "category_id": "cat_dd4592d9f6"
+      "category_id": "cat_825972068f"
     },
     {
       "title": "Diseño videos",
@@ -961,7 +983,7 @@
     },
     {
       "title": "Mejoras",
-      "comment": "Necesito en el sidepanel integrar una sección que se llame: (Asistente AI) y en esta sección lo que necesito es desarrollar una sección tipo chat, que me permita hablar y utilizar un modelo llm desde el proveedor nvidia al cual yo le pueda realizar una pregunta y este me responda en base a todo mi conocimiento que tengo guardado (categorias, subcategorias, notas, tareas, enlaces) para esto necesito que el llm entienda el contexto de como esta estructurada y guardada la información por ejemplo con sus jerarquias (categorias, subcategorias)",
+      "comment": "Podemos hacer un rag tipo con llamaindex\nSe puede utilizar este stack: https://chatgpt.com/share/69dc34ac-fcdc-83e9-b790-2a2b0bc1436b\nRevisar el nuevo paradigma que es más avanzado que rag Recursive Language models\nRevisar como implementar",
       "images": [],
       "type": "note",
       "done": false,
