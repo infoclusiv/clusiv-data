@@ -23,6 +23,12 @@ desktop.ini
 
 # App data (personal)
 data.json
+ai-config.json
+logs/
+backups/
+.env
+.env.*
+!.env.example
 
 # Shortcuts
 *.lnk

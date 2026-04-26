@@ -50,6 +50,21 @@ export const DEFAULT_SIDEBAR_WIDTH = 240;
 export const MIN_SIDEBAR_WIDTH = 208;
 export const MAX_SIDEBAR_WIDTH = 420;
 
+const REDACTED_LOG_VALUE = "[REDACTED]";
+const SENSITIVE_LOG_FIELD_NAMES = new Set([
+  "apikey",
+  "authorization",
+  "authtoken",
+  "accesstoken",
+  "refreshtoken",
+  "secret",
+  "password",
+  "token",
+  "cookie",
+  "setcookie",
+  "clientsecret",
+]);
+
 interface FrontendLogEvent {
   level?: LogLevel;
   source: string;
@@ -95,18 +110,133 @@ function getUrlHost(url: string): string | null {
   }
 }
 
-export function getLogErrorContext(error: unknown): Record<string, unknown> {
-  if (error instanceof Error) {
+function getUrlLogContext(url: string): Record<string, unknown> {
+  try {
+    const parsed = new URL(url);
     return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack ?? null,
+      host: parsed.host || null,
+      protocol: parsed.protocol.replace(/:$/, ""),
+      hasCredentials: Boolean(parsed.username || parsed.password),
+      hasHash: parsed.hash.length > 0,
+      hasQueryString: parsed.search.length > 0,
+    };
+  } catch {
+    return {
+      host: getUrlHost(url),
+      isValidUrl: false,
+    };
+  }
+}
+
+function isSensitiveLogFieldName(key: string): boolean {
+  return SENSITIVE_LOG_FIELD_NAMES.has(key.replace(/[_-]/g, "").toLowerCase());
+}
+
+function sanitizeLoggedUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    const hadSensitiveParts =
+      parsed.username.length > 0 ||
+      parsed.password.length > 0 ||
+      parsed.search.length > 0 ||
+      parsed.hash.length > 0;
+
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+
+    const sanitizedUrl = parsed.toString();
+    return hadSensitiveParts ? `${sanitizedUrl} ${REDACTED_LOG_VALUE}` : sanitizedUrl;
+  } catch {
+    return rawUrl;
+  }
+}
+
+function sanitizeLogString(value: string): string {
+  return value
+    .replace(/\bhttps?:\/\/[^\s"'<>]+/gi, (match) => sanitizeLoggedUrl(match))
+    .replace(/(Bearer)\s+[A-Za-z0-9._-]{8,}/gi, `$1 ${REDACTED_LOG_VALUE}`)
+    .replace(
+      /((?:api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|auth|secret|password|token)\s*[:=]\s*)["']?[^"',\s}]+/gi,
+      `$1${REDACTED_LOG_VALUE}`,
+    )
+    .replace(
+      /([?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|auth|secret|password|token)=)[^&#\s]+/gi,
+      `$1${REDACTED_LOG_VALUE}`,
+    );
+}
+
+function sanitizeLogValue(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (value === null || value === undefined) {
+    return value ?? null;
+  }
+
+  if (typeof value === "string") {
+    return sanitizeLogString(value);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeLogValue(entry, seen));
+  }
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: sanitizeLogString(value.message),
+      stack: value.stack ? sanitizeLogString(value.stack) : null,
     };
   }
 
-  return {
+  if (typeof value === "object") {
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+
+    seen.add(value);
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+        key,
+        isSensitiveLogFieldName(key)
+          ? REDACTED_LOG_VALUE
+          : sanitizeLogValue(nestedValue, seen),
+      ]),
+    );
+  }
+
+  return sanitizeLogString(String(value));
+}
+
+function sanitizeLogContext(
+  context: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!context) {
+    return context;
+  }
+
+  const sanitized = sanitizeLogValue(context);
+  return sanitized && typeof sanitized === "object" && !Array.isArray(sanitized)
+    ? (sanitized as Record<string, unknown>)
+    : { value: sanitized };
+}
+
+export function getLogErrorContext(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return sanitizeLogValue({
+      name: error.name,
+      message: error.message,
+      stack: error.stack ?? null,
+    }) as Record<string, unknown>;
+  }
+
+  return sanitizeLogValue({
     value: String(error),
-  };
+  }) as Record<string, unknown>;
 }
 
 export function logClientEvent({
@@ -121,8 +251,8 @@ export function logClientEvent({
       level,
       source,
       action,
-      message,
-      context,
+      message: sanitizeLogString(message),
+      context: sanitizeLogContext(context),
     },
   }).catch(() => undefined);
 }
@@ -500,16 +630,13 @@ export async function createBackup(manual: boolean): Promise<string> {
 }
 
 export async function openUrl(url: string): Promise<void> {
-  const host = getUrlHost(url);
+  const urlContext = getUrlLogContext(url);
 
   logClientEvent({
     source: "appState",
     action: "open_url_started",
     message: "Requesting URL open through the backend.",
-    context: {
-      url,
-      host,
-    },
+    context: urlContext,
   });
 
   try {
@@ -518,10 +645,7 @@ export async function openUrl(url: string): Promise<void> {
       source: "appState",
       action: "open_url_completed",
       message: "URL open request completed.",
-      context: {
-        url,
-        host,
-      },
+      context: urlContext,
     });
   } catch (error) {
     logClientError(
@@ -529,10 +653,7 @@ export async function openUrl(url: string): Promise<void> {
       "open_url_failed",
       "Failed to open URL through the backend.",
       error,
-      {
-        url,
-        host,
-      },
+      urlContext,
     );
     throw error;
   }

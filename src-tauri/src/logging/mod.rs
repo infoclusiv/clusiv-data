@@ -11,6 +11,8 @@ use uuid::Uuid;
 
 const MAX_SESSION_FILES: usize = 5;
 const MAX_EXPORT_FILES: usize = 5;
+const REDACTED_LOG_VALUE: &str = "[REDACTED]";
+const REDACTED_PATH_VALUE: &str = "[PATH REDACTED]";
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -35,9 +37,216 @@ fn short_uuid() -> String {
 }
 
 fn normalize_context(context: Value) -> Value {
-    match context {
+    let normalized = match context {
         Value::Null | Value::Object(_) | Value::Array(_) => context,
         other => json!({ "value": other }),
+    };
+
+    sanitize_context_value(normalized, None)
+}
+
+fn normalize_key(key: &str) -> String {
+    key.chars()
+        .filter(|ch| *ch != '_' && *ch != '-')
+        .flat_map(|ch| ch.to_lowercase())
+        .collect()
+}
+
+fn is_sensitive_field_name(key: &str) -> bool {
+    matches!(
+        normalize_key(key).as_str(),
+        "apikey"
+            | "authorization"
+            | "authtoken"
+            | "accesstoken"
+            | "refreshtoken"
+            | "secret"
+            | "password"
+            | "token"
+            | "cookie"
+            | "setcookie"
+            | "clientsecret"
+    )
+}
+
+fn is_path_field_name(key: &str) -> bool {
+    let normalized = normalize_key(key);
+    normalized == "path" || normalized.ends_with("path") || normalized.ends_with("directory")
+}
+
+fn find_url_token_start(input: &str, scheme_index: usize) -> usize {
+    input[..scheme_index]
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| ch.is_whitespace() || matches!(ch, '(' | '[' | '{' | '<' | '"' | '\''))
+        .map(|(idx, ch)| idx + ch.len_utf8())
+        .unwrap_or(0)
+}
+
+fn find_url_token_end(input: &str, scheme_index: usize) -> usize {
+    input[scheme_index..]
+        .char_indices()
+        .find(|(_, ch)| ch.is_whitespace() || matches!(ch, ')' | ']' | '}' | '>' | '"' | '\'' | ','))
+        .map(|(idx, _)| scheme_index + idx)
+        .unwrap_or(input.len())
+}
+
+fn sanitize_url_token(token: &str) -> String {
+    let prefix_length = token
+        .char_indices()
+        .find(|(_, ch)| ch.is_ascii_alphanumeric())
+        .map(|(idx, _)| idx)
+        .unwrap_or(0);
+    let suffix_start = token
+        .char_indices()
+        .rev()
+        .find(|(idx, ch)| *idx >= prefix_length && !matches!(ch, ')' | ']' | '}' | '>' | '"' | '\'' | ',' | ';'))
+        .map(|(idx, ch)| idx + ch.len_utf8())
+        .unwrap_or(token.len());
+
+    let prefix = &token[..prefix_length];
+    let suffix = &token[suffix_start..];
+    let core = &token[prefix_length..suffix_start];
+
+    let Some(scheme_separator) = core.find("://") else {
+        return token.to_string();
+    };
+
+    let scheme = &core[..scheme_separator];
+    let remainder = &core[scheme_separator + 3..];
+    let remainder = remainder
+        .rsplit_once('@')
+        .map(|(_, value)| value)
+        .unwrap_or(remainder);
+    let path_start = remainder.find('/').unwrap_or(remainder.len());
+    let host = &remainder[..path_start];
+    let path_and_more = &remainder[path_start..];
+    let path_end = path_and_more
+        .find(|ch| matches!(ch, '?' | '#'))
+        .unwrap_or(path_and_more.len());
+    let path = &path_and_more[..path_end];
+    let sanitized_core = format!("{}://{}{}", scheme, host, path);
+    let sanitized_core = if sanitized_core == core {
+        sanitized_core
+    } else {
+        format!("{} {}", sanitized_core, REDACTED_LOG_VALUE)
+    };
+
+    format!("{}{}{}", prefix, sanitized_core, suffix)
+}
+
+fn sanitize_url_like_segments(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut cursor = 0;
+
+    while let Some(relative_index) = input[cursor..].find("://") {
+        let scheme_index = cursor + relative_index;
+        let token_start = find_url_token_start(input, scheme_index);
+        let token_end = find_url_token_end(input, scheme_index);
+
+        output.push_str(&input[cursor..token_start]);
+        output.push_str(&sanitize_url_token(&input[token_start..token_end]));
+        cursor = token_end;
+    }
+
+    output.push_str(&input[cursor..]);
+    output
+}
+
+fn sanitize_bearer_tokens(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut cursor = 0;
+
+    while let Some(relative_index) = input[cursor..].find("Bearer ") {
+        let bearer_index = cursor + relative_index;
+        let token_start = bearer_index + "Bearer ".len();
+        let token_end = input[token_start..]
+            .char_indices()
+            .find(|(_, ch)| ch.is_whitespace() || matches!(ch, ')' | ']' | '}' | '>' | ',' | ';'))
+            .map(|(idx, _)| token_start + idx)
+            .unwrap_or(input.len());
+
+        output.push_str(&input[cursor..token_start]);
+        output.push_str(REDACTED_LOG_VALUE);
+        cursor = token_end;
+    }
+
+    output.push_str(&input[cursor..]);
+    output
+}
+
+fn sanitize_windows_path_segments(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut output = String::with_capacity(input.len());
+    let mut cursor = 0;
+    let mut search_index = 0;
+
+    while search_index < bytes.len() {
+        let Some(relative_index) = input[search_index..].find(':') else {
+            break;
+        };
+
+        let colon_index = search_index + relative_index;
+        let is_drive_prefix = colon_index > 0
+            && bytes[colon_index - 1].is_ascii_alphabetic()
+            && colon_index + 1 < bytes.len()
+            && matches!(bytes[colon_index + 1], b'\\' | b'/');
+
+        if !is_drive_prefix {
+            search_index = colon_index + 1;
+            continue;
+        }
+
+        let path_start = colon_index - 1;
+        let path_end = input[colon_index + 1..]
+            .char_indices()
+            .find(|(_, ch)| ch.is_whitespace() || matches!(ch, ')' | ']' | '}' | '>' | '"' | '\'' | ',' | ';'))
+            .map(|(idx, _)| colon_index + 1 + idx)
+            .unwrap_or(input.len());
+
+        output.push_str(&input[cursor..path_start]);
+        output.push_str(REDACTED_PATH_VALUE);
+        cursor = path_end;
+        search_index = path_end;
+    }
+
+    output.push_str(&input[cursor..]);
+    output
+}
+
+fn sanitize_string_value(input: &str) -> String {
+    sanitize_windows_path_segments(&sanitize_bearer_tokens(&sanitize_url_like_segments(input)))
+}
+
+fn sanitize_context_value(value: Value, field_name: Option<&str>) -> Value {
+    if let Some(field_name) = field_name {
+        if is_sensitive_field_name(field_name) {
+            return Value::String(REDACTED_LOG_VALUE.to_string());
+        }
+
+        if is_path_field_name(field_name) {
+            return Value::String(REDACTED_PATH_VALUE.to_string());
+        }
+    }
+
+    match value {
+        Value::Null | Value::Bool(_) | Value::Number(_) => value,
+        Value::String(text) => Value::String(sanitize_string_value(&text)),
+        Value::Array(values) => Value::Array(
+            values
+                .into_iter()
+                .map(|value| sanitize_context_value(value, None))
+                .collect(),
+        ),
+        Value::Object(entries) => Value::Object(
+            entries
+                .into_iter()
+                .map(|(key, value)| {
+                    let sanitized = sanitize_context_value(value, Some(&key));
+                    (key, sanitized)
+                })
+                .collect(),
+        ),
     }
 }
 
@@ -381,7 +590,7 @@ impl AppLogger {
             origin,
             source,
             action,
-            message,
+            message: sanitize_string_value(&message),
             context: normalize_context(context),
         };
 
@@ -444,8 +653,8 @@ impl AppLogger {
                 id: self.session_id.clone(),
                 started_at: self.session_started_at,
                 entry_count: self.entry_count,
-                session_file_path: self.session_file_path.to_string_lossy().to_string(),
-                log_directory: self.log_directory.to_string_lossy().to_string(),
+                session_file_path: REDACTED_PATH_VALUE.to_string(),
+                log_directory: REDACTED_PATH_VALUE.to_string(),
             },
             entries,
         };
