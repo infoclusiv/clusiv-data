@@ -6,6 +6,7 @@
   import { appState, initializeApp } from "$lib/store/appState.svelte";
   import BoardView from "$lib/views/BoardView.svelte";
   import CategoryView from "$lib/views/CategoryView.svelte";
+  import ItemEditorView from "$lib/views/ItemEditorView.svelte";
   import LogsView from "$lib/views/LogsView.svelte";
   import WelcomeView from "$lib/views/WelcomeView.svelte";
   import QuickTextsView from "./lib/views/QuickTextsView.svelte";
@@ -41,6 +42,8 @@
           <QuickTextsView />
         {:else if appState.currentView === "search"}
           <SearchView />
+        {:else if appState.currentView === "item-editor"}
+          <ItemEditorView />
         {:else}
           <WelcomeView />
         {/if}

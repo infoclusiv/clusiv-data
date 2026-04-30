@@ -18,13 +18,13 @@
   import TaskCard from "$lib/components/cards/TaskCard.svelte";
   import BulkImportDialog from "$lib/components/dialogs/BulkImportDialog.svelte";
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
-  import ItemDialog from "$lib/components/dialogs/ItemDialog.svelte";
   import LinkDialog from "$lib/components/dialogs/LinkDialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import FloatingActionMenu from "$lib/components/ui/FloatingActionMenu.svelte";
   import IconButton from "$lib/components/ui/IconButton.svelte";
   import {
     appState,
+    openItemEditor,
     deleteCategory,
     deleteItem,
     deleteLink,
@@ -51,10 +51,6 @@
 
   let showLinkDialog = $state(false);
   let showBulkDialog = $state(false);
-  let showItemDialog = $state(false);
-  let editingItem = $state<Item | null>(null);
-  let editingIndex = $state<number | null>(null);
-  let itemDialogInitialType = $state<ItemType>("note");
   let pendingDeleteIndex = $state<number | null>(null);
   let pendingDeleteLinkIndex = $state<number | null>(null);
   let confirmDeleteCategory = $state(false);
@@ -139,17 +135,24 @@
   }
 
   function openNewItemDialog(itemType: ItemType): void {
-    editingItem = null;
-    editingIndex = null;
-    itemDialogInitialType = itemType;
-    showItemDialog = true;
+    if (!category) {
+      return;
+    }
+
+    openItemEditor({
+      initialCategoryId: category.id,
+      initialType: itemType,
+      title: itemType === "note"
+        ? `Nueva Nota en '${breadcrumb}'`
+        : `Nueva Tarea en '${breadcrumb}'`,
+    });
   }
 
   function openEditDialog(item: Item): void {
-    editingItem = item;
-    editingIndex = getItemIndex(item);
-    itemDialogInitialType = item.type;
-    showItemDialog = true;
+    openItemEditor({
+      editingItem: item,
+      editingIndex: getItemIndex(item),
+    });
   }
 
   async function handleOpenAll(): Promise<void> {
@@ -456,18 +459,6 @@
     onclose={() => (categoryDialogMode = null)}
     editingCategoryId={categoryDialogMode === "edit" ? category.id : null}
     initialParentId={categoryDialogMode === "create-child" ? category.id : null}
-  />
-
-  <ItemDialog
-    open={showItemDialog}
-    onclose={() => (showItemDialog = false)}
-    {editingItem}
-    {editingIndex}
-    initialCategoryId={category.id}
-    initialType={itemDialogInitialType}
-    dialogTitle={itemDialogInitialType === "note"
-      ? `Nueva Nota en '${breadcrumb}'`
-      : `Nueva Tarea en '${breadcrumb}'`}
   />
 
   <ConfirmDialog

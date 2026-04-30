@@ -6,7 +6,9 @@ import type {
   BoardMode,
   CategoryFormInput,
   Item,
+  ItemEditorState,
   ItemFormInput,
+  ItemType,
   Link,
   LogLevel,
   LogStatus,
@@ -35,6 +37,7 @@ export const appState = $state({
   currentView: "welcome" as AppView,
   currentBoardMode: "gallery" as BoardMode,
   currentBoardFilterId: null as string | null,
+  itemEditor: null as ItemEditorState | null,
   searchQuery: "",
   navigationHistory: [] as NavigationSnapshot[],
   expandedCategoryIds: [] as string[],
@@ -74,6 +77,15 @@ interface FrontendLogEvent {
 }
 
 interface NavigationOptions {
+  recordHistory?: boolean;
+}
+
+interface OpenItemEditorOptions {
+  editingItem?: Item | null;
+  editingIndex?: number | null;
+  initialCategoryId?: string | null;
+  initialType?: ItemType;
+  title?: string;
   recordHistory?: boolean;
 }
 
@@ -297,6 +309,26 @@ function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
   };
 }
 
+function getItemTypeLabel(itemType: ItemType): string {
+  return itemType === "note" ? "Nota" : "Tarea";
+}
+
+function buildItemEditorTitle(
+  editingItem: Item | null,
+  initialType: ItemType,
+  title?: string,
+): string {
+  if (title) {
+    return title;
+  }
+
+  if (editingItem) {
+    return `Editar ${getItemTypeLabel(editingItem.type)}`;
+  }
+
+  return `Nueva ${getItemTypeLabel(initialType)}`;
+}
+
 function canUseLocalStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -486,6 +518,10 @@ function applyNavigation(snapshot: NavigationSnapshot): void {
   appState.currentCategoryId = snapshot.categoryId;
   appState.currentBoardMode = snapshot.boardMode;
   appState.currentBoardFilterId = snapshot.boardFilterId;
+
+  if (snapshot.view !== "item-editor") {
+    appState.itemEditor = null;
+  }
 }
 
 function navigate(
@@ -801,6 +837,58 @@ export function goBack(): void {
       boardFilterId: previousNavigation.boardFilterId,
     },
   });
+}
+
+export function openItemEditor({
+  editingItem = null,
+  editingIndex = null,
+  initialCategoryId = null,
+  initialType = "task",
+  title,
+  recordHistory = true,
+}: OpenItemEditorOptions = {}): void {
+  const resolvedType = editingItem?.type ?? initialType;
+  const resolvedCategoryId = editingItem
+    ? getItemCategoryId(editingItem)
+    : initialCategoryId ?? appState.currentCategoryId ?? GENERAL_CATEGORY_ID;
+
+  appState.itemEditor = {
+    editingItem,
+    editingIndex,
+    initialCategoryId: resolvedCategoryId,
+    initialType: resolvedType,
+    title: buildItemEditorTitle(editingItem, resolvedType, title),
+  };
+
+  navigate(
+    {
+      view: "item-editor",
+      categoryId: appState.currentCategoryId,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: appState.currentBoardFilterId,
+    },
+    { recordHistory: recordHistory && appState.currentView !== "item-editor" },
+  );
+
+  if (resolvedCategoryId) {
+    expandCategoryPath(resolvedCategoryId);
+  }
+}
+
+export function closeItemEditor(): void {
+  if (appState.currentView !== "item-editor") {
+    appState.itemEditor = null;
+    return;
+  }
+
+  appState.itemEditor = null;
+
+  if (appState.navigationHistory.length > 0) {
+    goBack();
+    return;
+  }
+
+  selectCategory(appState.currentCategoryId ?? GENERAL_CATEGORY_ID, { recordHistory: false });
 }
 
 export function selectCategory(

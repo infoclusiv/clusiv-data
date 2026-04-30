@@ -5,7 +5,6 @@
   import SubcategoryCard from "$lib/components/cards/SubcategoryCard.svelte";
   import TaskCard from "$lib/components/cards/TaskCard.svelte";
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
-  import ItemDialog from "$lib/components/dialogs/ItemDialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import IconButton from "$lib/components/ui/IconButton.svelte";
   import {
@@ -13,6 +12,7 @@
     deleteCategory,
     deleteItem,
     getItemIndex,
+    openItemEditor,
     selectCategory,
     toggleTaskStatus,
   } from "$lib/store/appState.svelte";
@@ -29,10 +29,7 @@
   import { getIcon } from "$lib/utils/getIconComponent";
   import type { Item } from "$lib/store/types";
 
-  let showItemDialog = $state(false);
   let showCategoryDialog = $state(false);
-  let editingItem = $state<Item | null>(null);
-  let editingIndex = $state<number | null>(null);
   let pendingDeleteIndex = $state<number | null>(null);
   let confirmDeleteCategory = $state(false);
 
@@ -75,15 +72,22 @@
   );
 
   function openNewDialog(): void {
-    editingItem = null;
-    editingIndex = null;
-    showItemDialog = true;
+    if (!category) {
+      return;
+    }
+
+    openItemEditor({
+      initialCategoryId: category.id,
+      initialType: "note",
+      title: `Nueva Nota en '${breadcrumb}'`,
+    });
   }
 
   function openEditDialog(item: Item): void {
-    editingItem = item;
-    editingIndex = getItemIndex(item);
-    showItemDialog = true;
+    openItemEditor({
+      editingItem: item,
+      editingIndex: getItemIndex(item),
+    });
   }
 
   async function handleDeleteItem(): Promise<void> {
@@ -248,16 +252,6 @@
     open={showCategoryDialog}
     onclose={() => (showCategoryDialog = false)}
     editingCategoryId={category.id}
-  />
-
-  <ItemDialog
-    open={showItemDialog}
-    onclose={() => (showItemDialog = false)}
-    {editingItem}
-    {editingIndex}
-    initialCategoryId={category.id}
-    initialType="note"
-    dialogTitle={`Nueva Nota en '${breadcrumb}'`}
   />
 
   <ConfirmDialog

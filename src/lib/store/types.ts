@@ -1,5 +1,5 @@
 export type ItemType = "task" | "note";
-export type AppView = "welcome" | "category" | "board" | "logs" | "quick-texts" | "search";
+export type AppView = "welcome" | "category" | "board" | "logs" | "quick-texts" | "search" | "item-editor";
 export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 
@@ -36,6 +36,14 @@ export interface Item {
   type: ItemType;
   done: boolean;
   category_id: string;
+}
+
+export interface ItemEditorState {
+  editingItem: Item | null;
+  editingIndex: number | null;
+  initialCategoryId: string | null;
+  initialType: ItemType;
+  title: string;
 }
 
 export interface AppData {

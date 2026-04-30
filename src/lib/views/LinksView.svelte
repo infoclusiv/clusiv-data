@@ -14,7 +14,6 @@
   import SubcategoryCard from "$lib/components/cards/SubcategoryCard.svelte";
   import BulkImportDialog from "$lib/components/dialogs/BulkImportDialog.svelte";
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
-  import ItemDialog from "$lib/components/dialogs/ItemDialog.svelte";
   import LinkDialog from "$lib/components/dialogs/LinkDialog.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import IconButton from "$lib/components/ui/IconButton.svelte";
@@ -22,6 +21,7 @@
     appState,
     deleteCategory,
     deleteLink,
+    openItemEditor,
     openUrl,
     selectCategory,
     showBoard,
@@ -39,7 +39,6 @@
   let showLinkDialog = $state(false);
   let showBulkDialog = $state(false);
   let showCategoryDialog = $state(false);
-  let showQuickNoteDialog = $state(false);
   let pendingDeleteLinkIndex = $state<number | null>(null);
   let confirmDeleteCategory = $state(false);
 
@@ -173,7 +172,14 @@
             </p>
           </div>
 
-          <button class="btn-ghost" onclick={() => (showQuickNoteDialog = true)}>
+          <button
+            class="btn-ghost"
+            onclick={() => openItemEditor({
+              initialCategoryId: category.id,
+              initialType: "note",
+              title: `Nueva Nota en '${breadcrumb}'`,
+            })}
+          >
             <StickyNote size={16} />
             Agregar Nota a esta Categoría
           </button>
@@ -218,14 +224,6 @@
     open={showCategoryDialog}
     onclose={() => (showCategoryDialog = false)}
     editingCategoryId={category.id}
-  />
-
-  <ItemDialog
-    open={showQuickNoteDialog}
-    onclose={() => (showQuickNoteDialog = false)}
-    initialCategoryId={category.id}
-    initialType="note"
-    dialogTitle={`Nueva Nota en '${breadcrumb}'`}
   />
 
   <ConfirmDialog
