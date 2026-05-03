@@ -43,7 +43,7 @@
       class="relative rounded-[1.25rem] border border-dashed border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50"
       style={`width: ${canvasWidth}px; height: ${canvasHeight}px;`}
     >
-      <svg class="absolute inset-0 h-full w-full">
+      <svg class="pointer-events-none absolute inset-0 h-full w-full">
         {#each edges as edge (edge.id)}
           {@const source = nodes.find((node) => node.id === edge.source)}
           {@const target = nodes.find((node) => node.id === edge.target)}

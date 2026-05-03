@@ -37,7 +37,7 @@
 </script>
 
 <button
-  class={`absolute w-52 rounded-2xl border p-4 text-left shadow-soft transition hover:-translate-y-0.5 ${getTone(node.type)} ${selected ? "ring-2 ring-brand-200" : ""}`}
+  class={`absolute z-10 w-52 rounded-2xl border p-4 text-left shadow-soft transition hover:-translate-y-0.5 ${getTone(node.type)} ${selected ? "ring-2 ring-brand-200" : ""}`}
   style={`left: ${node.position.x}px; top: ${node.position.y}px;`}
   onclick={() => onselect(node.id)}
 >

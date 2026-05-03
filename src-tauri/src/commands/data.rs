@@ -8,11 +8,12 @@ use uuid::Uuid;
 
 use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
-    AppData, Category, Item, ItemImage, ItemType, Link, QuickText, GENERAL_CATEGORY_ID,
-    GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
+    AppData, Category, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
+    QuickText, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
 };
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
+const FLOWS_KEY: &str = "__SYSTEM_FLOWS__";
 const QUICK_TEXTS_KEY: &str = "__SYSTEM_QUICK_TEXTS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
 const TASKS_KEY: &str = "__SYSTEM_TASKS__";
@@ -47,6 +48,10 @@ fn count_quick_texts(data: &AppData) -> usize {
     data.quick_texts.len()
 }
 
+fn count_flows(data: &AppData) -> usize {
+    data.flows.len()
+}
+
 #[command]
 pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
     let started_at = Instant::now();
@@ -78,6 +83,7 @@ pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
                 "taskCount": data.tasks.len(),
                 "linkCount": count_links(&data),
                 "quickTextCount": count_quick_texts(&data),
+                "flowCount": count_flows(&data),
             }),
         );
         return Ok(data);
@@ -119,6 +125,7 @@ pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
                     "taskCount": data.tasks.len(),
                     "linkCount": count_links(&data),
                     "quickTextCount": count_quick_texts(&data),
+                    "flowCount": count_flows(&data),
                 }),
             );
             return Ok(data);
@@ -168,6 +175,7 @@ pub fn load_data(logger: State<'_, AppLoggerState>) -> Result<AppData, String> {
             "taskCount": data.tasks.len(),
             "linkCount": count_links(&data),
             "quickTextCount": count_quick_texts(&data),
+            "flowCount": count_flows(&data),
         }),
     );
 
@@ -191,6 +199,7 @@ pub fn save_data(data: AppData, logger: State<'_, AppLoggerState>) -> Result<(),
             "taskCount": data.tasks.len(),
             "linkCount": count_links(&data),
             "quickTextCount": count_quick_texts(&data),
+            "flowCount": count_flows(&data),
         }),
     );
 
@@ -241,6 +250,7 @@ pub fn save_data(data: AppData, logger: State<'_, AppLoggerState>) -> Result<(),
             "taskCount": data.tasks.len(),
             "linkCount": count_links(&data),
             "quickTextCount": count_quick_texts(&data),
+            "flowCount": count_flows(&data),
         }),
     );
 
@@ -269,11 +279,19 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             Value::Array(Vec::new())
         }
     };
+    let flows_value = match root.remove(FLOWS_KEY) {
+        Some(value) => value,
+        None => {
+            changed = true;
+            Value::Array(Vec::new())
+        }
+    };
     let tasks_value = root
         .remove(TASKS_KEY)
         .unwrap_or_else(|| Value::Array(Vec::new()));
 
     let mut categories = parse_categories(categories_value, &mut changed);
+    let mut flows = parse_flows(flows_value, &mut changed);
     let quick_texts = parse_quick_texts(quick_texts_value, &mut changed);
 
     if !categories.contains_key(GENERAL_CATEGORY_ID) {
@@ -325,6 +343,13 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         }
     }
 
+    for flow in &mut flows {
+        if !valid_category_ids.contains(&flow.category_id) {
+            flow.category_id = GENERAL_CATEGORY_ID.to_string();
+            changed = true;
+        }
+    }
+
     if original_schema != Some(SCHEMA_VERSION as u64) {
         changed = true;
     }
@@ -335,6 +360,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             categories,
             tasks,
             quick_texts,
+            flows,
         },
         changed,
     )
@@ -500,6 +526,18 @@ fn parse_quick_texts(value: Value, changed: &mut bool) -> Vec<QuickText> {
         .collect()
 }
 
+fn parse_flows(value: Value, changed: &mut bool) -> Vec<Flow> {
+    let Value::Array(entries) = value else {
+        *changed = true;
+        return Vec::new();
+    };
+
+    entries
+        .into_iter()
+        .map(|entry| flow_from_value(entry, changed))
+        .collect()
+}
+
 fn category_from_value(category_id: String, value: Value, changed: &mut bool) -> Category {
     let Value::Object(mut map) = value else {
         *changed = true;
@@ -633,6 +671,29 @@ fn bool_value(value: Option<Value>, default: bool, changed: &mut bool) -> bool {
     }
 }
 
+fn i32_value(value: Option<Value>, default: i32, changed: &mut bool) -> i32 {
+    match value {
+        Some(Value::Number(number)) => match number.as_i64() {
+            Some(value) => match i32::try_from(value) {
+                Ok(value) => value,
+                Err(_) => {
+                    *changed = true;
+                    default
+                }
+            },
+            None => {
+                *changed = true;
+                default
+            }
+        },
+        Some(_) => {
+            *changed = true;
+            default
+        }
+        None => default,
+    }
+}
+
 fn item_type_value(value: Option<Value>, changed: &mut bool) -> ItemType {
     match value {
         Some(Value::String(value)) if value == "note" => ItemType::Note,
@@ -737,6 +798,99 @@ fn quick_text_from_value(value: Value, changed: &mut bool) -> QuickText {
     }
 }
 
+fn flow_from_value(value: Value, changed: &mut bool) -> Flow {
+    let Value::Object(mut map) = value else {
+        *changed = true;
+        return Flow::default();
+    };
+
+    Flow {
+        id: string_value(map.remove("id"), "", changed),
+        category_id: string_value(map.remove("category_id"), GENERAL_CATEGORY_ID, changed),
+        title: string_value(map.remove("title"), "", changed),
+        description: string_value(map.remove("description"), "", changed),
+        status: string_value(map.remove("status"), "draft", changed),
+        nodes: flow_nodes_value(map.remove("nodes"), changed),
+        edges: flow_edges_value(map.remove("edges"), changed),
+        created_at: string_value(map.remove("created_at"), "", changed),
+        updated_at: string_value(map.remove("updated_at"), "", changed),
+    }
+}
+
+fn flow_nodes_value(value: Option<Value>, changed: &mut bool) -> Vec<FlowNode> {
+    match value {
+        Some(Value::Array(values)) => values
+            .into_iter()
+            .map(|value| flow_node_from_value(value, changed))
+            .collect(),
+        Some(_) => {
+            *changed = true;
+            Vec::new()
+        }
+        None => Vec::new(),
+    }
+}
+
+fn flow_edges_value(value: Option<Value>, changed: &mut bool) -> Vec<FlowEdge> {
+    match value {
+        Some(Value::Array(values)) => values
+            .into_iter()
+            .map(|value| flow_edge_from_value(value, changed))
+            .collect(),
+        Some(_) => {
+            *changed = true;
+            Vec::new()
+        }
+        None => Vec::new(),
+    }
+}
+
+fn flow_node_from_value(value: Value, changed: &mut bool) -> FlowNode {
+    let Value::Object(mut map) = value else {
+        *changed = true;
+        return FlowNode::default();
+    };
+
+    FlowNode {
+        id: string_value(map.remove("id"), "", changed),
+        r#type: string_value(map.remove("type"), "process", changed),
+        title: string_value(map.remove("title"), "", changed),
+        subtitle: string_value(map.remove("subtitle"), "", changed),
+        description: string_value(map.remove("description"), "", changed),
+        position: flow_position_from_value(map.remove("position"), changed),
+    }
+}
+
+fn flow_edge_from_value(value: Value, changed: &mut bool) -> FlowEdge {
+    let Value::Object(mut map) = value else {
+        *changed = true;
+        return FlowEdge::default();
+    };
+
+    FlowEdge {
+        id: string_value(map.remove("id"), "", changed),
+        source: string_value(map.remove("source"), "", changed),
+        target: string_value(map.remove("target"), "", changed),
+        label: string_value(map.remove("label"), "", changed),
+    }
+}
+
+fn flow_position_from_value(value: Option<Value>, changed: &mut bool) -> FlowPosition {
+    let Some(value) = value else {
+        return FlowPosition::default();
+    };
+
+    let Value::Object(mut map) = value else {
+        *changed = true;
+        return FlowPosition::default();
+    };
+
+    FlowPosition {
+        x: i32_value(map.remove("x"), 0, changed),
+        y: i32_value(map.remove("y"), 0, changed),
+    }
+}
+
 fn string_from_map(map: &Map<String, Value>, key: &str, default: &str) -> String {
     map.get(key)
         .and_then(Value::as_str)
@@ -808,7 +962,8 @@ mod tests {
                     "done": false,
                     "category_id": "missing"
                 }
-            ]
+            ],
+            "__SYSTEM_FLOWS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -822,6 +977,7 @@ mod tests {
         assert_eq!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
         assert!(data.tasks[0].images.is_empty());
         assert!(data.quick_texts.is_empty());
+        assert!(data.flows.is_empty());
         assert_eq!(data.schema_version, SCHEMA_VERSION);
     }
 
@@ -862,7 +1018,8 @@ mod tests {
                     "category_id": "general"
                 }
             ],
-            "__SYSTEM_QUICK_TEXTS__": []
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_FLOWS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -872,6 +1029,7 @@ mod tests {
         assert_eq!(data.tasks[0].images[0].name, "captura.png");
         assert!(data.tasks[1].images.is_empty());
         assert!(data.quick_texts.is_empty());
+        assert!(data.flows.is_empty());
     }
 
     #[test]
@@ -895,7 +1053,8 @@ mod tests {
                     "title": "Firma",
                     "content": "Hola,\nCarlos"
                 }
-            ]
+            ],
+            "__SYSTEM_FLOWS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -905,6 +1064,58 @@ mod tests {
         assert_eq!(data.quick_texts[0].id, "qt_1");
         assert_eq!(data.quick_texts[0].title, "Firma");
         assert_eq!(data.quick_texts[0].content, "Hola,\nCarlos");
+        assert!(data.flows.is_empty());
+    }
+
+    #[test]
+    fn normalize_data_preserves_flows() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_FLOWS__": [
+                {
+                    "id": "flow_1",
+                    "category_id": "general",
+                    "title": "Flujo 1",
+                    "description": "",
+                    "status": "draft",
+                    "nodes": [
+                        {
+                            "id": "node_1",
+                            "type": "process",
+                            "title": "Paso 1",
+                            "subtitle": "",
+                            "description": "",
+                            "position": { "x": 120, "y": 80 }
+                        }
+                    ],
+                    "edges": [],
+                    "created_at": "2026-05-03T00:00:00.000Z",
+                    "updated_at": "2026-05-03T00:00:00.000Z"
+                }
+            ]
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(!changed);
+        assert_eq!(data.flows.len(), 1);
+        assert_eq!(data.flows[0].id, "flow_1");
+        assert_eq!(data.flows[0].category_id, "general");
+        assert_eq!(data.flows[0].nodes.len(), 1);
+        assert_eq!(data.flows[0].nodes[0].position.x, 120);
+        assert_eq!(data.flows[0].nodes[0].position.y, 80);
     }
 
     #[test]
