@@ -3,6 +3,7 @@
     ArrowLeft,
     CheckCircle2,
     FolderPlus,
+    GitBranch,
     Inbox,
     Link2,
     Pencil,
@@ -12,10 +13,12 @@
     Upload,
   } from "lucide-svelte";
 
+  import CategorySectionTabs from "$lib/components/category/CategorySectionTabs.svelte";
   import LinkCard from "$lib/components/cards/LinkCard.svelte";
   import NoteCard from "$lib/components/cards/NoteCard.svelte";
   import SubcategoryCard from "$lib/components/cards/SubcategoryCard.svelte";
   import TaskCard from "$lib/components/cards/TaskCard.svelte";
+  import FlowSection from "$lib/components/flows/FlowsSection.svelte";
   import BulkImportDialog from "$lib/components/dialogs/BulkImportDialog.svelte";
   import CategoryDialog from "$lib/components/dialogs/CategoryDialog.svelte";
   import LinkDialog from "$lib/components/dialogs/LinkDialog.svelte";
@@ -24,14 +27,18 @@
   import IconButton from "$lib/components/ui/IconButton.svelte";
   import {
     appState,
-    openItemEditor,
+    createFlow,
     deleteCategory,
+    deleteFlow,
     deleteItem,
     deleteLink,
     getItemIndex,
     goBack,
+    openFlowEditor,
+    openItemEditor,
     openUrl,
     selectCategory,
+    setCategorySection,
     toggleTaskStatus,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
@@ -44,6 +51,7 @@
     getCategoryChildrenSummary,
     getCategoryCounts,
     getChildCategories,
+    getFlowsForCategory,
     getNotesForCategory,
     getTasksForCategory,
   } from "$lib/utils/categoryUtils";
@@ -86,8 +94,13 @@
       : [],
   );
 
-  const links = $derived(category ? category.links ?? [] : []);
+  const flows = $derived(
+    appState.appData && category
+      ? getFlowsForCategory(appState.appData, category.id)
+      : [],
+  );
 
+  const links = $derived(category ? category.links ?? [] : []);
   const canGoBack = $derived(appState.navigationHistory.length > 0);
 
   const fallbackCategoryName = $derived(
@@ -240,6 +253,108 @@
       confirmDeleteCategory = false;
     }
   }
+
+  async function handleCreateFlow(): Promise<void> {
+    if (!category) {
+      return;
+    }
+
+    try {
+      const flowId = await createFlow({
+        categoryId: category.id,
+        title: `Flujo de ${category.name}`,
+        description: "",
+        status: "draft",
+      });
+      setCategorySection("flows");
+      openFlowEditor(flowId);
+      showSnackbar("Flujo creado.", "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo crear el flujo.",
+        "error",
+      );
+    }
+  }
+
+  async function handleDeleteFlow(flowId: string): Promise<void> {
+    try {
+      await deleteFlow(flowId);
+      showSnackbar("Flujo eliminado.", "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo eliminar el flujo.",
+        "error",
+      );
+    }
+  }
+
+  const fabActions = $derived.by(() => {
+    if (appState.currentCategorySection === "notes") {
+      return [
+        {
+          id: "note",
+          label: "Nueva nota",
+          icon: StickyNote,
+          onclick: () => openNewItemDialog("note"),
+        },
+      ];
+    }
+
+    if (appState.currentCategorySection === "links") {
+      return [
+        {
+          id: "link",
+          label: "Agregar enlace",
+          icon: Link2,
+          onclick: () => (showLinkDialog = true),
+        },
+      ];
+    }
+
+    if (appState.currentCategorySection === "subcategories") {
+      return [
+        {
+          id: "subcategory",
+          label: "Nueva subcategoría",
+          icon: FolderPlus,
+          onclick: () => (categoryDialogMode = "create-child"),
+        },
+      ];
+    }
+
+    if (appState.currentCategorySection === "flows") {
+      return [
+        {
+          id: "flow",
+          label: "Nuevo flujo",
+          icon: GitBranch,
+          onclick: () => void handleCreateFlow(),
+        },
+      ];
+    }
+
+    return [
+      {
+        id: "task",
+        label: "Nueva tarea",
+        icon: CheckCircle2,
+        onclick: () => openNewItemDialog("task"),
+      },
+      {
+        id: "note",
+        label: "Nueva nota",
+        icon: StickyNote,
+        onclick: () => openNewItemDialog("note"),
+      },
+      {
+        id: "subcategory",
+        label: "Nueva subcategoría",
+        icon: FolderPlus,
+        onclick: () => (categoryDialogMode = "create-child"),
+      },
+    ];
+  });
 </script>
 
 {#if category && appState.appData}
@@ -248,197 +363,211 @@
   <div class="relative flex h-full flex-1">
     <div class="page-panel relative flex h-full flex-1 flex-col overflow-hidden">
       <div class="border-b border-slate-200/70 px-8 py-7">
-      <div class="mb-5 flex items-start justify-between gap-4">
-        <button class="btn-ghost -ml-1" onclick={goBack} disabled={!canGoBack}>
-          <ArrowLeft size={16} />
-          Atrás
-        </button>
+        <div class="mb-5 flex items-start justify-between gap-4">
+          <button class="btn-ghost -ml-1" onclick={goBack} disabled={!canGoBack}>
+            <ArrowLeft size={16} />
+            Atrás
+          </button>
 
-        <div class="flex flex-wrap items-center gap-1">
-          <IconButton icon={Link2} label="Agregar enlace" tone="accent" onclick={() => (showLinkDialog = true)} />
-          <IconButton icon={Upload} label="Importar enlaces" tone="warning" onclick={() => (showBulkDialog = true)} />
-          <IconButton icon={Pencil} label="Editar categoría" onclick={() => (categoryDialogMode = "edit")} />
-          <IconButton
-            icon={Trash2}
-            label="Borrar categoría"
-            tone="danger"
-            onclick={() => (confirmDeleteCategory = true)}
-            disabled={category.id === GENERAL_CATEGORY_ID}
-          />
-        </div>
-      </div>
-
-        <div class="flex items-start gap-3">
-        <div class="rounded-2xl bg-brand-50 p-3 text-brand-700">
-          <CategoryIcon size={22} />
-        </div>
-
-        <div class="min-w-0 flex-1">
-          <p class="section-label">Categoría</p>
-          <h1 class="mt-1 text-3xl font-semibold text-slate-900">{category.name}</h1>
-          <p class="mt-2 text-sm text-slate-500">{breadcrumb}</p>
-
-          <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
-            <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
-              {getCategoryChildrenSummary(appState.appData, category.id)}
-            </span>
-            <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
-              {formatLinkCount(links.length)}
-            </span>
-            <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
-              {formatItemCounts(notes.length, tasks.length)}
-            </span>
+          <div class="flex flex-wrap items-center gap-1">
+            <IconButton icon={Link2} label="Agregar enlace" tone="accent" onclick={() => (showLinkDialog = true)} />
+            <IconButton icon={Upload} label="Importar enlaces" tone="warning" onclick={() => (showBulkDialog = true)} />
+            <IconButton icon={Pencil} label="Editar categoría" onclick={() => (categoryDialogMode = "edit")} />
+            <IconButton
+              icon={Trash2}
+              label="Borrar categoría"
+              tone="danger"
+              onclick={() => (confirmDeleteCategory = true)}
+              disabled={category.id === GENERAL_CATEGORY_ID}
+            />
           </div>
         </div>
+
+        <div class="flex items-start gap-3">
+          <div class="rounded-2xl bg-brand-50 p-3 text-brand-700">
+            <CategoryIcon size={22} />
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <p class="section-label">Categoría</p>
+            <h1 class="mt-1 text-3xl font-semibold text-slate-900">{category.name}</h1>
+            <p class="mt-2 text-sm text-slate-500">{breadcrumb}</p>
+
+            <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
+              <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
+                {getCategoryChildrenSummary(appState.appData, category.id)}
+              </span>
+              <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
+                {formatLinkCount(links.length)}
+              </span>
+              <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
+                {formatItemCounts(notes.length, tasks.length)}
+              </span>
+              <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
+                {flows.length} flujo{flows.length === 1 ? "" : "s"}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-8 py-6">
-        {#if childCategories.length > 0}
-          <section class="mb-8">
-            <p class="section-label mb-4">Subcategorías</p>
-            <div class="flex flex-wrap gap-4">
-              {#each childCategories as child}
-                {@const Icon = getCategoryIcon(child)}
-                <SubcategoryCard
-                  label={child.name}
-                  subtitle={getSubcategorySubtitle(child)}
-                  icon={Icon}
-                  onopen={() => selectCategory(child.id)}
-                />
-              {/each}
-            </div>
-          </section>
-        {/if}
+      <CategorySectionTabs
+        activeSection={appState.currentCategorySection}
+        onselect={setCategorySection}
+      />
 
-        <section class="mb-8">
-          <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-              <Link2 size={18} class="text-brand-700" />
+      <div class="flex-1 overflow-y-auto px-8 py-6">
+        {#if appState.currentCategorySection === "subcategories"}
+          <section>
+            <div class="mb-4 flex items-center gap-3">
+              <FolderPlus size={18} class="text-brand-700" />
               <div>
-                <p class="section-label">Enlaces</p>
+                <p class="section-label">Subcategorías</p>
                 <p class="mt-1 text-sm text-slate-500">
-                  {links.length === 0 ? "No hay enlaces en esta categoría." : `${links.length} enlaces disponibles.`}
+                  {childCategories.length === 0
+                    ? "No hay subcategorías en esta categoría."
+                    : `${childCategories.length} subcategorías disponibles.`}
                 </p>
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-2">
-              <button class="btn-ghost bg-white/70" onclick={() => (showLinkDialog = true)}>
-                <Link2 size={16} />
-                Agregar Enlace
-              </button>
-              <button class="btn-ghost bg-white/70" onclick={() => (showBulkDialog = true)}>
-                <Upload size={16} />
-                Importar
-              </button>
-              {#if links.length > 0}
-                <button class="btn-ghost bg-white/70" onclick={() => void handleOpenAll()}>
-                  <Rocket size={16} />
-                  Abrir Todos
+            {#if childCategories.length === 0}
+              <div class="card border-dashed p-8 text-center text-sm text-slate-500">
+                Crea subcategorías para dividir mejor el contenido.
+              </div>
+            {:else}
+              <div class="flex flex-wrap gap-4">
+                {#each childCategories as child}
+                  {@const Icon = getCategoryIcon(child)}
+                  <SubcategoryCard
+                    label={child.name}
+                    subtitle={getSubcategorySubtitle(child)}
+                    icon={Icon}
+                    onopen={() => selectCategory(child.id)}
+                  />
+                {/each}
+              </div>
+            {/if}
+          </section>
+        {:else if appState.currentCategorySection === "links"}
+          <section>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <Link2 size={18} class="text-brand-700" />
+                <div>
+                  <p class="section-label">Enlaces</p>
+                  <p class="mt-1 text-sm text-slate-500">
+                    {links.length === 0 ? "No hay enlaces en esta categoría." : `${links.length} enlaces disponibles.`}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button class="btn-ghost bg-white/70" onclick={() => (showLinkDialog = true)}>
+                  <Link2 size={16} />
+                  Agregar Enlace
                 </button>
-              {/if}
+                <button class="btn-ghost bg-white/70" onclick={() => (showBulkDialog = true)}>
+                  <Upload size={16} />
+                  Importar
+                </button>
+                {#if links.length > 0}
+                  <button class="btn-ghost bg-white/70" onclick={() => void handleOpenAll()}>
+                    <Rocket size={16} />
+                    Abrir Todos
+                  </button>
+                {/if}
+              </div>
             </div>
-          </div>
 
-          {#if links.length === 0}
-            <div class="card border-dashed p-8 text-center text-sm text-slate-500">
-              Empieza agregando enlaces individuales o importándolos en bloque.
+            {#if links.length === 0}
+              <div class="card border-dashed p-8 text-center text-sm text-slate-500">
+                Empieza agregando enlaces individuales o importándolos en bloque.
+              </div>
+            {:else}
+              <div class="space-y-3">
+                {#each links as link, index}
+                  <LinkCard
+                    {link}
+                    onopen={(url) => void openUrl(url)}
+                    ondelete={() => (pendingDeleteLinkIndex = index)}
+                  />
+                {/each}
+              </div>
+            {/if}
+          </section>
+        {:else if appState.currentCategorySection === "notes"}
+          <section>
+            <div class="mb-4 flex items-center gap-3">
+              <StickyNote size={18} class="text-amber-700" />
+              <div>
+                <p class="section-label">Notas</p>
+                <p class="mt-1 text-sm text-slate-500">
+                  {notes.length === 0 ? "No hay notas en esta categoría." : `${notes.length} notas disponibles.`}
+                </p>
+              </div>
             </div>
-          {:else}
-            <div class="space-y-3">
-              {#each links as link, index}
-                <LinkCard
-                  {link}
-                  onopen={(url) => void openUrl(url)}
-                  ondelete={() => (pendingDeleteLinkIndex = index)}
-                />
-              {/each}
-            </div>
-          {/if}
-        </section>
 
-        <section class="mb-8">
-          <div class="mb-4 flex items-center gap-3">
-            <StickyNote size={18} class="text-amber-700" />
-            <div>
-              <p class="section-label">Notas</p>
-              <p class="mt-1 text-sm text-slate-500">
-                {notes.length === 0 ? "No hay notas en esta categoría." : `${notes.length} notas disponibles.`}
-              </p>
+            {#if notes.length === 0}
+              <div class="card border-dashed p-8 text-center text-sm text-slate-500">
+                No hay notas en esta categoría.
+              </div>
+            {:else}
+              <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {#each notes as item}
+                  <NoteCard
+                    {item}
+                    onedit={() => openEditDialog(item)}
+                    ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
+                  />
+                {/each}
+              </div>
+            {/if}
+          </section>
+        {:else if appState.currentCategorySection === "flows"}
+          <FlowSection
+            categoryName={category.name}
+            {flows}
+            oncreate={() => void handleCreateFlow()}
+            onopen={(flowId) => openFlowEditor(flowId)}
+            ondelete={handleDeleteFlow}
+          />
+        {:else}
+          <section>
+            <div class="mb-4 flex items-center gap-3">
+              <CheckCircle2 size={18} class="text-emerald-700" />
+              <div>
+                <p class="section-label">Tareas</p>
+                <p class="mt-1 text-sm text-slate-500">
+                  {tasks.length === 0 ? "No hay tareas en esta categoría." : `${tasks.length} tareas disponibles.`}
+                </p>
+              </div>
             </div>
-          </div>
 
-          {#if notes.length === 0}
-            <div class="card border-dashed p-8 text-center text-sm text-slate-500">
-              No hay notas en esta categoría.
-            </div>
-          {:else}
-            <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {#each notes as item}
-                <NoteCard
-                  {item}
-                  onedit={() => openEditDialog(item)}
-                  ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
-                />
-              {/each}
-            </div>
-          {/if}
-        </section>
-
-        <section>
-          <div class="mb-4 flex items-center gap-3">
-            <CheckCircle2 size={18} class="text-emerald-700" />
-            <div>
-              <p class="section-label">Tareas</p>
-              <p class="mt-1 text-sm text-slate-500">
-                {tasks.length === 0 ? "No hay tareas en esta categoría." : `${tasks.length} tareas disponibles.`}
-              </p>
-            </div>
-          </div>
-
-          {#if tasks.length === 0}
-            <div class="card border-dashed p-8 text-center text-sm text-slate-500">
-              No hay tareas en esta categoría.
-            </div>
-          {:else}
-            <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {#each tasks as item}
-                <TaskCard
-                  {item}
-                  onedit={() => openEditDialog(item)}
-                  ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
-                  ontoggle={(done) => void handleToggle(item, done)}
-                />
-              {/each}
-            </div>
-          {/if}
-        </section>
+            {#if tasks.length === 0}
+              <div class="card border-dashed p-8 text-center text-sm text-slate-500">
+                No hay tareas en esta categoría.
+              </div>
+            {:else}
+              <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {#each tasks as item}
+                  <TaskCard
+                    {item}
+                    onedit={() => openEditDialog(item)}
+                    ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
+                    ontoggle={(done) => void handleToggle(item, done)}
+                  />
+                {/each}
+              </div>
+            {/if}
+          </section>
+        {/if}
       </div>
     </div>
 
     <FloatingActionMenu
       title="Crear en esta categoría"
-      actions={[
-        {
-          id: "task",
-          label: "Nueva tarea",
-          icon: CheckCircle2,
-          onclick: () => openNewItemDialog("task"),
-        },
-        {
-          id: "note",
-          label: "Nueva nota",
-          icon: StickyNote,
-          onclick: () => openNewItemDialog("note"),
-        },
-        {
-          id: "subcategory",
-          label: "Nueva subcategoría",
-          icon: FolderPlus,
-          onclick: () => (categoryDialogMode = "create-child"),
-        },
-      ]}
+      actions={fabActions}
     />
   </div>
 

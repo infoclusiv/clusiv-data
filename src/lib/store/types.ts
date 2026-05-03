@@ -1,7 +1,18 @@
 export type ItemType = "task" | "note";
-export type AppView = "welcome" | "category" | "board" | "logs" | "quick-texts" | "search" | "item-editor";
+export type AppView =
+  | "welcome"
+  | "category"
+  | "board"
+  | "logs"
+  | "quick-texts"
+  | "search"
+  | "item-editor"
+  | "flow-editor";
 export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
+export type CategorySection = "tasks" | "notes" | "links" | "subcategories" | "flows";
+export type FlowNodeType = "input" | "process" | "decision" | "output";
+export type FlowStatus = "draft" | "active" | "archived";
 
 export interface Link {
   title: string;
@@ -38,6 +49,37 @@ export interface Item {
   category_id: string;
 }
 
+export interface FlowNode {
+  id: string;
+  type: FlowNodeType;
+  title: string;
+  subtitle: string;
+  description: string;
+  position: {
+    x: number;
+    y: number;
+  };
+}
+
+export interface FlowEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+}
+
+export interface Flow {
+  id: string;
+  category_id: string;
+  title: string;
+  description: string;
+  status: FlowStatus;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ItemEditorState {
   editingItem: Item | null;
   editingIndex: number | null;
@@ -51,6 +93,7 @@ export interface AppData {
   __SYSTEM_CATEGORIES__: Record<string, Category>;
   __SYSTEM_TASKS__: Item[];
   __SYSTEM_QUICK_TEXTS__: QuickText[];
+  __SYSTEM_FLOWS__: Flow[];
 }
 
 export interface LogStatus {
@@ -71,6 +114,8 @@ export interface UIState {
   currentView: AppView;
   currentBoardMode: BoardMode;
   currentBoardFilterId: string | null;
+  currentCategorySection: CategorySection;
+  currentFlowId: string | null;
 }
 
 export interface NavigationSnapshot {
@@ -78,6 +123,8 @@ export interface NavigationSnapshot {
   categoryId: string | null;
   boardMode: BoardMode;
   boardFilterId: string | null;
+  categorySection: CategorySection;
+  flowId: string | null;
 }
 
 export interface CategoryFormInput {
@@ -97,4 +144,41 @@ export interface ItemFormInput {
 export interface QuickTextFormInput {
   title: string;
   content: string;
+}
+
+export interface FlowNodeInput {
+  id?: string;
+  type?: FlowNodeType;
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  position?: {
+    x?: number;
+    y?: number;
+  };
+}
+
+export interface FlowEdgeInput {
+  id?: string;
+  source?: string;
+  target?: string;
+  label?: string;
+}
+
+export interface CreateFlowInput {
+  categoryId: string;
+  title?: string;
+  description?: string;
+  status?: FlowStatus;
+  nodes?: FlowNodeInput[];
+  edges?: FlowEdgeInput[];
+}
+
+export interface UpdateFlowInput {
+  categoryId?: string;
+  title?: string;
+  description?: string;
+  status?: FlowStatus;
+  nodes?: FlowNodeInput[];
+  edges?: FlowEdgeInput[];
 }

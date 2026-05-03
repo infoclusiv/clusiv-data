@@ -1,4 +1,17 @@
-import type { AppData, Category, Item, ItemImage, Link, QuickText } from "$lib/store/types";
+import type {
+  AppData,
+  Category,
+  Flow,
+  FlowEdge,
+  FlowEdgeInput,
+  FlowNode,
+  FlowNodeInput,
+  FlowStatus,
+  Item,
+  ItemImage,
+  Link,
+  QuickText,
+} from "$lib/store/types";
 import {
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
@@ -36,6 +49,7 @@ export function createDefaultAppData(): AppData {
     },
     __SYSTEM_TASKS__: [],
     __SYSTEM_QUICK_TEXTS__: [],
+    __SYSTEM_FLOWS__: [],
   };
 }
 
@@ -67,6 +81,13 @@ export function getQuickTexts(appData: AppData): QuickText[] {
     appData.__SYSTEM_QUICK_TEXTS__ = [];
   }
   return appData.__SYSTEM_QUICK_TEXTS__;
+}
+
+export function getFlows(appData: AppData): Flow[] {
+  if (!appData.__SYSTEM_FLOWS__) {
+    appData.__SYSTEM_FLOWS__ = [];
+  }
+  return appData.__SYSTEM_FLOWS__;
 }
 
 function normalizeItemImage(image: unknown, fallbackId: string): ItemImage | null {
@@ -124,6 +145,105 @@ export function normalizeQuickTexts(value: unknown): QuickText[] {
     .filter((entry): entry is QuickText => entry !== null);
 }
 
+function normalizeFlowStatus(value: unknown): FlowStatus {
+  return value === "active" || value === "archived" ? value : "draft";
+}
+
+export function normalizeFlowNode(value: FlowNodeInput | unknown, fallbackId: string): FlowNode | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as FlowNodeInput;
+  const x = Number(candidate.position?.x);
+  const y = Number(candidate.position?.y);
+
+  return {
+    id: typeof candidate.id === "string" && candidate.id.trim().length > 0
+      ? candidate.id
+      : fallbackId,
+    type: candidate.type === "input"
+      || candidate.type === "decision"
+      || candidate.type === "output"
+      ? candidate.type
+      : "process",
+    title: typeof candidate.title === "string" ? candidate.title : "",
+    subtitle: typeof candidate.subtitle === "string" ? candidate.subtitle : "",
+    description: typeof candidate.description === "string" ? candidate.description : "",
+    position: {
+      x: Number.isFinite(x) ? x : 0,
+      y: Number.isFinite(y) ? y : 0,
+    },
+  };
+}
+
+export function normalizeFlowEdge(value: FlowEdgeInput | unknown, fallbackId: string): FlowEdge | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as FlowEdgeInput;
+  if (typeof candidate.source !== "string" || candidate.source.trim().length === 0) {
+    return null;
+  }
+  if (typeof candidate.target !== "string" || candidate.target.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    id: typeof candidate.id === "string" && candidate.id.trim().length > 0
+      ? candidate.id
+      : fallbackId,
+    source: candidate.source,
+    target: candidate.target,
+    label: typeof candidate.label === "string" ? candidate.label : "",
+  };
+}
+
+export function normalizeFlow(value: unknown, fallbackId: string): Flow | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<Flow>;
+  const flowId = typeof candidate.id === "string" && candidate.id.trim().length > 0
+    ? candidate.id
+    : fallbackId;
+  const normalizedNodes = Array.isArray(candidate.nodes)
+    ? candidate.nodes
+      .map((node, index) => normalizeFlowNode(node, `${flowId}-node-${index + 1}`))
+      .filter((node): node is FlowNode => node !== null)
+    : [];
+  const validNodeIds = new Set(normalizedNodes.map((node) => node.id));
+  const normalizedEdges = Array.isArray(candidate.edges)
+    ? candidate.edges
+      .map((edge, index) => normalizeFlowEdge(edge, `${flowId}-edge-${index + 1}`))
+      .filter((edge): edge is FlowEdge =>
+        edge !== null && validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+      )
+    : [];
+
+  return {
+    id: flowId,
+    category_id: typeof candidate.category_id === "string" && candidate.category_id.trim().length > 0
+      ? candidate.category_id
+      : GENERAL_CATEGORY_ID,
+    title: typeof candidate.title === "string" ? candidate.title : "",
+    description: typeof candidate.description === "string" ? candidate.description : "",
+    status: normalizeFlowStatus(candidate.status),
+    nodes: normalizedNodes,
+    edges: normalizedEdges,
+    created_at: typeof candidate.created_at === "string" && candidate.created_at.trim().length > 0
+      ? candidate.created_at
+      : new Date().toISOString(),
+    updated_at: typeof candidate.updated_at === "string" && candidate.updated_at.trim().length > 0
+      ? candidate.updated_at
+      : (typeof candidate.created_at === "string" && candidate.created_at.trim().length > 0
+        ? candidate.created_at
+        : new Date().toISOString()),
+  };
+}
+
 export function collapseWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -144,7 +264,7 @@ export function getQuickTextDisplayTitle(
   }
 
   const firstLine = getFirstNonEmptyLine(quickText.content);
-  return firstLine.length > 0 ? firstLine : "Sin título";
+  return firstLine.length > 0 ? firstLine : "Sin tÃ­tulo";
 }
 
 export function getQuickTextPreview(
@@ -156,7 +276,7 @@ export function getQuickTextPreview(
     return collapsed;
   }
 
-  return `${collapsed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+  return `${collapsed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}â€¦`;
 }
 
 export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type">): string {
@@ -172,7 +292,7 @@ export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type
     }
   }
 
-  return "Sin título";
+  return "Sin tÃ­tulo";
 }
 
 export function normalizeAppData(appData: AppData | null | undefined): AppData {
@@ -182,6 +302,9 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   const categories = getCategoryMap(normalized);
   const tasks = getTasks(normalized);
   normalized.__SYSTEM_QUICK_TEXTS__ = normalizeQuickTexts(getQuickTexts(normalized));
+  normalized.__SYSTEM_FLOWS__ = getFlows(normalized)
+    .map((flow, index) => normalizeFlow(flow, `flow-${index + 1}`))
+    .filter((flow): flow is Flow => flow !== null);
   const validCategoryIds = new Set(Object.keys(categories));
 
   const generalCategory = categories[GENERAL_CATEGORY_ID];
@@ -217,6 +340,12 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     item.done ||= false;
     if (!item.category_id || !validCategoryIds.has(item.category_id)) {
       item.category_id = GENERAL_CATEGORY_ID;
+    }
+  }
+
+  for (const flow of normalized.__SYSTEM_FLOWS__) {
+    if (!flow.category_id || !validCategoryIds.has(flow.category_id)) {
+      flow.category_id = GENERAL_CATEGORY_ID;
     }
   }
 
@@ -417,9 +546,9 @@ export function resolveParentSelection(value: string): string | null {
 export function getCategoryChildrenSummary(appData: AppData, categoryId: string): string {
   const childCount = getChildCategories(appData, categoryId).length;
   if (childCount === 0) {
-    return "Sin subcategorías";
+    return "Sin subcategorÃ­as";
   }
-  return childCount === 1 ? "1 subcategoría" : `${childCount} subcategorías`;
+  return childCount === 1 ? "1 subcategorÃ­a" : `${childCount} subcategorÃ­as`;
 }
 
 export function getItemsForCategory(appData: AppData, categoryId: string): Item[] {
@@ -432,6 +561,20 @@ export function getNotesForCategory(appData: AppData, categoryId: string): Item[
 
 export function getTasksForCategory(appData: AppData, categoryId: string): Item[] {
   return getItemsForCategory(appData, categoryId).filter((item) => item.type !== "note");
+}
+
+export function getFlowsForCategory(appData: AppData, categoryId: string): Flow[] {
+  return getFlows(appData)
+    .filter((flow) => flow.category_id === categoryId)
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+}
+
+export function getFlowById(appData: AppData, flowId: string | null): Flow | null {
+  if (!flowId) {
+    return null;
+  }
+
+  return getFlows(appData).find((flow) => flow.id === flowId) ?? null;
 }
 
 export function getCategoryCounts(appData: AppData, categoryId: string): {
@@ -454,5 +597,5 @@ export function getCategoryCounts(appData: AppData, categoryId: string): {
 export function formatItemCounts(noteCount: number, taskCount: number): string {
   const noteLabel = noteCount === 1 ? "nota" : "notas";
   const taskLabel = taskCount === 1 ? "tarea" : "tareas";
-  return `${noteCount} ${noteLabel} • ${taskCount} ${taskLabel}`;
+  return `${noteCount} ${noteLabel} â€¢ ${taskCount} ${taskLabel}`;
 }

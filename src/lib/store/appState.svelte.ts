@@ -4,7 +4,12 @@ import type {
   AppData,
   AppView,
   BoardMode,
+  CategorySection,
   CategoryFormInput,
+  CreateFlowInput,
+  Flow,
+  FlowEdge,
+  FlowNode,
   Item,
   ItemEditorState,
   ItemFormInput,
@@ -14,16 +19,21 @@ import type {
   LogStatus,
   NavigationSnapshot,
   QuickTextFormInput,
+  UpdateFlowInput,
 } from "$lib/store/types";
 import {
   buildCategoryRecord,
   categoryHasChildren,
   generateCategoryId,
   getCategory,
+  getFlowById,
   getCategoryPathIds,
   getFlatCategoryEntries,
   getItemCategoryId,
   normalizeAppData,
+  normalizeFlow,
+  normalizeFlowEdge,
+  normalizeFlowNode,
   normalizeItemImages,
 } from "$lib/utils/categoryUtils";
 import {
@@ -37,6 +47,8 @@ export const appState = $state({
   currentView: "welcome" as AppView,
   currentBoardMode: "gallery" as BoardMode,
   currentBoardFilterId: null as string | null,
+  currentCategorySection: "tasks" as CategorySection,
+  currentFlowId: null as string | null,
   itemEditor: null as ItemEditorState | null,
   searchQuery: "",
   navigationHistory: [] as NavigationSnapshot[],
@@ -89,6 +101,8 @@ interface OpenItemEditorOptions {
   recordHistory?: boolean;
 }
 
+const DEFAULT_CATEGORY_SECTION: CategorySection = "tasks";
+
 function countLinks(appData: AppData): number {
   return Object.values(appData.__SYSTEM_CATEGORIES__).reduce(
     (total, category) => total + category.links.length,
@@ -98,6 +112,10 @@ function countLinks(appData: AppData): number {
 
 function countQuickTexts(appData: AppData): number {
   return appData.__SYSTEM_QUICK_TEXTS__.length;
+}
+
+function countFlows(appData: AppData): number {
+  return appData.__SYSTEM_FLOWS__.length;
 }
 
 function getAppDataSummary(appData: AppData | null): Record<string, unknown> {
@@ -111,6 +129,7 @@ function getAppDataSummary(appData: AppData | null): Record<string, unknown> {
     taskCount: appData.__SYSTEM_TASKS__.length,
     linkCount: countLinks(appData),
     quickTextCount: countQuickTexts(appData),
+    flowCount: countFlows(appData),
   };
 }
 
@@ -329,6 +348,88 @@ function buildItemEditorTitle(
   return `Nueva ${getItemTypeLabel(initialType)}`;
 }
 
+function sanitizeCategorySection(section: CategorySection | null | undefined): CategorySection {
+  return section ?? DEFAULT_CATEGORY_SECTION;
+}
+
+function buildDefaultFlowNodes(flowId: string): FlowNode[] {
+  return [
+    normalizeFlowNode(
+      {
+        id: `${flowId}-node-1`,
+        type: "input",
+        title: "Entrada",
+        subtitle: "Punto de inicio",
+        description: "",
+        position: { x: 80, y: 120 },
+      },
+      `${flowId}-node-1`,
+    ) as FlowNode,
+    normalizeFlowNode(
+      {
+        id: `${flowId}-node-2`,
+        type: "process",
+        title: "Proceso",
+        subtitle: "Paso principal",
+        description: "",
+        position: { x: 320, y: 120 },
+      },
+      `${flowId}-node-2`,
+    ) as FlowNode,
+    normalizeFlowNode(
+      {
+        id: `${flowId}-node-3`,
+        type: "output",
+        title: "Resultado",
+        subtitle: "Salida",
+        description: "",
+        position: { x: 560, y: 120 },
+      },
+      `${flowId}-node-3`,
+    ) as FlowNode,
+  ];
+}
+
+function buildDefaultFlowEdges(flowId: string): FlowEdge[] {
+  return [
+    normalizeFlowEdge(
+      {
+        id: `${flowId}-edge-1`,
+        source: `${flowId}-node-1`,
+        target: `${flowId}-node-2`,
+        label: "",
+      },
+      `${flowId}-edge-1`,
+    ) as FlowEdge,
+    normalizeFlowEdge(
+      {
+        id: `${flowId}-edge-2`,
+        source: `${flowId}-node-2`,
+        target: `${flowId}-node-3`,
+        label: "",
+      },
+      `${flowId}-edge-2`,
+    ) as FlowEdge,
+  ];
+}
+
+function normalizeFlowDraft(flowId: string, input: CreateFlowInput | UpdateFlowInput): Flow {
+  return normalizeFlow(
+    {
+      id: flowId,
+      category_id: input.categoryId,
+      title: input.title ?? "",
+      description: input.description ?? "",
+      status: input.status ?? "draft",
+      nodes: input.nodes ?? buildDefaultFlowNodes(flowId),
+      edges: input.edges ?? buildDefaultFlowEdges(flowId),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    flowId,
+  ) as Flow;
+}
+
 function canUseLocalStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -351,6 +452,8 @@ function getCurrentNavigation(): NavigationSnapshot {
     categoryId: appState.currentCategoryId,
     boardMode: appState.currentBoardMode,
     boardFilterId: appState.currentBoardFilterId,
+    categorySection: appState.currentCategorySection,
+    flowId: appState.currentFlowId,
   };
 }
 
@@ -361,11 +464,14 @@ function navigationMatches(
   return left.view === right.view
     && left.categoryId === right.categoryId
     && left.boardMode === right.boardMode
-    && left.boardFilterId === right.boardFilterId;
+    && left.boardFilterId === right.boardFilterId
+    && left.categorySection === right.categorySection
+    && left.flowId === right.flowId;
 }
 
 function sanitizeNavigationHistory(appData: AppData): void {
   const validCategoryIds = new Set(Object.keys(appData.__SYSTEM_CATEGORIES__));
+  const validFlowIds = new Set(appData.__SYSTEM_FLOWS__.map((flow) => flow.id));
   const nextHistory: NavigationSnapshot[] = [];
 
   for (const snapshot of appState.navigationHistory) {
@@ -384,10 +490,18 @@ function sanitizeNavigationHistory(appData: AppData): void {
       boardFilterId: snapshot.boardFilterId && validCategoryIds.has(snapshot.boardFilterId)
         ? snapshot.boardFilterId
         : null,
+      categorySection: sanitizeCategorySection(snapshot.categorySection),
+      flowId: snapshot.flowId && validFlowIds.has(snapshot.flowId)
+        ? snapshot.flowId
+        : null,
     };
 
     if (snapshot.boardFilterId && !nextSnapshot.boardFilterId) {
       nextSnapshot.boardMode = "gallery";
+    }
+
+    if (snapshot.view === "flow-editor" && !nextSnapshot.flowId) {
+      continue;
     }
 
     nextHistory.push(nextSnapshot);
@@ -518,6 +632,8 @@ function applyNavigation(snapshot: NavigationSnapshot): void {
   appState.currentCategoryId = snapshot.categoryId;
   appState.currentBoardMode = snapshot.boardMode;
   appState.currentBoardFilterId = snapshot.boardFilterId;
+  appState.currentCategorySection = sanitizeCategorySection(snapshot.categorySection);
+  appState.currentFlowId = snapshot.flowId ?? null;
 
   if (snapshot.view !== "item-editor") {
     appState.itemEditor = null;
@@ -549,6 +665,13 @@ function setAppData(appData: AppData): AppData {
   appState.appData = normalized;
   sanitizeNavigationHistory(normalized);
   sanitizeExpandedCategoryIds(normalized);
+  if (appState.currentFlowId && !getFlowById(normalized, appState.currentFlowId)) {
+    appState.currentFlowId = null;
+    if (appState.currentView === "flow-editor") {
+      appState.currentView = "category";
+      appState.currentCategorySection = "flows";
+    }
+  }
   return normalized;
 }
 
@@ -835,8 +958,17 @@ export function goBack(): void {
       categoryId: previousNavigation.categoryId,
       boardMode: previousNavigation.boardMode,
       boardFilterId: previousNavigation.boardFilterId,
+      categorySection: previousNavigation.categorySection,
+      flowId: previousNavigation.flowId,
     },
   });
+}
+
+export function setCategorySection(section: CategorySection): void {
+  appState.currentCategorySection = section;
+  if (section !== "flows") {
+    appState.currentFlowId = null;
+  }
 }
 
 export function openItemEditor({
@@ -866,6 +998,8 @@ export function openItemEditor({
       categoryId: appState.currentCategoryId,
       boardMode: appState.currentBoardMode,
       boardFilterId: appState.currentBoardFilterId,
+      categorySection: appState.currentCategorySection,
+      flowId: null,
     },
     { recordHistory: recordHistory && appState.currentView !== "item-editor" },
   );
@@ -891,6 +1025,85 @@ export function closeItemEditor(): void {
   selectCategory(appState.currentCategoryId ?? GENERAL_CATEGORY_ID, { recordHistory: false });
 }
 
+export function openFlowEditor(flowId: string): void {
+  const appData = requireAppData();
+  const flow = getFlowById(appData, flowId);
+
+  logClientEvent({
+    source: "flows",
+    action: "open_flow_started",
+    message: "Opening flow editor.",
+    context: {
+      flowId,
+      categoryId: flow?.category_id ?? null,
+    },
+  });
+
+  if (!flow) {
+    const error = new Error("El flujo ya no existe.");
+    logClientError(
+      "flows",
+      "open_flow_failed",
+      "Failed to open flow editor.",
+      error,
+      { flowId },
+    );
+    throw error;
+  }
+
+  navigate(
+    {
+      view: "flow-editor",
+      categoryId: flow.category_id,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: appState.currentBoardFilterId,
+      categorySection: "flows",
+      flowId,
+    },
+    { recordHistory: appState.currentView !== "flow-editor" || appState.currentFlowId !== flowId },
+  );
+
+  expandCategoryPath(flow.category_id);
+
+  logClientEvent({
+    source: "flows",
+    action: "open_flow_completed",
+    message: "Opened flow editor.",
+    context: {
+      flowId,
+      categoryId: flow.category_id,
+      title: flow.title,
+      nodeCount: flow.nodes.length,
+    },
+  });
+}
+
+export function closeFlowEditor(): void {
+  if (appState.currentView !== "flow-editor") {
+    appState.currentFlowId = null;
+    return;
+  }
+
+  appState.currentFlowId = null;
+
+  if (appState.navigationHistory.length > 0) {
+    goBack();
+    return;
+  }
+
+  navigate(
+    {
+      view: "category",
+      categoryId: appState.currentCategoryId ?? GENERAL_CATEGORY_ID,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: null,
+      categorySection: "flows",
+      flowId: null,
+    },
+    { recordHistory: false },
+  );
+}
+
 export function selectCategory(
   categoryId: string,
   options: NavigationOptions = {},
@@ -909,6 +1122,8 @@ export function selectCategory(
       categoryId,
       boardMode: appState.currentBoardMode,
       boardFilterId: null,
+      categorySection: DEFAULT_CATEGORY_SECTION,
+      flowId: null,
     },
     options,
   );
@@ -939,6 +1154,8 @@ export function showBoard(
       categoryId: mode === "detail" ? filterId : null,
       boardMode: mode,
       boardFilterId: filterId,
+      categorySection: appState.currentCategorySection,
+      flowId: null,
     },
     options,
   );
@@ -962,6 +1179,8 @@ export function showWelcome(options: NavigationOptions = {}): void {
       categoryId: null,
       boardMode: "gallery",
       boardFilterId: null,
+      categorySection: appState.currentCategorySection,
+      flowId: null,
     },
     options,
   );
@@ -980,6 +1199,8 @@ export function showLogs(options: NavigationOptions = {}): void {
       categoryId: appState.currentCategoryId,
       boardMode: appState.currentBoardMode,
       boardFilterId: null,
+      categorySection: appState.currentCategorySection,
+      flowId: null,
     },
     options,
   );
@@ -998,6 +1219,8 @@ export function showQuickTexts(options: NavigationOptions = {}): void {
       categoryId: appState.currentCategoryId,
       boardMode: appState.currentBoardMode,
       boardFilterId: null,
+      categorySection: appState.currentCategorySection,
+      flowId: null,
     },
     options,
   );
@@ -1016,6 +1239,8 @@ export function showSearch(options: NavigationOptions = {}): void {
       categoryId: appState.currentCategoryId,
       boardMode: appState.currentBoardMode,
       boardFilterId: null,
+      categorySection: appState.currentCategorySection,
+      flowId: null,
     },
     options,
   );
@@ -1218,6 +1443,9 @@ export async function deleteCategory(categoryId: string): Promise<string> {
 
   const fallbackCategoryId = currentCategory.parent_id || GENERAL_CATEGORY_ID;
   const reassignedItemCount = categoryItemCount;
+  const reassignedFlowCount = currentData.__SYSTEM_FLOWS__.filter(
+    (flow) => flow.category_id === categoryId,
+  ).length;
   const removedLinkCount = currentCategory.links.length;
 
   logClientEvent({
@@ -1229,6 +1457,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
       categoryName: currentCategory.name,
       fallbackCategoryId,
       reassignedItemCount,
+      reassignedFlowCount,
       removedLinkCount,
     },
   });
@@ -1238,6 +1467,13 @@ export async function deleteCategory(categoryId: string): Promise<string> {
       for (const item of draft.__SYSTEM_TASKS__) {
         if (getItemCategoryId(item) === categoryId) {
           item.category_id = fallbackCategoryId;
+        }
+      }
+
+      for (const flow of draft.__SYSTEM_FLOWS__) {
+        if (flow.category_id === categoryId) {
+          flow.category_id = fallbackCategoryId;
+          flow.updated_at = new Date().toISOString();
         }
       }
 
@@ -1267,6 +1503,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
         categoryId,
         fallbackCategoryId: appState.currentCategoryId,
         reassignedItemCount,
+        reassignedFlowCount,
         removedLinkCount,
       },
     });
@@ -1282,6 +1519,7 @@ export async function deleteCategory(categoryId: string): Promise<string> {
         categoryId,
         fallbackCategoryId,
         reassignedItemCount,
+        reassignedFlowCount,
         removedLinkCount,
       },
     );
@@ -1434,6 +1672,190 @@ export async function deleteLink(categoryId: string, linkIndex: number): Promise
         linkIndex,
         title: link?.title ?? null,
         url: link?.url ?? null,
+      },
+    );
+    throw error;
+  }
+}
+
+export async function createFlow(input: CreateFlowInput): Promise<string> {
+  const flowId = `flow_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+  const normalizedFlow = normalizeFlowDraft(flowId, input);
+
+  logClientEvent({
+    source: "flows",
+    action: "create_flow_started",
+    message: "Creating a new flow.",
+    context: {
+      flowId,
+      categoryId: normalizedFlow.category_id,
+      title: normalizedFlow.title,
+      nodeCount: normalizedFlow.nodes.length,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      draft.__SYSTEM_FLOWS__.unshift(normalizedFlow);
+    });
+
+    logClientEvent({
+      source: "flows",
+      action: "create_flow_completed",
+      message: "Flow created successfully.",
+      context: {
+        flowId,
+        categoryId: normalizedFlow.category_id,
+        title: normalizedFlow.title,
+        nodeCount: normalizedFlow.nodes.length,
+      },
+    });
+
+    return flowId;
+  } catch (error) {
+    logClientError(
+      "flows",
+      "create_flow_failed",
+      "Failed to create flow.",
+      error,
+      {
+        flowId,
+        categoryId: normalizedFlow.category_id,
+        title: normalizedFlow.title,
+      },
+    );
+    throw error;
+  }
+}
+
+export async function updateFlow(flowId: string, input: UpdateFlowInput): Promise<void> {
+  const currentFlow = getFlowById(requireAppData(), flowId);
+  if (!currentFlow) {
+    throw new Error("El flujo ya no existe.");
+  }
+
+  const nextTimestamp = new Date().toISOString();
+
+  logClientEvent({
+    source: "flows",
+    action: "update_flow_started",
+    message: "Updating flow.",
+    context: {
+      flowId,
+      categoryId: input.categoryId ?? currentFlow.category_id,
+      title: input.title ?? currentFlow.title,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      const flowIndex = draft.__SYSTEM_FLOWS__.findIndex((entry) => entry.id === flowId);
+      if (flowIndex === -1) {
+        throw new Error("El flujo ya no existe.");
+      }
+
+      const previousFlow = draft.__SYSTEM_FLOWS__[flowIndex];
+      const normalizedFlow = normalizeFlow(
+        {
+          ...previousFlow,
+          category_id: input.categoryId ?? previousFlow.category_id,
+          title: input.title ?? previousFlow.title,
+          description: input.description ?? previousFlow.description,
+          status: input.status ?? previousFlow.status,
+          nodes: input.nodes ?? previousFlow.nodes,
+          edges: input.edges ?? previousFlow.edges,
+          created_at: previousFlow.created_at,
+          updated_at: nextTimestamp,
+        },
+        flowId,
+      );
+
+      if (!normalizedFlow) {
+        throw new Error("No se pudo normalizar el flujo.");
+      }
+
+      draft.__SYSTEM_FLOWS__[flowIndex] = normalizedFlow;
+    });
+
+    logClientEvent({
+      source: "flows",
+      action: "update_flow_completed",
+      message: "Flow updated successfully.",
+      context: {
+        flowId,
+        updatedAt: nextTimestamp,
+      },
+    });
+  } catch (error) {
+    logClientError(
+      "flows",
+      "update_flow_failed",
+      "Failed to update flow.",
+      error,
+      {
+        flowId,
+        categoryId: input.categoryId ?? currentFlow.category_id,
+        title: input.title ?? currentFlow.title,
+      },
+    );
+    throw error;
+  }
+}
+
+export async function deleteFlow(flowId: string): Promise<void> {
+  const flow = getFlowById(requireAppData(), flowId);
+  if (!flow) {
+    throw new Error("El flujo ya no existe.");
+  }
+
+  logClientEvent({
+    source: "flows",
+    action: "delete_flow_started",
+    message: "Deleting flow.",
+    context: {
+      flowId,
+      categoryId: flow.category_id,
+      title: flow.title,
+      nodeCount: flow.nodes.length,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      const flowIndex = draft.__SYSTEM_FLOWS__.findIndex((entry) => entry.id === flowId);
+      if (flowIndex === -1) {
+        throw new Error("El flujo ya no existe.");
+      }
+      draft.__SYSTEM_FLOWS__.splice(flowIndex, 1);
+    });
+
+    if (appState.currentFlowId === flowId) {
+      appState.currentFlowId = null;
+    }
+
+    if (appState.currentView === "flow-editor") {
+      closeFlowEditor();
+    }
+
+    logClientEvent({
+      source: "flows",
+      action: "delete_flow_completed",
+      message: "Flow deleted successfully.",
+      context: {
+        flowId,
+        categoryId: flow.category_id,
+      },
+    });
+  } catch (error) {
+    logClientError(
+      "flows",
+      "delete_flow_failed",
+      "Failed to delete flow.",
+      error,
+      {
+        flowId,
+        categoryId: flow.category_id,
+        title: flow.title,
       },
     );
     throw error;
