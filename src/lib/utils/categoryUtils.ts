@@ -264,7 +264,7 @@ export function getQuickTextDisplayTitle(
   }
 
   const firstLine = getFirstNonEmptyLine(quickText.content);
-  return firstLine.length > 0 ? firstLine : "Sin tÃ­tulo";
+  return firstLine.length > 0 ? firstLine : "Sin título";
 }
 
 export function getQuickTextPreview(
@@ -276,7 +276,7 @@ export function getQuickTextPreview(
     return collapsed;
   }
 
-  return `${collapsed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}â€¦`;
+  return `${collapsed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
 export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type">): string {
@@ -292,7 +292,7 @@ export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type
     }
   }
 
-  return "Sin tÃ­tulo";
+  return "Sin título";
 }
 
 export function normalizeAppData(appData: AppData | null | undefined): AppData {
@@ -546,9 +546,9 @@ export function resolveParentSelection(value: string): string | null {
 export function getCategoryChildrenSummary(appData: AppData, categoryId: string): string {
   const childCount = getChildCategories(appData, categoryId).length;
   if (childCount === 0) {
-    return "Sin subcategorÃ­as";
+    return "Sin subcategorías";
   }
-  return childCount === 1 ? "1 subcategorÃ­a" : `${childCount} subcategorÃ­as`;
+  return childCount === 1 ? "1 subcategoría" : `${childCount} subcategorías`;
 }
 
 export function getItemsForCategory(appData: AppData, categoryId: string): Item[] {
@@ -597,5 +597,5 @@ export function getCategoryCounts(appData: AppData, categoryId: string): {
 export function formatItemCounts(noteCount: number, taskCount: number): string {
   const noteLabel = noteCount === 1 ? "nota" : "notas";
   const taskLabel = taskCount === 1 ? "tarea" : "tareas";
-  return `${noteCount} ${noteLabel} â€¢ ${taskCount} ${taskLabel}`;
+  return `${noteCount} ${noteLabel} • ${taskCount} ${taskLabel}`;
 }
