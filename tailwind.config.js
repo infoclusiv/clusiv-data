@@ -21,7 +21,7 @@ export default {
         },
       },
       boxShadow: {
-        soft: "0 18px 48px rgba(16, 52, 45, 0.12)",
+        soft: "0 14px 34px rgba(16, 52, 45, 0.09)",
       },
       fontFamily: {
         sans: ['"Segoe UI Variable Display"', '"Segoe UI"', 'sans-serif'],

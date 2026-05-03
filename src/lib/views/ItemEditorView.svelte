@@ -234,7 +234,7 @@
 <svelte:window onpaste={handlePaste} />
 
 {#if editorState}
-  <div class="page-panel flex h-full flex-1 flex-col overflow-hidden">
+  <div class="page-panel flex h-full flex-1 flex-col">
     <div class="flex items-start justify-between gap-4 border-b border-slate-200/70 px-6 py-6 lg:px-8">
       <div class="min-w-0">
         <p class="section-label">Editor de elemento</p>
@@ -254,9 +254,9 @@
       </div>
     </div>
 
-    <div class="flex-1 overflow-hidden px-5 py-5 lg:px-8 lg:py-7">
-      <div class="grid h-full gap-6 xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
-        <div class="min-h-0 overflow-y-auto pr-1">
+    <div class="flex-1 overflow-y-auto px-5 py-5 lg:px-8 lg:py-7">
+      <div class="grid min-h-full gap-6 pb-10 xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
+        <div class="overflow-visible">
           <div class="flex flex-col gap-4">
             <section class="rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
               <p class="section-label">Tipo</p>
@@ -307,7 +307,7 @@
           </div>
         </div>
 
-        <div class="min-h-0 overflow-y-auto pr-1">
+        <div class="overflow-visible">
           <div class="flex flex-col gap-6">
             <section class="flex min-h-[24rem] flex-col rounded-[1.75rem] border border-slate-200/80 bg-paper-50/80 p-5 shadow-soft backdrop-blur-sm lg:p-6">
               <div class="mb-4">
