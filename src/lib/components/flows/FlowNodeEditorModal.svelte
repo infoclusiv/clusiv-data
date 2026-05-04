@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { GitBranchPlus, Trash2, X } from "lucide-svelte";
+  import { GitBranchPlus, Plus, Trash2, X } from "lucide-svelte";
 
   import type { FlowNode } from "$lib/store/types";
+  import type { FlowBranchDirection } from "$lib/utils/flowGraphUtils";
 
   interface Props {
     node: FlowNode;
@@ -10,6 +11,7 @@
     onupdate: (field: "title" | "subtitle" | "description" | "type", value: string) => void;
     ondelete?: (nodeId: string) => void;
     oncreatetwopaths?: (nodeId: string) => void;
+    onaddtobranch?: (nodeId: string, direction: FlowBranchDirection) => void;
     onclose: () => void;
   }
 
@@ -20,6 +22,7 @@
     onupdate,
     ondelete,
     oncreatetwopaths,
+    onaddtobranch,
     onclose,
   }: Props = $props();
 
@@ -140,6 +143,28 @@
         <GitBranchPlus size={16} />
         Abrir dos caminos
       </button>
+
+      {#if outgoingCount >= 2 && onaddtobranch}
+        <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            class="btn-ghost justify-center bg-white"
+            type="button"
+            onclick={() => onaddtobranch?.(node.id, "upper")}
+          >
+            <Plus size={16} />
+            Agregar arriba
+          </button>
+
+          <button
+            class="btn-ghost justify-center bg-white"
+            type="button"
+            onclick={() => onaddtobranch?.(node.id, "lower")}
+          >
+            <Plus size={16} />
+            Agregar abajo
+          </button>
+        </div>
+      {/if}
 
       {#if node.type === "output"}
         <p class="mt-2 text-xs text-slate-400">

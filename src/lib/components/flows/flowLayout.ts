@@ -30,6 +30,13 @@ export function getNextHorizontalNodePosition(nodes: FlowNode[]): FlowNode["posi
   };
 }
 
+export function getNextNodePositionFromNode(node: FlowNode): FlowNode["position"] {
+  return {
+    x: node.position.x + FLOW_NODE_WIDTH + FLOW_NODE_HORIZONTAL_GAP,
+    y: node.position.y,
+  };
+}
+
 export function getFlowCanvasSize(nodes: FlowNode[]): { width: number; height: number } {
   if (!nodes.length) {
     return {

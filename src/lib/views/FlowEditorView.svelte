@@ -2,7 +2,10 @@
   import { ArrowLeft, Plus, Save } from "lucide-svelte";
 
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
-  import { getNextHorizontalNodePosition } from "$lib/components/flows/flowLayout";
+  import {
+    getNextHorizontalNodePosition,
+    getNextNodePositionFromNode,
+  } from "$lib/components/flows/flowLayout";
   import FlowNodeEditorModal from "$lib/components/flows/FlowNodeEditorModal.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import { appState, closeFlowEditor, updateFlow } from "$lib/store/appState.svelte";
@@ -12,7 +15,9 @@
   import {
     buildTwoPathNodesAndEdges,
     canOpenTwoPaths,
+    getBranchTailFromSource,
     getOutgoingEdges,
+    type FlowBranchDirection,
   } from "$lib/utils/flowGraphUtils";
 
   const flow = $derived(
@@ -74,21 +79,28 @@
     saving = false;
   });
 
-  function addNode(type: FlowNodeType = "process"): void {
+  function createNewFlowNode(type: FlowNodeType, position: FlowNode["position"]): FlowNode {
     if (!flow) {
-      return;
+      throw new Error("No hay flujo activo.");
     }
 
-    const nodeId = `${flow.id}-node-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
-    const previousNode = nodes.at(-1) ?? null;
-    const newNode: FlowNode = {
-      id: nodeId,
+    return {
+      id: `${flow.id}-node-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
       type,
       title: type === "decision" ? "Nueva decisión" : "Nuevo nodo",
       subtitle: "",
       description: "",
-      position: getNextHorizontalNodePosition(nodes),
+      position,
     };
+  }
+
+  function addNodeToEnd(type: FlowNodeType = "process"): void {
+    if (!flow) {
+      return;
+    }
+
+    const previousNode = nodes.at(-1) ?? null;
+    const newNode = createNewFlowNode(type, getNextHorizontalNodePosition(nodes));
 
     nodes = [...nodes, newNode];
 
@@ -98,13 +110,63 @@
         {
           id: `${flow.id}-edge-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
           source: previousNode.id,
-          target: nodeId,
+          target: newNode.id,
           label: "",
         },
       ];
     }
 
-    selectedNodeId = nodeId;
+    selectedNodeId = newNode.id;
+    nodeEditorOpen = true;
+  }
+
+  function addNodeToBranch(
+    sourceNodeId: string,
+    direction: FlowBranchDirection,
+    type: FlowNodeType = "process",
+  ): void {
+    if (!flow) {
+      return;
+    }
+
+    const sourceNode = nodes.find((node) => node.id === sourceNodeId) ?? null;
+
+    if (!sourceNode) {
+      showSnackbar("No se encontró el nodo que abrió los caminos.", "error");
+      return;
+    }
+
+    const branchTail = getBranchTailFromSource({
+      sourceNode,
+      nodes,
+      edges,
+      direction,
+    });
+
+    if (!branchTail) {
+      showSnackbar(
+        direction === "upper"
+          ? "No se encontró el camino superior."
+          : "No se encontró el camino inferior.",
+        "error",
+      );
+      return;
+    }
+
+    const newNode = createNewFlowNode(type, getNextNodePositionFromNode(branchTail));
+
+    nodes = [...nodes, newNode];
+    edges = [
+      ...edges,
+      {
+        id: `${flow.id}-edge-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
+        source: branchTail.id,
+        target: newNode.id,
+        label: "",
+      },
+    ];
+
+    selectedNodeId = newNode.id;
     nodeEditorOpen = true;
   }
 
@@ -187,7 +249,7 @@
 
     nodes = [...nodes, ...branch.nodes];
     edges = [...edges, ...branch.edges];
-    selectedNodeId = branch.nodes[0]?.id ?? nodeId;
+    selectedNodeId = nodeId;
     nodeEditorOpen = true;
 
     showSnackbar("Se abrieron dos caminos desde el nodo seleccionado.", "success");
@@ -237,11 +299,11 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <button class="btn-ghost bg-white/70" onclick={() => addNode("process")}>
+          <button class="btn-ghost bg-white/70" onclick={() => addNodeToEnd("process")}>
             <Plus size={16} />
             Agregar nodo
           </button>
-          <button class="btn-ghost bg-white/70" onclick={() => addNode("decision")}>
+          <button class="btn-ghost bg-white/70" onclick={() => addNodeToEnd("decision")}>
             <Plus size={16} />
             Nueva decisión
           </button>
@@ -278,6 +340,7 @@
             onupdate={updateSelectedNode}
             ondelete={handleDeleteSelectedNode}
             oncreatetwopaths={openTwoPathsFromNode}
+            onaddtobranch={addNodeToBranch}
             onclose={closeNodeEditor}
           />
         {/if}

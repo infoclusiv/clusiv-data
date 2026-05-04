@@ -5,6 +5,7 @@ import {
 import type { FlowEdge, FlowNode, FlowNodeType } from "$lib/store/types";
 
 export { FLOW_NODE_HEIGHT, FLOW_NODE_WIDTH };
+export type FlowBranchDirection = "upper" | "lower";
 
 export const FLOW_HORIZONTAL_GAP = FLOW_NODE_WIDTH + 72;
 export const FLOW_BRANCH_VERTICAL_GAP = 170;
@@ -56,6 +57,103 @@ export function createFlowEdge(input: {
 
 export function getOutgoingEdges(edges: FlowEdge[], nodeId: string): FlowEdge[] {
   return edges.filter((edge) => edge.source === nodeId);
+}
+
+export function getBranchStartEdge(input: {
+  sourceNode: FlowNode;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  direction: FlowBranchDirection;
+}): FlowEdge | null {
+  const outgoingEdges = getOutgoingEdges(input.edges, input.sourceNode.id);
+
+  if (outgoingEdges.length < 2) {
+    return null;
+  }
+
+  const edgeByLabel = outgoingEdges.find((edge) => {
+    const label = edge.label.trim().toLowerCase();
+
+    return input.direction === "upper" ? label === "superior" : label === "inferior";
+  });
+
+  if (edgeByLabel) {
+    return edgeByLabel;
+  }
+
+  const edgesWithTargets = outgoingEdges
+    .map((edge) => ({
+      edge,
+      target: input.nodes.find((node) => node.id === edge.target) ?? null,
+    }))
+    .filter((item): item is { edge: FlowEdge; target: FlowNode } => item.target !== null)
+    .sort((a, b) => a.target.position.y - b.target.position.y);
+
+  if (!edgesWithTargets.length) {
+    return null;
+  }
+
+  return input.direction === "upper"
+    ? edgesWithTargets[0].edge
+    : edgesWithTargets[edgesWithTargets.length - 1].edge;
+}
+
+export function getLinearBranchTail(input: {
+  startNodeId: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}): FlowNode | null {
+  let currentNode = input.nodes.find((node) => node.id === input.startNodeId) ?? null;
+
+  if (!currentNode) {
+    return null;
+  }
+
+  const visited = new Set<string>();
+
+  while (currentNode && !visited.has(currentNode.id)) {
+    visited.add(currentNode.id);
+
+    const outgoingEdges = getOutgoingEdges(input.edges, currentNode.id);
+
+    if (outgoingEdges.length !== 1) {
+      break;
+    }
+
+    const nextNode = input.nodes.find((node) => node.id === outgoingEdges[0].target) ?? null;
+
+    if (!nextNode) {
+      break;
+    }
+
+    currentNode = nextNode;
+  }
+
+  return currentNode;
+}
+
+export function getBranchTailFromSource(input: {
+  sourceNode: FlowNode;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  direction: FlowBranchDirection;
+}): FlowNode | null {
+  const branchStartEdge = getBranchStartEdge({
+    sourceNode: input.sourceNode,
+    nodes: input.nodes,
+    edges: input.edges,
+    direction: input.direction,
+  });
+
+  if (!branchStartEdge) {
+    return null;
+  }
+
+  return getLinearBranchTail({
+    startNodeId: branchStartEdge.target,
+    nodes: input.nodes,
+    edges: input.edges,
+  });
 }
 
 export function canOpenTwoPaths(node: FlowNode, edges: FlowEdge[]): boolean {
