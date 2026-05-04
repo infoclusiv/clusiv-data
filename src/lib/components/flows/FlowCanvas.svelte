@@ -13,8 +13,13 @@
 
   let { nodes, edges, selectedNodeId, onselectnode }: Props = $props();
 
-  const canvasWidth = 920;
   const canvasHeight = 560;
+  const canvasWidth = $derived(
+    Math.max(
+      920,
+      ...nodes.map((node) => node.position.x + 260),
+    ),
+  );
 
   function getNodeCenter(node: FlowNode): { x: number; y: number } {
     return {
@@ -29,7 +34,7 @@
     <div>
       <p class="section-label">Canvas</p>
       <p class="mt-2 text-sm text-slate-500">
-        Selecciona un nodo para editar sus datos desde el inspector.
+        Haz clic en cualquier nodo para abrir sus opciones de edición.
       </p>
     </div>
     <div class="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-slate-500 shadow-sm">
@@ -40,8 +45,8 @@
 
   <div class="overflow-auto rounded-[1.5rem] border border-white/70 bg-white/75 p-4">
     <div
-      class="relative rounded-[1.25rem] border border-dashed border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50"
-      style={`width: ${canvasWidth}px; height: ${canvasHeight}px;`}
+      class="relative w-full rounded-[1.25rem] border border-dashed border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50"
+      style={`min-width: ${canvasWidth}px; height: ${canvasHeight}px;`}
     >
       <svg class="pointer-events-none absolute inset-0 h-full w-full">
         {#each edges as edge (edge.id)}

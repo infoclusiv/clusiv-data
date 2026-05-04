@@ -2,7 +2,7 @@
   import { ArrowLeft, Plus, Save } from "lucide-svelte";
 
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
-  import FlowNodeInspector from "$lib/components/flows/FlowNodeInspector.svelte";
+  import FlowNodeEditorModal from "$lib/components/flows/FlowNodeEditorModal.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import { appState, closeFlowEditor, updateFlow } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
@@ -23,6 +23,7 @@
   let nodes = $state<FlowNode[]>([]);
   let edges = $state<Flow["edges"]>([]);
   let selectedNodeId = $state<string | null>(null);
+  let nodeEditorOpen = $state(false);
   let saving = $state(false);
 
   const selectedNode = $derived(
@@ -55,6 +56,7 @@
     nodes = cloneFlowNodes(flowSnapshot.nodes);
     edges = cloneFlowEdges(flowSnapshot.edges);
     selectedNodeId = flowSnapshot.nodes[0]?.id ?? null;
+    nodeEditorOpen = false;
     saving = false;
   });
 
@@ -92,6 +94,16 @@
     }
 
     selectedNodeId = nodeId;
+    nodeEditorOpen = true;
+  }
+
+  function openNodeEditor(nodeId: string): void {
+    selectedNodeId = nodeId;
+    nodeEditorOpen = true;
+  }
+
+  function closeNodeEditor(): void {
+    nodeEditorOpen = false;
   }
 
   function updateSelectedNode(
@@ -120,6 +132,11 @@
     edges = edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
     nodes = nextNodes;
     selectedNodeId = nextNodes[0]?.id ?? null;
+  }
+
+  function handleDeleteSelectedNode(nodeId: string): void {
+    deleteNode(nodeId);
+    nodeEditorOpen = false;
   }
 
   async function handleSave(): Promise<void> {
@@ -183,8 +200,7 @@
     </div>
 
     <div class="flex-1 overflow-y-auto px-5 py-5 lg:px-8 lg:py-7">
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div class="space-y-6">
+      <div class="space-y-6">
           <section class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
             <Input
               label="Título del flujo"
@@ -197,15 +213,17 @@
             {nodes}
             {edges}
             {selectedNodeId}
-            onselectnode={(nodeId) => (selectedNodeId = nodeId)}
+            onselectnode={openNodeEditor}
           />
-        </div>
 
-        <FlowNodeInspector
-          node={selectedNode}
-          onupdate={updateSelectedNode}
-          ondelete={deleteNode}
-        />
+        {#if nodeEditorOpen && selectedNode}
+          <FlowNodeEditorModal
+            node={selectedNode}
+            onupdate={updateSelectedNode}
+            ondelete={handleDeleteSelectedNode}
+            onclose={closeNodeEditor}
+          />
+        {/if}
       </div>
     </div>
   </div>
