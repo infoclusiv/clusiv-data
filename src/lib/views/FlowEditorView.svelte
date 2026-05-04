@@ -32,17 +32,34 @@
     selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null,
   );
 
+  function cloneFlowNodes(sourceNodes: FlowNode[]): FlowNode[] {
+    return sourceNodes.map((node) => ({
+      ...node,
+      position: {
+        ...node.position,
+      },
+    }));
+  }
+
+  function cloneFlowEdges(sourceEdges: Flow["edges"]): Flow["edges"] {
+    return sourceEdges.map((edge) => ({
+      ...edge,
+    }));
+  }
+
   $effect(() => {
     if (!flow) {
       return;
     }
 
-    title = flow.title;
-    description = flow.description;
-    status = flow.status;
-    nodes = structuredClone(flow.nodes);
-    edges = structuredClone(flow.edges);
-    selectedNodeId = flow.nodes[0]?.id ?? null;
+    const flowSnapshot = $state.snapshot(flow) as Flow;
+
+    title = flowSnapshot.title;
+    description = flowSnapshot.description;
+    status = flowSnapshot.status;
+    nodes = cloneFlowNodes(flowSnapshot.nodes);
+    edges = cloneFlowEdges(flowSnapshot.edges);
+    selectedNodeId = flowSnapshot.nodes[0]?.id ?? null;
     saving = false;
   });
 
