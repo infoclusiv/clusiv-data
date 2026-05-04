@@ -2,6 +2,7 @@
   import { ArrowLeft, Plus, Save } from "lucide-svelte";
 
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
+  import { getNextHorizontalNodePosition } from "$lib/components/flows/flowLayout";
   import FlowNodeEditorModal from "$lib/components/flows/FlowNodeEditorModal.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import { appState, closeFlowEditor, updateFlow } from "$lib/store/appState.svelte";
@@ -66,19 +67,16 @@
     }
 
     const nodeId = `${flow.id}-node-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+    const previousNode = nodes.at(-1) ?? null;
     const newNode: FlowNode = {
       id: nodeId,
       type,
       title: type === "decision" ? "Nueva decisión" : "Nuevo nodo",
       subtitle: "",
       description: "",
-      position: {
-        x: 80 + (nodes.length % 3) * 240,
-        y: 120 + Math.floor(nodes.length / 3) * 150,
-      },
+      position: getNextHorizontalNodePosition(nodes),
     };
 
-    const previousNode = nodes.at(-1) ?? null;
     nodes = [...nodes, newNode];
 
     if (previousNode) {
@@ -201,20 +199,20 @@
 
     <div class="flex-1 overflow-y-auto px-5 py-5 lg:px-8 lg:py-7">
       <div class="space-y-6">
-          <section class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
-            <Input
-              label="Título del flujo"
-              bind:value={title}
-              placeholder="Ej. Flujo de aprobación"
-            />
-          </section>
-
-          <FlowCanvas
-            {nodes}
-            {edges}
-            {selectedNodeId}
-            onselectnode={openNodeEditor}
+        <section class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
+          <Input
+            label="Título del flujo"
+            bind:value={title}
+            placeholder="Ej. Flujo de aprobación"
           />
+        </section>
+
+        <FlowCanvas
+          {nodes}
+          {edges}
+          {selectedNodeId}
+          onselectnode={openNodeEditor}
+        />
 
         {#if nodeEditorOpen && selectedNode}
           <FlowNodeEditorModal
