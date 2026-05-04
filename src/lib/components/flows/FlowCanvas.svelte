@@ -8,6 +8,7 @@
   } from "$lib/components/flows/flowLayout";
   import FlowNodeCard from "$lib/components/flows/FlowNodeCard.svelte";
   import type { FlowEdge, FlowNode } from "$lib/store/types";
+  import { getOutgoingEdges } from "$lib/utils/flowGraphUtils";
 
   interface Props {
     nodes: FlowNode[];
@@ -31,11 +32,44 @@
   const zoomedCanvasWidth = $derived(canvasWidth * zoom);
   const zoomedCanvasHeight = $derived(canvasHeight * zoom);
 
-  function getNodeCenter(node: FlowNode): { x: number; y: number } {
+  function getSourceConnectionPoint(
+    node: FlowNode,
+    edge: FlowEdge,
+  ): { x: number; y: number } {
+    const outgoing = getOutgoingEdges(edges, node.id);
+    const edgeIndex = Math.max(0, outgoing.findIndex((candidate) => candidate.id === edge.id));
+
+    const offsets =
+      outgoing.length <= 1
+        ? [FLOW_NODE_HEIGHT / 2]
+        : [FLOW_NODE_HEIGHT * 0.35, FLOW_NODE_HEIGHT * 0.65];
+
     return {
-      x: node.position.x + FLOW_NODE_WIDTH / 2,
+      x: node.position.x + FLOW_NODE_WIDTH,
+      y: node.position.y + (offsets[edgeIndex] ?? FLOW_NODE_HEIGHT / 2),
+    };
+  }
+
+  function getTargetConnectionPoint(node: FlowNode): { x: number; y: number } {
+    return {
+      x: node.position.x,
       y: node.position.y + FLOW_NODE_HEIGHT / 2,
     };
+  }
+
+  function getEdgePath(source: { x: number; y: number }, target: { x: number; y: number }): string {
+    const curveOffset = Math.max(80, Math.abs(target.x - source.x) * 0.35);
+
+    return [
+      `M ${source.x} ${source.y}`,
+      `C ${source.x + curveOffset} ${source.y}`,
+      `${target.x - curveOffset} ${target.y}`,
+      `${target.x} ${target.y}`,
+    ].join(" ");
+  }
+
+  function getOutgoingCount(nodeId: string): number {
+    return getOutgoingEdges(edges, nodeId).length;
   }
 
   function zoomIn(): void {
@@ -116,25 +150,39 @@
         style={`width: ${canvasWidth}px; height: ${canvasHeight}px; transform: scale(${zoom}); transform-origin: top left;`}
       >
         <svg class="pointer-events-none absolute inset-0 h-full w-full">
+          <defs>
+            <marker
+              id="flow-arrow"
+              markerWidth="10"
+              markerHeight="10"
+              refX="8"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L8,3 z" fill="rgba(15, 23, 42, 0.35)" />
+            </marker>
+          </defs>
+
           {#each edges as edge (edge.id)}
             {@const source = nodes.find((node) => node.id === edge.source)}
             {@const target = nodes.find((node) => node.id === edge.target)}
             {#if source && target}
-              {@const sourceCenter = getNodeCenter(source)}
-              {@const targetCenter = getNodeCenter(target)}
-              <line
-                x1={sourceCenter.x}
-                y1={sourceCenter.y}
-                x2={targetCenter.x}
-                y2={targetCenter.y}
-                stroke="rgba(15, 23, 42, 0.2)"
+              {@const sourcePoint = getSourceConnectionPoint(source, edge)}
+              {@const targetPoint = getTargetConnectionPoint(target)}
+              {@const edgePath = getEdgePath(sourcePoint, targetPoint)}
+              <path
+                d={edgePath}
+                fill="none"
+                stroke="rgba(15, 23, 42, 0.26)"
                 stroke-width="3"
                 stroke-linecap="round"
+                marker-end="url(#flow-arrow)"
               />
               {#if edge.label.trim()}
                 <text
-                  x={(sourceCenter.x + targetCenter.x) / 2}
-                  y={(sourceCenter.y + targetCenter.y) / 2 - 8}
+                  x={(sourcePoint.x + targetPoint.x) / 2}
+                  y={(sourcePoint.y + targetPoint.y) / 2 - 10}
                   text-anchor="middle"
                   class="fill-slate-500 text-[11px] font-semibold"
                 >
@@ -149,6 +197,7 @@
           <FlowNodeCard
             {node}
             selected={selectedNodeId === node.id}
+            outgoingCount={getOutgoingCount(node.id)}
             onselect={onselectnode}
           />
         {/each}

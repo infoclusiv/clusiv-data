@@ -9,6 +9,11 @@
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import type { Flow, FlowNode, FlowNodeType } from "$lib/store/types";
   import { getCategory, getFlowById } from "$lib/utils/categoryUtils";
+  import {
+    buildTwoPathNodesAndEdges,
+    canOpenTwoPaths,
+    getOutgoingEdges,
+  } from "$lib/utils/flowGraphUtils";
 
   const flow = $derived(
     appState.appData ? getFlowById(appState.appData, appState.currentFlowId) : null,
@@ -29,6 +34,14 @@
 
   const selectedNode = $derived(
     selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null,
+  );
+
+  const selectedNodeOutgoingEdges = $derived(
+    selectedNode ? getOutgoingEdges(edges, selectedNode.id) : [],
+  );
+
+  const selectedNodeCanOpenTwoPaths = $derived(
+    selectedNode ? canOpenTwoPaths(selectedNode, edges) : false,
   );
 
   function cloneFlowNodes(sourceNodes: FlowNode[]): FlowNode[] {
@@ -137,6 +150,49 @@
     nodeEditorOpen = false;
   }
 
+  function openTwoPathsFromNode(nodeId: string): void {
+    if (!flow) {
+      return;
+    }
+
+    const sourceNode = nodes.find((node) => node.id === nodeId);
+
+    if (!sourceNode) {
+      showSnackbar("No se encontró el nodo seleccionado.", "error");
+      return;
+    }
+
+    const outgoingEdges = getOutgoingEdges(edges, sourceNode.id);
+
+    if (sourceNode.type === "output") {
+      showSnackbar("Un nodo de salida no puede abrir nuevos caminos.", "error");
+      return;
+    }
+
+    if (outgoingEdges.length > 0) {
+      showSnackbar(
+        outgoingEdges.length >= 2
+          ? "Este nodo ya tiene dos o más caminos abiertos."
+          : "Para abrir dos caminos, usa un nodo sin salidas o elimina la salida existente.",
+        "error",
+      );
+      return;
+    }
+
+    const branch = buildTwoPathNodesAndEdges({
+      flowId: flow.id,
+      sourceNode,
+      existingNodes: nodes,
+    });
+
+    nodes = [...nodes, ...branch.nodes];
+    edges = [...edges, ...branch.edges];
+    selectedNodeId = branch.nodes[0]?.id ?? nodeId;
+    nodeEditorOpen = true;
+
+    showSnackbar("Se abrieron dos caminos desde el nodo seleccionado.", "success");
+  }
+
   async function handleSave(): Promise<void> {
     if (!flow || saving) {
       return;
@@ -217,8 +273,11 @@
         {#if nodeEditorOpen && selectedNode}
           <FlowNodeEditorModal
             node={selectedNode}
+            canCreateTwoPaths={selectedNodeCanOpenTwoPaths}
+            outgoingCount={selectedNodeOutgoingEdges.length}
             onupdate={updateSelectedNode}
             ondelete={handleDeleteSelectedNode}
+            oncreatetwopaths={openTwoPathsFromNode}
             onclose={closeNodeEditor}
           />
         {/if}

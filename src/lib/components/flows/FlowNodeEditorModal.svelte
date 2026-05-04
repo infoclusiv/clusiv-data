@@ -1,16 +1,27 @@
 <script lang="ts">
-  import { Trash2, X } from "lucide-svelte";
+  import { GitBranchPlus, Trash2, X } from "lucide-svelte";
 
   import type { FlowNode } from "$lib/store/types";
 
   interface Props {
     node: FlowNode;
+    canCreateTwoPaths?: boolean;
+    outgoingCount?: number;
     onupdate: (field: "title" | "subtitle" | "description" | "type", value: string) => void;
     ondelete?: (nodeId: string) => void;
+    oncreatetwopaths?: (nodeId: string) => void;
     onclose: () => void;
   }
 
-  let { node, onupdate, ondelete, onclose }: Props = $props();
+  let {
+    node,
+    canCreateTwoPaths = false,
+    outgoingCount = 0,
+    onupdate,
+    ondelete,
+    oncreatetwopaths,
+    onclose,
+  }: Props = $props();
 
   function handleOverlayClick(event: MouseEvent): void {
     if (event.target === event.currentTarget) {
@@ -105,6 +116,40 @@
             onupdate("description", (event.currentTarget as HTMLTextAreaElement).value)}
         >{node.description}</textarea>
       </div>
+    </div>
+
+    <div class="mt-6 rounded-[1.25rem] border border-slate-200 bg-slate-50/70 p-4">
+      <p class="section-label">Acciones del flujo</p>
+      <p class="mt-2 text-sm text-slate-500">
+        Crea una ruta superior y una inferior desde este nodo. No usa un nodo condicional.
+      </p>
+
+      <button
+        class="btn-ghost mt-4 w-full justify-center bg-white"
+        type="button"
+        disabled={!canCreateTwoPaths || !oncreatetwopaths}
+        onclick={() => oncreatetwopaths?.(node.id)}
+        title={
+          node.type === "output"
+            ? "Un nodo de salida no puede abrir nuevos caminos."
+            : outgoingCount > 0
+              ? "Este nodo ya tiene una salida. Elimina la salida existente para abrir dos caminos."
+              : "Abrir dos caminos desde este nodo."
+        }
+      >
+        <GitBranchPlus size={16} />
+        Abrir dos caminos
+      </button>
+
+      {#if node.type === "output"}
+        <p class="mt-2 text-xs text-slate-400">
+          Los nodos de salida representan el final del flujo.
+        </p>
+      {:else if outgoingCount > 0}
+        <p class="mt-2 text-xs text-slate-400">
+          Este nodo ya tiene {outgoingCount} salida{outgoingCount === 1 ? "" : "s"}.
+        </p>
+      {/if}
     </div>
 
     <div class="mt-6 flex flex-wrap items-center justify-between gap-3">

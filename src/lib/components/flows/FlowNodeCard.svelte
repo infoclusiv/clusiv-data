@@ -4,10 +4,11 @@
   interface Props {
     node: FlowNode;
     selected?: boolean;
+    outgoingCount?: number;
     onselect: (nodeId: string) => void;
   }
 
-  let { node, selected = false, onselect }: Props = $props();
+  let { node, selected = false, outgoingCount = 0, onselect }: Props = $props();
 
   function getTone(type: FlowNode["type"]): string {
     if (type === "input") {
@@ -48,5 +49,12 @@
     <p class="mt-3 text-xs leading-relaxed opacity-80">
       {node.description}
     </p>
+  {/if}
+
+  {#if outgoingCount <= 1}
+    <span class="pointer-events-none absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-white bg-slate-400"></span>
+  {:else}
+    <span class="pointer-events-none absolute -right-1.5 top-[35%] h-3 w-3 rounded-full border border-white bg-slate-400"></span>
+    <span class="pointer-events-none absolute -right-1.5 top-[65%] h-3 w-3 rounded-full border border-white bg-slate-400"></span>
   {/if}
 </button>
