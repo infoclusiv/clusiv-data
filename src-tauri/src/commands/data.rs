@@ -804,12 +804,18 @@ fn flow_from_value(value: Value, changed: &mut bool) -> Flow {
         return Flow::default();
     };
 
+    if map.remove("description").is_some() {
+        *changed = true;
+    }
+
+    if map.remove("status").is_some() {
+        *changed = true;
+    }
+
     Flow {
         id: string_value(map.remove("id"), "", changed),
         category_id: string_value(map.remove("category_id"), GENERAL_CATEGORY_ID, changed),
         title: string_value(map.remove("title"), "", changed),
-        description: string_value(map.remove("description"), "", changed),
-        status: string_value(map.remove("status"), "draft", changed),
         nodes: flow_nodes_value(map.remove("nodes"), changed),
         edges: flow_edges_value(map.remove("edges"), changed),
         created_at: string_value(map.remove("created_at"), "", changed),
@@ -1109,7 +1115,7 @@ mod tests {
 
         let (data, changed) = normalize_data(raw);
 
-        assert!(!changed);
+        assert!(changed);
         assert_eq!(data.flows.len(), 1);
         assert_eq!(data.flows[0].id, "flow_1");
         assert_eq!(data.flows[0].category_id, "general");

@@ -4,7 +4,6 @@
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
   import FlowNodeInspector from "$lib/components/flows/FlowNodeInspector.svelte";
   import Input from "$lib/components/ui/Input.svelte";
-  import Select from "$lib/components/ui/Select.svelte";
   import { appState, closeFlowEditor, updateFlow } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import type { Flow, FlowNode, FlowNodeType } from "$lib/store/types";
@@ -21,8 +20,6 @@
   );
 
   let title = $state("");
-  let description = $state("");
-  let status = $state<Flow["status"]>("draft");
   let nodes = $state<FlowNode[]>([]);
   let edges = $state<Flow["edges"]>([]);
   let selectedNodeId = $state<string | null>(null);
@@ -55,8 +52,6 @@
     const flowSnapshot = $state.snapshot(flow) as Flow;
 
     title = flowSnapshot.title;
-    description = flowSnapshot.description;
-    status = flowSnapshot.status;
     nodes = cloneFlowNodes(flowSnapshot.nodes);
     edges = cloneFlowEdges(flowSnapshot.edges);
     selectedNodeId = flowSnapshot.nodes[0]?.id ?? null;
@@ -137,8 +132,6 @@
     try {
       await updateFlow(flow.id, {
         title: title.trim(),
-        description: description.trim(),
-        status,
         nodes,
         edges,
       });
@@ -193,33 +186,11 @@
       <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div class="space-y-6">
           <section class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
-            <div class="grid gap-4 lg:grid-cols-2">
-              <Input
-                label="Título del flujo"
-                bind:value={title}
-                placeholder="Ej. Flujo de aprobación"
-              />
-
-              <Select
-                label="Estado"
-                bind:value={status}
-                options={[
-                  { value: "draft", label: "Borrador" },
-                  { value: "active", label: "Activo" },
-                  { value: "archived", label: "Archivado" },
-                ]}
-              />
-            </div>
-
-            <div class="mt-4">
-              <Input
-                label="Descripción"
-                bind:value={description}
-                multiline={true}
-                rows={4}
-                placeholder="Describe el objetivo de este flujo"
-              />
-            </div>
+            <Input
+              label="Título del flujo"
+              bind:value={title}
+              placeholder="Ej. Flujo de aprobación"
+            />
           </section>
 
           <FlowCanvas

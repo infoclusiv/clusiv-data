@@ -6,7 +6,7 @@ use super::{Category, Item};
 
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
-pub const SCHEMA_VERSION: u32 = 6;
+pub const SCHEMA_VERSION: u32 = 7;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct QuickText {
@@ -62,10 +62,6 @@ pub struct Flow {
     pub category_id: String,
     #[serde(default)]
     pub title: String,
-    #[serde(default)]
-    pub description: String,
-    #[serde(default)]
-    pub status: String,
     #[serde(default)]
     pub nodes: Vec<FlowNode>,
     #[serde(default)]

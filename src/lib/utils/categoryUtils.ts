@@ -6,7 +6,6 @@ import type {
   FlowEdgeInput,
   FlowNode,
   FlowNodeInput,
-  FlowStatus,
   Item,
   ItemImage,
   Link,
@@ -145,10 +144,6 @@ export function normalizeQuickTexts(value: unknown): QuickText[] {
     .filter((entry): entry is QuickText => entry !== null);
 }
 
-function normalizeFlowStatus(value: unknown): FlowStatus {
-  return value === "active" || value === "archived" ? value : "draft";
-}
-
 export function normalizeFlowNode(value: FlowNodeInput | unknown, fallbackId: string): FlowNode | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -229,8 +224,6 @@ export function normalizeFlow(value: unknown, fallbackId: string): Flow | null {
       ? candidate.category_id
       : GENERAL_CATEGORY_ID,
     title: typeof candidate.title === "string" ? candidate.title : "",
-    description: typeof candidate.description === "string" ? candidate.description : "",
-    status: normalizeFlowStatus(candidate.status),
     nodes: normalizedNodes,
     edges: normalizedEdges,
     created_at: typeof candidate.created_at === "string" && candidate.created_at.trim().length > 0

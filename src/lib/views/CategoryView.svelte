@@ -263,8 +263,6 @@
       const flowId = await createFlow({
         categoryId: category.id,
         title: `Flujo de ${category.name}`,
-        description: "",
-        status: "draft",
       });
       setCategorySection("flows");
       openFlowEditor(flowId);

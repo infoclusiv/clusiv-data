@@ -12,7 +12,6 @@ export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 export type CategorySection = "tasks" | "notes" | "links" | "subcategories" | "flows";
 export type FlowNodeType = "input" | "process" | "decision" | "output";
-export type FlowStatus = "draft" | "active" | "archived";
 
 export interface Link {
   title: string;
@@ -72,8 +71,6 @@ export interface Flow {
   id: string;
   category_id: string;
   title: string;
-  description: string;
-  status: FlowStatus;
   nodes: FlowNode[];
   edges: FlowEdge[];
   created_at: string;
@@ -168,8 +165,6 @@ export interface FlowEdgeInput {
 export interface CreateFlowInput {
   categoryId: string;
   title?: string;
-  description?: string;
-  status?: FlowStatus;
   nodes?: FlowNodeInput[];
   edges?: FlowEdgeInput[];
 }
@@ -177,8 +172,6 @@ export interface CreateFlowInput {
 export interface UpdateFlowInput {
   categoryId?: string;
   title?: string;
-  description?: string;
-  status?: FlowStatus;
   nodes?: FlowNodeInput[];
   edges?: FlowEdgeInput[];
 }

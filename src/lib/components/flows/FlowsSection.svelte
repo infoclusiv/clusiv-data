@@ -18,7 +18,6 @@
   let { categoryName, flows, oncreate, onopen, ondelete }: Props = $props();
 
   let search = $state("");
-  let statusFilter = $state("all");
   let sortBy = $state("updated");
   let viewMode = $state<"grid" | "list">("grid");
   let pendingDeleteFlowId = $state<string | null>(null);
@@ -27,10 +26,8 @@
     const query = search.trim().toLowerCase();
     const nextFlows = flows.filter((flow) => {
       const matchesSearch = query.length === 0
-        || flow.title.toLowerCase().includes(query)
-        || flow.description.toLowerCase().includes(query);
-      const matchesStatus = statusFilter === "all" || flow.status === statusFilter;
-      return matchesSearch && matchesStatus;
+        || flow.title.toLowerCase().includes(query);
+      return matchesSearch;
     });
 
     return [...nextFlows].sort((left, right) => {
@@ -72,24 +69,13 @@
   </div>
 
   <div class="card p-4">
-    <div class="grid gap-3 lg:grid-cols-[minmax(16rem,1.5fr)_repeat(3,minmax(0,0.7fr))]">
+    <div class="grid gap-3 lg:grid-cols-[minmax(16rem,1.5fr)_repeat(2,minmax(0,0.7fr))]">
       <div class="relative">
         <Search size={16} class="pointer-events-none absolute left-3 top-[2.8rem] text-slate-400" />
         <div class="pl-0">
-          <Input label="Buscar" bind:value={search} placeholder="Título o descripción" />
+          <Input label="Buscar" bind:value={search} placeholder="Título del flujo" />
         </div>
       </div>
-
-      <Select
-        label="Filtrar"
-        bind:value={statusFilter}
-        options={[
-          { value: "all", label: "Todos los estados" },
-          { value: "draft", label: "Borrador" },
-          { value: "active", label: "Activo" },
-          { value: "archived", label: "Archivado" },
-        ]}
-      />
 
       <Select
         label="Ordenar"
@@ -135,7 +121,7 @@
       <p class="section-label">Sin flujos</p>
       <h3 class="mt-3 text-xl font-semibold text-slate-900">Crear nuevo flujo</h3>
       <p class="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-500">
-        Empieza con un canvas vacío conectado a esta categoría. Luego podrás editar nodos, estados y descripciones.
+        Empieza con un canvas vacío conectado a esta categoría. Luego podrás editar nodos y conexiones.
       </p>
       <div class="mt-6">
         <button class="btn-primary" onclick={oncreate}>
