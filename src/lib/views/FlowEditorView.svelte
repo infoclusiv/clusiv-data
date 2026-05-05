@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { ArrowLeft, Plus, Save } from "lucide-svelte";
+  import { onDestroy } from "svelte";
+  import { ArrowLeft, Plus } from "lucide-svelte";
 
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
   import {
@@ -36,6 +37,13 @@
   let selectedNodeId = $state<string | null>(null);
   let nodeEditorOpen = $state(false);
   let saving = $state(false);
+  let loadedFlowId = $state<string | null>(null);
+  let hasHydratedFlow = $state(false);
+  let lastSavedFingerprint = $state("");
+  let autosaveStatus = $state<"idle" | "dirty" | "saving" | "saved" | "error">("idle");
+  let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  let saveRequestedWhileSaving = $state(false);
+  let lastAutosaveError = $state<string | null>(null);
 
   const selectedNode = $derived(
     selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null,
@@ -47,6 +55,16 @@
 
   const selectedNodeCanOpenTwoPaths = $derived(
     selectedNode ? canOpenTwoPaths(selectedNode, edges) : false,
+  );
+
+  const autosaveStatusLabel = $derived(
+    autosaveStatus === "saving"
+      ? "Guardando..."
+      : autosaveStatus === "error"
+        ? "Error al autoguardar"
+        : autosaveStatus === "dirty"
+          ? "Cambios pendientes"
+          : "Guardado automático",
   );
 
   function cloneFlowNodes(sourceNodes: FlowNode[]): FlowNode[] {
@@ -64,20 +82,142 @@
     }));
   }
 
+  function getCurrentFlowPayload(): Pick<Flow, "title" | "nodes" | "edges"> {
+    return {
+      title: title.trim(),
+      nodes: cloneFlowNodes(nodes),
+      edges: cloneFlowEdges(edges),
+    };
+  }
+
+  function getFlowFingerprint(payload: Pick<Flow, "title" | "nodes" | "edges">): string {
+    return JSON.stringify({
+      title: payload.title,
+      nodes: payload.nodes,
+      edges: payload.edges,
+    });
+  }
+
   $effect(() => {
     if (!flow) {
+      loadedFlowId = null;
+      hasHydratedFlow = false;
+      lastSavedFingerprint = "";
+      autosaveStatus = "idle";
+      lastAutosaveError = null;
+      return;
+    }
+
+    if (loadedFlowId === flow.id) {
       return;
     }
 
     const flowSnapshot = $state.snapshot(flow) as Flow;
 
+    loadedFlowId = flowSnapshot.id;
     title = flowSnapshot.title;
     nodes = cloneFlowNodes(flowSnapshot.nodes);
     edges = cloneFlowEdges(flowSnapshot.edges);
     selectedNodeId = flowSnapshot.nodes[0]?.id ?? null;
     nodeEditorOpen = false;
     saving = false;
+    hasHydratedFlow = true;
+    lastSavedFingerprint = getFlowFingerprint({
+      title: flowSnapshot.title.trim(),
+      nodes: cloneFlowNodes(flowSnapshot.nodes),
+      edges: cloneFlowEdges(flowSnapshot.edges),
+    });
+    autosaveStatus = "saved";
+    lastAutosaveError = null;
   });
+
+  $effect(() => {
+    if (!flow || !hasHydratedFlow) {
+      return;
+    }
+
+    const fingerprint = getFlowFingerprint(getCurrentFlowPayload());
+
+    if (fingerprint === lastSavedFingerprint) {
+      return;
+    }
+
+    scheduleAutosave("flow_local_state_changed");
+  });
+
+  onDestroy(() => {
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+    }
+  });
+
+  async function runAutosave(reason = "flow_changed"): Promise<void> {
+    if (!flow || !hasHydratedFlow) {
+      return;
+    }
+
+    if (saving) {
+      saveRequestedWhileSaving = true;
+      return;
+    }
+
+    const payload = getCurrentFlowPayload();
+    const nextFingerprint = getFlowFingerprint(payload);
+
+    if (nextFingerprint === lastSavedFingerprint) {
+      autosaveStatus = "saved";
+      return;
+    }
+
+    saving = true;
+    autosaveStatus = "saving";
+    lastAutosaveError = null;
+
+    try {
+      await updateFlow(flow.id, payload);
+      lastSavedFingerprint = nextFingerprint;
+      autosaveStatus = "saved";
+    } catch (error) {
+      autosaveStatus = "error";
+      lastAutosaveError =
+        error instanceof Error ? error.message : "No se pudo autoguardar el flujo.";
+      showSnackbar(lastAutosaveError, "error");
+    } finally {
+      saving = false;
+
+      if (saveRequestedWhileSaving) {
+        saveRequestedWhileSaving = false;
+        await runAutosave(`${reason}_queued`);
+      }
+    }
+  }
+
+  function scheduleAutosave(reason = "flow_changed", delay = 650): void {
+    if (!flow || !hasHydratedFlow) {
+      return;
+    }
+
+    autosaveStatus = "dirty";
+
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer);
+    }
+
+    autosaveTimer = setTimeout(() => {
+      autosaveTimer = null;
+      void runAutosave(reason);
+    }, delay);
+  }
+
+  async function flushAutosave(reason = "flush"): Promise<void> {
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+    }
+
+    await runAutosave(reason);
+  }
 
   function createNewFlowNode(type: FlowNodeType, position: FlowNode["position"]): FlowNode {
     if (!flow) {
@@ -118,6 +258,7 @@
 
     selectedNodeId = newNode.id;
     nodeEditorOpen = true;
+    scheduleAutosave("node_added", 100);
   }
 
   function addNodeToBranch(
@@ -168,6 +309,7 @@
 
     selectedNodeId = newNode.id;
     nodeEditorOpen = true;
+    scheduleAutosave("branch_node_added", 100);
   }
 
   function openNodeEditor(nodeId: string): void {
@@ -175,7 +317,8 @@
     nodeEditorOpen = true;
   }
 
-  function closeNodeEditor(): void {
+  async function closeNodeEditor(): Promise<void> {
+    await flushAutosave("node_editor_done");
     nodeEditorOpen = false;
   }
 
@@ -198,6 +341,8 @@
 
       return { ...node, [field]: value };
     });
+
+    scheduleAutosave("node_updated");
   }
 
   function deleteNode(nodeId: string): void {
@@ -205,6 +350,7 @@
     edges = edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
     nodes = nextNodes;
     selectedNodeId = nextNodes[0]?.id ?? null;
+    scheduleAutosave("node_deleted", 100);
   }
 
   function handleDeleteSelectedNode(nodeId: string): void {
@@ -251,32 +397,14 @@
     edges = [...edges, ...branch.edges];
     selectedNodeId = nodeId;
     nodeEditorOpen = true;
+    scheduleAutosave("two_paths_created", 100);
 
     showSnackbar("Se abrieron dos caminos desde el nodo seleccionado.", "success");
   }
 
-  async function handleSave(): Promise<void> {
-    if (!flow || saving) {
-      return;
-    }
-
-    saving = true;
-
-    try {
-      await updateFlow(flow.id, {
-        title: title.trim(),
-        nodes,
-        edges,
-      });
-      showSnackbar("Flujo actualizado.", "success");
-    } catch (error) {
-      showSnackbar(
-        error instanceof Error ? error.message : "No se pudo guardar el flujo.",
-        "error",
-      );
-    } finally {
-      saving = false;
-    }
+  async function handleBackFromFlowEditor(): Promise<void> {
+    await flushAutosave("leave_flow_editor");
+    closeFlowEditor();
   }
 </script>
 
@@ -285,7 +413,7 @@
     <div class="border-b border-slate-200/70 px-6 py-6 lg:px-8">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
-          <button class="btn-ghost -ml-1" onclick={closeFlowEditor}>
+          <button class="btn-ghost -ml-1" onclick={() => void handleBackFromFlowEditor()}>
             <ArrowLeft size={16} />
             Atrás
           </button>
@@ -294,7 +422,8 @@
             {title.trim() || "Nuevo flujo"}
           </h1>
           <p class="mt-2 text-sm text-slate-500">
-            Categoría: {categoryName}. El editor visual se abre solo cuando eliges un flujo concreto.
+            Categoría: {categoryName}. El editor visual se abre solo cuando eliges un flujo
+            concreto.
           </p>
         </div>
 
@@ -307,10 +436,13 @@
             <Plus size={16} />
             Nueva decisión
           </button>
-          <button class="btn-primary" onclick={() => void handleSave()} disabled={saving}>
-            <Save size={16} />
-            {saving ? "Guardando..." : "Guardar flujo"}
-          </button>
+          <div
+            class="rounded-full bg-white/70 px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm"
+            class:text-red-600={autosaveStatus === "error"}
+            title={lastAutosaveError ?? autosaveStatusLabel}
+          >
+            {autosaveStatusLabel}
+          </div>
         </div>
       </div>
     </div>
@@ -341,7 +473,7 @@
             ondelete={handleDeleteSelectedNode}
             oncreatetwopaths={openTwoPathsFromNode}
             onaddtobranch={addNodeToBranch}
-            onclose={closeNodeEditor}
+            onclose={() => void closeNodeEditor()}
           />
         {/if}
       </div>
