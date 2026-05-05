@@ -3,11 +3,11 @@
   import { ArrowLeft, Plus } from "lucide-svelte";
 
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
+  import FlowNodeEditorPanel from "$lib/components/flows/FlowNodeEditorPanel.svelte";
   import {
     getNextHorizontalNodePosition,
     getNextNodePositionFromNode,
   } from "$lib/components/flows/flowLayout";
-  import FlowNodeEditorModal from "$lib/components/flows/FlowNodeEditorModal.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import { appState, closeFlowEditor, updateFlow } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
@@ -70,6 +70,7 @@
   function cloneFlowNodes(sourceNodes: FlowNode[]): FlowNode[] {
     return sourceNodes.map((node) => ({
       ...node,
+      linked_note_ids: [...(node.linked_note_ids ?? [])],
       position: {
         ...node.position,
       },
@@ -226,9 +227,11 @@
 
     return {
       id: `${flow.id}-node-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
+      type: "process",
       title: "Nuevo nodo",
       subtitle: "",
       description: "",
+      linked_note_ids: [],
       position,
     };
   }
@@ -339,6 +342,46 @@
     scheduleAutosave("node_updated");
   }
 
+  function updateSelectedNodeLinkedNotes(linkedNoteIds: string[]): void {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    nodes = nodes.map((node) => {
+      if (node.id !== selectedNodeId) {
+        return node;
+      }
+
+      return {
+        ...node,
+        linked_note_ids: [...new Set(linkedNoteIds)],
+      };
+    });
+
+    scheduleAutosave("node_linked_notes_updated");
+  }
+
+  function linkNoteToSelectedNode(noteId: string): void {
+    if (!selectedNode) {
+      return;
+    }
+
+    updateSelectedNodeLinkedNotes([
+      ...(selectedNode.linked_note_ids ?? []),
+      noteId,
+    ]);
+  }
+
+  function unlinkNoteFromSelectedNode(noteId: string): void {
+    if (!selectedNode) {
+      return;
+    }
+
+    updateSelectedNodeLinkedNotes(
+      (selectedNode.linked_note_ids ?? []).filter((id) => id !== noteId),
+    );
+  }
+
   function deleteNode(nodeId: string): void {
     const nextNodes = nodes.filter((node) => node.id !== nodeId);
     edges = edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
@@ -442,23 +485,26 @@
           />
         </section>
 
-        <FlowCanvas
-          {nodes}
-          {edges}
-          {selectedNodeId}
-          onselectnode={openNodeEditor}
-        />
-
         {#if nodeEditorOpen && selectedNode}
-          <FlowNodeEditorModal
+          <FlowNodeEditorPanel
             node={selectedNode}
+            appData={appState.appData}
             canCreateTwoPaths={selectedNodeCanOpenTwoPaths}
             outgoingCount={selectedNodeOutgoingEdges.length}
             onupdate={updateSelectedNode}
             ondelete={handleDeleteSelectedNode}
             oncreatetwopaths={openTwoPathsFromNode}
             onaddtobranch={addNodeToBranch}
+            onlinknote={linkNoteToSelectedNode}
+            onunlinknote={unlinkNoteFromSelectedNode}
             onclose={() => void closeNodeEditor()}
+          />
+        {:else}
+          <FlowCanvas
+            {nodes}
+            {edges}
+            {selectedNodeId}
+            onselectnode={openNodeEditor}
           />
         {/if}
       </div>

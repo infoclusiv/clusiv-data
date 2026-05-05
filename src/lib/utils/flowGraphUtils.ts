@@ -22,16 +22,20 @@ export function createFlowEdgeId(flowId: string): string {
 export function createFlowNode(input: {
   id: string;
   title: string;
+  type?: FlowNode["type"];
   subtitle?: string;
   description?: string;
+  linked_note_ids?: string[];
   x: number;
   y: number;
 }): FlowNode {
   return {
     id: input.id,
+    type: input.type ?? "process",
     title: input.title,
     subtitle: input.subtitle ?? "",
     description: input.description ?? "",
+    linked_note_ids: input.linked_note_ids ?? [],
     position: {
       x: input.x,
       y: input.y,
@@ -155,7 +159,7 @@ export function getBranchTailFromSource(input: {
 }
 
 export function canOpenTwoPaths(node: FlowNode, edges: FlowEdge[]): boolean {
-  return getOutgoingEdges(edges, node.id).length === 0;
+  return node.type !== "output" && getOutgoingEdges(edges, node.id).length === 0;
 }
 
 export function buildTwoPathNodesAndEdges(input: {

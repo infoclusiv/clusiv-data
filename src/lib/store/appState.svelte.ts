@@ -25,6 +25,7 @@ import {
   buildCategoryRecord,
   categoryHasChildren,
   generateCategoryId,
+  generateItemId,
   getCategory,
   getFlowById,
   getCategoryPathIds,
@@ -320,6 +321,7 @@ function getAppDataSnapshot(): AppData {
 
 function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
   return {
+    id: input.id,
     title: input.title,
     comment: input.comment,
     type: input.type,
@@ -357,9 +359,11 @@ function buildDefaultFlowNodes(flowId: string): FlowNode[] {
     normalizeFlowNode(
       {
         id: `${flowId}-node-1`,
+        type: "input",
         title: "Inicio",
         subtitle: "Punto de inicio",
         description: "",
+        linked_note_ids: [],
         position: { x: 80, y: 120 },
       },
       `${flowId}-node-1`,
@@ -367,9 +371,11 @@ function buildDefaultFlowNodes(flowId: string): FlowNode[] {
     normalizeFlowNode(
       {
         id: `${flowId}-node-2`,
+        type: "process",
         title: "Paso principal",
         subtitle: "Acción del flujo",
         description: "",
+        linked_note_ids: [],
         position: { x: 320, y: 120 },
       },
       `${flowId}-node-2`,
@@ -377,9 +383,11 @@ function buildDefaultFlowNodes(flowId: string): FlowNode[] {
     normalizeFlowNode(
       {
         id: `${flowId}-node-3`,
+        type: "output",
         title: "Resultado",
         subtitle: "Final del flujo",
         description: "",
+        linked_note_ids: [],
         position: { x: 560, y: 120 },
       },
       `${flowId}-node-3`,
@@ -670,6 +678,33 @@ function setAppData(appData: AppData): AppData {
   return normalized;
 }
 
+async function persistNormalizedSnapshotIfNeeded(
+  original: AppData,
+  normalized: AppData,
+): Promise<void> {
+  if (JSON.stringify(original) === JSON.stringify(normalized)) {
+    return;
+  }
+
+  try {
+    await invoke("save_data", { data: normalized });
+    logClientEvent({
+      source: "appState",
+      action: "load_app_data_migration_persisted",
+      message: "Normalized application data persisted after migration.",
+      context: getAppDataSummary(normalized),
+    });
+  } catch (error) {
+    logClientError(
+      "appState",
+      "load_app_data_migration_persist_failed",
+      "Failed to persist normalized application data after migration.",
+      error,
+      getAppDataSummary(normalized),
+    );
+  }
+}
+
 export async function loadAppData(): Promise<AppData> {
   logClientEvent({
     source: "appState",
@@ -680,6 +715,7 @@ export async function loadAppData(): Promise<AppData> {
   try {
     const data = await invoke<AppData>("load_data");
     const normalized = setAppData(data);
+    await persistNormalizedSnapshotIfNeeded(data, normalized);
 
     logClientEvent({
       source: "appState",
@@ -1981,7 +2017,7 @@ export async function deleteQuickText(quickTextId: string): Promise<void> {
 }
 
 export function getItemIndex(item: Item): number {
-  return requireAppData().__SYSTEM_TASKS__.indexOf(item);
+  return requireAppData().__SYSTEM_TASKS__.findIndex((entry) => entry.id === item.id);
 }
 
 export async function saveItem(
@@ -2014,6 +2050,7 @@ export async function saveItem(
         const current = draft.__SYSTEM_TASKS__[editingIndex];
         draft.__SYSTEM_TASKS__[editingIndex] = {
           ...current,
+          id: normalizedInput.id ?? current.id,
           title: normalizedInput.title,
           comment: normalizedInput.comment,
           images,
@@ -2024,6 +2061,7 @@ export async function saveItem(
       }
 
       draft.__SYSTEM_TASKS__.push({
+        id: normalizedInput.id ?? generateItemId(),
         title: normalizedInput.title,
         comment: normalizedInput.comment,
         images,

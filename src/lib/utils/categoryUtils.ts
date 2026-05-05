@@ -89,6 +89,10 @@ export function getFlows(appData: AppData): Flow[] {
   return appData.__SYSTEM_FLOWS__;
 }
 
+export function generateItemId(): string {
+  return `item_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+}
+
 function normalizeItemImage(image: unknown, fallbackId: string): ItemImage | null {
   if (!image || typeof image !== "object") {
     return null;
@@ -116,6 +120,38 @@ export function normalizeItemImages(images: unknown): ItemImage[] {
   return images
     .map((image, index) => normalizeItemImage(image, `image-${index + 1}`))
     .filter((image): image is ItemImage => image !== null);
+}
+
+function normalizeItem(value: unknown, fallbackId: string): Item | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<Item>;
+
+  return {
+    id: typeof candidate.id === "string" && candidate.id.trim().length > 0
+      ? candidate.id
+      : fallbackId,
+    title: typeof candidate.title === "string" ? candidate.title : "",
+    comment: typeof candidate.comment === "string" ? candidate.comment : "",
+    images: normalizeItemImages(candidate.images),
+    type: candidate.type === "note" ? "note" : "task",
+    done: Boolean(candidate.done),
+    category_id: typeof candidate.category_id === "string" && candidate.category_id.trim().length > 0
+      ? candidate.category_id
+      : GENERAL_CATEGORY_ID,
+  };
+}
+
+export function normalizeItems(value: unknown): Item[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry, index) => normalizeItem(entry, `item-${index + 1}`))
+    .filter((entry): entry is Item => entry !== null);
 }
 
 function normalizeQuickText(value: unknown, fallbackId: string): QuickText | null {
@@ -157,9 +193,18 @@ export function normalizeFlowNode(value: FlowNodeInput | unknown, fallbackId: st
     id: typeof candidate.id === "string" && candidate.id.trim().length > 0
       ? candidate.id
       : fallbackId,
+    type: candidate.type === "input"
+      || candidate.type === "process"
+      || candidate.type === "decision"
+      || candidate.type === "output"
+      ? candidate.type
+      : "process",
     title: typeof candidate.title === "string" ? candidate.title : "",
     subtitle: typeof candidate.subtitle === "string" ? candidate.subtitle : "",
     description: typeof candidate.description === "string" ? candidate.description : "",
+    linked_note_ids: Array.isArray(candidate.linked_note_ids)
+      ? candidate.linked_note_ids.filter((entry): entry is string => typeof entry === "string")
+      : [],
     position: {
       x: Number.isFinite(x) ? x : 0,
       y: Number.isFinite(y) ? y : 0,
@@ -267,6 +312,15 @@ export function getQuickTextPreview(
   return `${collapsed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
+export function getItemPreview(value: string, maxLength = 160): string {
+  const collapsed = collapseWhitespace(value);
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+
+  return `${collapsed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}â€¦`;
+}
+
 export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type">): string {
   const trimmedTitle = item.title.trim();
   if (trimmedTitle.length > 0) {
@@ -288,6 +342,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   normalized.__SCHEMA_VERSION__ = SCHEMA_VERSION;
 
   const categories = getCategoryMap(normalized);
+  normalized.__SYSTEM_TASKS__ = normalizeItems(getTasks(normalized));
   const tasks = getTasks(normalized);
   normalized.__SYSTEM_QUICK_TEXTS__ = normalizeQuickTexts(getQuickTexts(normalized));
   normalized.__SYSTEM_FLOWS__ = getFlows(normalized)
@@ -321,6 +376,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   }
 
   for (const item of tasks) {
+    item.id ||= generateItemId();
     item.title ||= "";
     item.comment ||= "";
     item.images = normalizeItemImages(item.images);

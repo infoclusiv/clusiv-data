@@ -1,4 +1,5 @@
 export type ItemType = "task" | "note";
+export type FlowNodeType = "input" | "process" | "decision" | "output";
 export type AppView =
   | "welcome"
   | "category"
@@ -38,6 +39,7 @@ export interface ItemImage {
 }
 
 export interface Item {
+  id: string;
   title: string;
   comment: string;
   images: ItemImage[];
@@ -48,9 +50,11 @@ export interface Item {
 
 export interface FlowNode {
   id: string;
+  type: FlowNodeType;
   title: string;
   subtitle: string;
   description: string;
+  linked_note_ids: string[];
   position: {
     x: number;
     y: number;
@@ -128,6 +132,7 @@ export interface CategoryFormInput {
 }
 
 export interface ItemFormInput {
+  id?: string;
   title: string;
   comment: string;
   type: ItemType;
@@ -142,9 +147,11 @@ export interface QuickTextFormInput {
 
 export interface FlowNodeInput {
   id?: string;
+  type?: FlowNodeType;
   title?: string;
   subtitle?: string;
   description?: string;
+  linked_note_ids?: string[];
   position?: {
     x?: number;
     y?: number;
