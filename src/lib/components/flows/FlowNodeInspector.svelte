@@ -5,7 +5,7 @@
 
   interface Props {
     node: FlowNode | null;
-    onupdate: (field: "title" | "subtitle" | "description" | "type", value: string) => void;
+    onupdate: (field: "title" | "subtitle" | "description", value: string) => void;
     ondelete?: (nodeId: string) => void;
   }
 
@@ -34,21 +34,6 @@
     </div>
   {:else}
     <div class="mt-6 space-y-4">
-      <div class="flex flex-col gap-1.5">
-        <label class="section-label" for="flow-node-type">Tipo</label>
-        <select
-          id="flow-node-type"
-          class="input-base"
-          value={node.type}
-          onchange={(event) => onupdate("type", (event.currentTarget as HTMLSelectElement).value)}
-        >
-          <option value="input">Entrada</option>
-          <option value="process">Proceso</option>
-          <option value="decision">Decisión</option>
-          <option value="output">Salida</option>
-        </select>
-      </div>
-
       <div class="flex flex-col gap-1.5">
         <label class="section-label" for="flow-node-title">Título</label>
         <input

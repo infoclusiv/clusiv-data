@@ -11,8 +11,6 @@ export type AppView =
 export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 export type CategorySection = "tasks" | "notes" | "links" | "subcategories" | "flows";
-export type FlowNodeType = "input" | "process" | "decision" | "output";
-
 export interface Link {
   title: string;
   url: string;
@@ -50,7 +48,6 @@ export interface Item {
 
 export interface FlowNode {
   id: string;
-  type: FlowNodeType;
   title: string;
   subtitle: string;
   description: string;
@@ -145,7 +142,6 @@ export interface QuickTextFormInput {
 
 export interface FlowNodeInput {
   id?: string;
-  type?: FlowNodeType;
   title?: string;
   subtitle?: string;
   description?: string;

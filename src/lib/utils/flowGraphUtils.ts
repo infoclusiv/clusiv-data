@@ -2,7 +2,7 @@ import {
   FLOW_NODE_HEIGHT,
   FLOW_NODE_WIDTH,
 } from "$lib/components/flows/flowLayout";
-import type { FlowEdge, FlowNode, FlowNodeType } from "$lib/store/types";
+import type { FlowEdge, FlowNode } from "$lib/store/types";
 
 export { FLOW_NODE_HEIGHT, FLOW_NODE_WIDTH };
 export type FlowBranchDirection = "upper" | "lower";
@@ -21,7 +21,6 @@ export function createFlowEdgeId(flowId: string): string {
 
 export function createFlowNode(input: {
   id: string;
-  type?: FlowNodeType;
   title: string;
   subtitle?: string;
   description?: string;
@@ -30,7 +29,6 @@ export function createFlowNode(input: {
 }): FlowNode {
   return {
     id: input.id,
-    type: input.type ?? "process",
     title: input.title,
     subtitle: input.subtitle ?? "",
     description: input.description ?? "",
@@ -157,10 +155,6 @@ export function getBranchTailFromSource(input: {
 }
 
 export function canOpenTwoPaths(node: FlowNode, edges: FlowEdge[]): boolean {
-  if (node.type === "output") {
-    return false;
-  }
-
   return getOutgoingEdges(edges, node.id).length === 0;
 }
 

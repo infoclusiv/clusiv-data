@@ -8,7 +8,7 @@
     node: FlowNode;
     canCreateTwoPaths?: boolean;
     outgoingCount?: number;
-    onupdate: (field: "title" | "subtitle" | "description" | "type", value: string) => void;
+    onupdate: (field: "title" | "subtitle" | "description", value: string) => void;
     ondelete?: (nodeId: string) => void;
     oncreatetwopaths?: (nodeId: string) => void;
     onaddtobranch?: (nodeId: string, direction: FlowBranchDirection) => void;
@@ -72,21 +72,6 @@
 
     <div class="mt-6 space-y-4">
       <div class="flex flex-col gap-1.5">
-        <label class="section-label" for="flow-node-type">Tipo</label>
-        <select
-          id="flow-node-type"
-          class="input-base"
-          value={node.type}
-          onchange={(event) => onupdate("type", (event.currentTarget as HTMLSelectElement).value)}
-        >
-          <option value="input">Entrada</option>
-          <option value="process">Proceso</option>
-          <option value="decision">Decisión</option>
-          <option value="output">Salida</option>
-        </select>
-      </div>
-
-      <div class="flex flex-col gap-1.5">
         <label class="section-label" for="flow-node-title">Título</label>
         <input
           id="flow-node-title"
@@ -133,11 +118,9 @@
         disabled={!canCreateTwoPaths || !oncreatetwopaths}
         onclick={() => oncreatetwopaths?.(node.id)}
         title={
-          node.type === "output"
-            ? "Un nodo de salida no puede abrir nuevos caminos."
-            : outgoingCount > 0
-              ? "Este nodo ya tiene una salida. Elimina la salida existente para abrir dos caminos."
-              : "Abrir dos caminos desde este nodo."
+          outgoingCount > 0
+            ? "Este nodo ya tiene una salida. Elimina la salida existente para abrir dos caminos."
+            : "Abrir dos caminos desde este nodo."
         }
       >
         <GitBranchPlus size={16} />
@@ -166,11 +149,7 @@
         </div>
       {/if}
 
-      {#if node.type === "output"}
-        <p class="mt-2 text-xs text-slate-400">
-          Los nodos de salida representan el final del flujo.
-        </p>
-      {:else if outgoingCount > 0}
+      {#if outgoingCount > 0}
         <p class="mt-2 text-xs text-slate-400">
           Este nodo ya tiene {outgoingCount} salida{outgoingCount === 1 ? "" : "s"}.
         </p>

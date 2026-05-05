@@ -20,16 +20,7 @@
     return 16 + (bounded / 360) * (height - 32);
   }
 
-  function getNodeTone(type: Flow["nodes"][number]["type"]): string {
-    if (type === "input") {
-      return "fill-emerald-200 stroke-emerald-400";
-    }
-    if (type === "decision") {
-      return "fill-amber-200 stroke-amber-400";
-    }
-    if (type === "output") {
-      return "fill-sky-200 stroke-sky-400";
-    }
+  function getNodeTone(): string {
     return "fill-white stroke-slate-300";
   }
 </script>
@@ -54,21 +45,14 @@
 
     {#each flow.nodes as node (node.id)}
       <g transform={`translate(${normalizeX(node.position.x)}, ${normalizeY(node.position.y)})`}>
-        {#if node.type === "decision"}
-          <polygon
-            points="-12,0 0,-12 12,0 0,12"
-            class={`${getNodeTone(node.type)} stroke-[1.5]`}
-          />
-        {:else}
-          <rect
-            x="-16"
-            y="-10"
-            width="32"
-            height="20"
-            rx={node.type === "output" ? 10 : 6}
-            class={`${getNodeTone(node.type)} stroke-[1.5]`}
-          />
-        {/if}
+        <rect
+          x="-16"
+          y="-10"
+          width="32"
+          height="20"
+          rx="6"
+          class={`${getNodeTone()} stroke-[1.5]`}
+        />
       </g>
     {/each}
   </svg>

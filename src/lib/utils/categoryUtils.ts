@@ -157,11 +157,6 @@ export function normalizeFlowNode(value: FlowNodeInput | unknown, fallbackId: st
     id: typeof candidate.id === "string" && candidate.id.trim().length > 0
       ? candidate.id
       : fallbackId,
-    type: candidate.type === "input"
-      || candidate.type === "decision"
-      || candidate.type === "output"
-      ? candidate.type
-      : "process",
     title: typeof candidate.title === "string" ? candidate.title : "",
     subtitle: typeof candidate.subtitle === "string" ? candidate.subtitle : "",
     description: typeof candidate.description === "string" ? candidate.description : "",

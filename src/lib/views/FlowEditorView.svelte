@@ -11,7 +11,7 @@
   import Input from "$lib/components/ui/Input.svelte";
   import { appState, closeFlowEditor, updateFlow } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
-  import type { Flow, FlowNode, FlowNodeType } from "$lib/store/types";
+  import type { Flow, FlowNode } from "$lib/store/types";
   import { getCategory, getFlowById } from "$lib/utils/categoryUtils";
   import {
     buildTwoPathNodesAndEdges,
@@ -219,28 +219,27 @@
     await runAutosave(reason);
   }
 
-  function createNewFlowNode(type: FlowNodeType, position: FlowNode["position"]): FlowNode {
+  function createNewFlowNode(position: FlowNode["position"]): FlowNode {
     if (!flow) {
       throw new Error("No hay flujo activo.");
     }
 
     return {
       id: `${flow.id}-node-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
-      type,
-      title: type === "decision" ? "Nueva decisión" : "Nuevo nodo",
+      title: "Nuevo nodo",
       subtitle: "",
       description: "",
       position,
     };
   }
 
-  function addNodeToEnd(type: FlowNodeType = "process"): void {
+  function addNodeToEnd(): void {
     if (!flow) {
       return;
     }
 
     const previousNode = nodes.at(-1) ?? null;
-    const newNode = createNewFlowNode(type, getNextHorizontalNodePosition(nodes));
+    const newNode = createNewFlowNode(getNextHorizontalNodePosition(nodes));
 
     nodes = [...nodes, newNode];
 
@@ -264,7 +263,6 @@
   function addNodeToBranch(
     sourceNodeId: string,
     direction: FlowBranchDirection,
-    type: FlowNodeType = "process",
   ): void {
     if (!flow) {
       return;
@@ -294,7 +292,7 @@
       return;
     }
 
-    const newNode = createNewFlowNode(type, getNextNodePositionFromNode(branchTail));
+    const newNode = createNewFlowNode(getNextNodePositionFromNode(branchTail));
 
     nodes = [...nodes, newNode];
     edges = [
@@ -323,7 +321,7 @@
   }
 
   function updateSelectedNode(
-    field: "title" | "subtitle" | "description" | "type",
+    field: "title" | "subtitle" | "description",
     value: string,
   ): void {
     if (!selectedNodeId) {
@@ -333,10 +331,6 @@
     nodes = nodes.map((node) => {
       if (node.id !== selectedNodeId) {
         return node;
-      }
-
-      if (field === "type") {
-        return { ...node, type: value as FlowNodeType };
       }
 
       return { ...node, [field]: value };
@@ -371,11 +365,6 @@
     }
 
     const outgoingEdges = getOutgoingEdges(edges, sourceNode.id);
-
-    if (sourceNode.type === "output") {
-      showSnackbar("Un nodo de salida no puede abrir nuevos caminos.", "error");
-      return;
-    }
 
     if (outgoingEdges.length > 0) {
       showSnackbar(
@@ -428,13 +417,9 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <button class="btn-ghost bg-white/70" onclick={() => addNodeToEnd("process")}>
+          <button class="btn-ghost bg-white/70" onclick={() => addNodeToEnd()}>
             <Plus size={16} />
             Agregar nodo
-          </button>
-          <button class="btn-ghost bg-white/70" onclick={() => addNodeToEnd("decision")}>
-            <Plus size={16} />
-            Nueva decisión
           </button>
           <div
             class="rounded-full bg-white/70 px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm"

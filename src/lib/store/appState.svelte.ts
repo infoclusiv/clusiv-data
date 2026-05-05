@@ -357,8 +357,7 @@ function buildDefaultFlowNodes(flowId: string): FlowNode[] {
     normalizeFlowNode(
       {
         id: `${flowId}-node-1`,
-        type: "input",
-        title: "Entrada",
+        title: "Inicio",
         subtitle: "Punto de inicio",
         description: "",
         position: { x: 80, y: 120 },
@@ -368,9 +367,8 @@ function buildDefaultFlowNodes(flowId: string): FlowNode[] {
     normalizeFlowNode(
       {
         id: `${flowId}-node-2`,
-        type: "process",
-        title: "Proceso",
-        subtitle: "Paso principal",
+        title: "Paso principal",
+        subtitle: "Acción del flujo",
         description: "",
         position: { x: 320, y: 120 },
       },
@@ -379,9 +377,8 @@ function buildDefaultFlowNodes(flowId: string): FlowNode[] {
     normalizeFlowNode(
       {
         id: `${flowId}-node-3`,
-        type: "output",
         title: "Resultado",
-        subtitle: "Salida",
+        subtitle: "Final del flujo",
         description: "",
         position: { x: 560, y: 120 },
       },
