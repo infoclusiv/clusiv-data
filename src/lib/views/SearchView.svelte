@@ -106,6 +106,7 @@
             type="text"
             value={appState.searchQuery}
             placeholder="Escribe una o varias palabras..."
+            spellcheck={false}
             class="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
             oninput={(event) => setSearchQuery((event.currentTarget as HTMLInputElement).value)}
           />

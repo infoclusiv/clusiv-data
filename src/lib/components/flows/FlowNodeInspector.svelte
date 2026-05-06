@@ -41,6 +41,7 @@
           class="input-base"
           value={node.title}
           placeholder="Ej. Validar información"
+          spellcheck={false}
           oninput={(event) => onupdate("title", (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
@@ -52,6 +53,7 @@
           class="input-base"
           value={node.subtitle}
           placeholder="Texto breve de apoyo"
+          spellcheck={false}
           oninput={(event) => onupdate("subtitle", (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
@@ -63,6 +65,7 @@
           class="input-base resize-none"
           rows="5"
           placeholder="Explica qué hace este nodo"
+          spellcheck={false}
           oninput={(event) => onupdate("description", (event.currentTarget as HTMLTextAreaElement).value)}
         >{node.description}</textarea>
       </div>

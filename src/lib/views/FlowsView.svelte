@@ -84,6 +84,7 @@
                 id="global-flow-search"
                 bind:value={search}
                 placeholder="Titulo del flujo o categoria"
+                spellcheck={false}
                 class="input-base pl-9"
               />
             </div>

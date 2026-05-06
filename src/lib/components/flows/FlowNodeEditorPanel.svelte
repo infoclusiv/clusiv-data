@@ -70,7 +70,7 @@
   }
 </script>
 
-<section class="grid min-h-[calc(100vh-220px)] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+<section class="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
   <div class="flex min-h-0 flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm lg:p-6">
     <div class="flex items-start justify-between gap-3">
       <div>
@@ -81,23 +81,25 @@
 
     <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_172px]">
       <div class="flex flex-col gap-1.5">
-        <label class="section-label" for="flow-node-title">TÃ­tulo</label>
+        <label class="section-label" for="flow-node-title">Título</label>
         <input
           id="flow-node-title"
           class="input-base"
           value={node.title}
-          placeholder="Ej. Validar informaciÃ³n"
+          placeholder="Ej. Validar información"
+          spellcheck={false}
           oninput={(event) => onupdate("title", (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <label class="section-label" for="flow-node-subtitle">SubtÃ­tulo</label>
+        <label class="section-label" for="flow-node-subtitle">Subtítulo</label>
         <input
           id="flow-node-subtitle"
           class="input-base"
           value={node.subtitle}
           placeholder="Texto breve de apoyo"
+          spellcheck={false}
           oninput={(event) => onupdate("subtitle", (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
@@ -146,11 +148,12 @@
     {/if}
 
     <div class="mt-6 flex min-h-0 flex-1 flex-col gap-1.5">
-      <label class="section-label" for="flow-node-description">DescripciÃ³n</label>
+      <label class="section-label" for="flow-node-description">Descripción</label>
       <textarea
         id="flow-node-description"
         class="input-base min-h-[360px] flex-1 resize-none leading-7"
-        placeholder="Describe con detalle quÃ© ocurre en este nodo"
+        placeholder="Describe con detalle qué ocurre en este nodo"
+        spellcheck={false}
         oninput={(event) =>
           onupdate("description", (event.currentTarget as HTMLTextAreaElement).value)}
       >{node.description}</textarea>
@@ -193,8 +196,9 @@
       <div class="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50/70 p-3">
         <input
           class="input-base"
-          placeholder="Buscar nota por tÃ­tulo, texto o categorÃ­a..."
+          placeholder="Buscar nota por título, texto o categoría..."
           bind:value={noteSearch}
+          spellcheck={false}
         />
 
         <div class="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
@@ -212,7 +216,7 @@
                 <p class="text-sm font-semibold text-slate-800">{note.title}</p>
                 <p class="mt-1 line-clamp-2 text-xs text-slate-500">{note.preview || "Sin vista previa"}</p>
                 <p class="mt-2 text-[11px] font-medium text-slate-400">
-                  {note.categoryPath || "Sin categorÃ­a"}
+                  {note.categoryPath || "Sin categoría"}
                 </p>
               </button>
             {/each}
@@ -227,10 +231,10 @@
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <p class="line-clamp-2 text-sm font-semibold text-slate-800">
-                {note.title.trim() || "Sin tÃ­tulo"}
+                {note.title.trim() || "Sin título"}
               </p>
               <p class="mt-1 text-[11px] font-medium text-slate-400">
-                {noteOptions.find((option) => option.id === note.id)?.categoryPath || "Sin categorÃ­a"}
+                {noteOptions.find((option) => option.id === note.id)?.categoryPath || "Sin categoría"}
               </p>
             </div>
 

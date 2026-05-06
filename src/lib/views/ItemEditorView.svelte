@@ -324,6 +324,7 @@
                 bind:value={comment}
                 placeholder={itemType === "note" ? "Escribe tu nota aquí..." : "Detalles adicionales"}
                 disabled={saving}
+                spellcheck={false}
                 class="input-base min-h-[24rem] flex-1 resize-none px-4 py-3 text-[15px] leading-6"
               ></textarea>
             </section>

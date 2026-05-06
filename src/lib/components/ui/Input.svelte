@@ -10,6 +10,7 @@
     disabled?: boolean;
     autofocus?: boolean;
     type?: string;
+    spellcheck?: boolean;
   }
 
   let {
@@ -23,6 +24,7 @@
     disabled = false,
     autofocus = false,
     type = "text",
+    spellcheck = false,
   }: Props = $props();
 
   let control = $state<HTMLInputElement | HTMLTextAreaElement | null>(null);
@@ -47,6 +49,7 @@
       {rows}
       {placeholder}
       {disabled}
+      {spellcheck}
       class={`input-base resize-none ${error ? "input-error" : ""}`.trim()}
     ></textarea>
   {:else}
@@ -57,6 +60,7 @@
       {type}
       {placeholder}
       {disabled}
+      {spellcheck}
       class={`input-base ${error ? "input-error" : ""}`.trim()}
     />
   {/if}

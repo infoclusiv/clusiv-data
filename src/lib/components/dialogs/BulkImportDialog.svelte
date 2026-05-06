@@ -69,6 +69,7 @@
       bind:value={rawText}
       rows="10"
       placeholder="Pega tus URLs aquí, una por línea..."
+      spellcheck={false}
       class="input-base resize-none font-mono text-xs"
     ></textarea>
   {/snippet}

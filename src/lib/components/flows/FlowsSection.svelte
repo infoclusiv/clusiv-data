@@ -82,6 +82,7 @@
             id="flow-search"
             bind:value={search}
             placeholder="Titulo del flujo"
+            spellcheck={false}
             class="input-base pl-9"
           />
         </div>

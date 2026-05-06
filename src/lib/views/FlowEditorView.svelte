@@ -435,6 +435,11 @@
   }
 
   async function handleBackFromFlowEditor(): Promise<void> {
+    if (nodeEditorOpen) {
+      await closeNodeEditor();
+      return;
+    }
+
     await flushAutosave("leave_flow_editor");
     closeFlowEditor();
   }
@@ -476,15 +481,7 @@
     </div>
 
     <div class="flex-1 overflow-y-auto px-5 py-5 lg:px-8 lg:py-7">
-      <div class="space-y-6">
-        <section class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
-          <Input
-            label="Título del flujo"
-            bind:value={title}
-            placeholder="Ej. Flujo de aprobación"
-          />
-        </section>
-
+      <div class={nodeEditorOpen && selectedNode ? "h-full min-h-0" : "space-y-6"}>
         {#if nodeEditorOpen && selectedNode}
           <FlowNodeEditorPanel
             node={selectedNode}
@@ -500,6 +497,14 @@
             onclose={() => void closeNodeEditor()}
           />
         {:else}
+          <section class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
+            <Input
+              label="Título del flujo"
+              bind:value={title}
+              placeholder="Ej. Flujo de aprobación"
+            />
+          </section>
+
           <FlowCanvas
             {nodes}
             {edges}
