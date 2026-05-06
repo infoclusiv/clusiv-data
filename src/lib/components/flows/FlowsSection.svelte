@@ -3,7 +3,6 @@
 
   import FlowCard from "$lib/components/flows/FlowCard.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import Input from "$lib/components/ui/Input.svelte";
   import Select from "$lib/components/ui/Select.svelte";
   import type { Flow } from "$lib/store/types";
 
@@ -58,7 +57,7 @@
       <p class="section-label">Flujos guardados</p>
       <h2 class="mt-2 text-2xl font-semibold text-slate-900">Flujos en {categoryName}</h2>
       <p class="mt-2 text-sm text-slate-500">
-        Revisa, filtra y abre los flujos de esta categoría sin salir de la vista principal.
+        Revisa, filtra y abre los flujos de esta categoria sin salir de la vista principal.
       </p>
     </div>
 
@@ -70,10 +69,21 @@
 
   <div class="card p-4">
     <div class="grid gap-3 lg:grid-cols-[minmax(16rem,1.5fr)_repeat(2,minmax(0,0.7fr))]">
-      <div class="relative">
-        <Search size={16} class="pointer-events-none absolute left-3 top-[2.8rem] text-slate-400" />
-        <div class="pl-0">
-          <Input label="Buscar" bind:value={search} placeholder="Título del flujo" />
+      <div class="flex flex-col gap-1.5">
+        <label class="section-label" for="flow-search">Buscar</label>
+
+        <div class="relative">
+          <Search
+            size={16}
+            class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+
+          <input
+            id="flow-search"
+            bind:value={search}
+            placeholder="Titulo del flujo"
+            class="input-base pl-9"
+          />
         </div>
       </div>
 
@@ -81,9 +91,9 @@
         label="Ordenar"
         bind:value={sortBy}
         options={[
-          { value: "updated", label: "Más recientes" },
-          { value: "title", label: "Título" },
-          { value: "nodes", label: "Más nodos" },
+          { value: "updated", label: "Mas recientes" },
+          { value: "title", label: "Titulo" },
+          { value: "nodes", label: "Mas nodos" },
         ]}
       />
 
@@ -121,7 +131,7 @@
       <p class="section-label">Sin flujos</p>
       <h3 class="mt-3 text-xl font-semibold text-slate-900">Crear nuevo flujo</h3>
       <p class="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-500">
-        Empieza con un canvas vacío conectado a esta categoría. Luego podrás editar nodos y conexiones.
+        Empieza con un canvas vacio conectado a esta categoria. Luego podras editar nodos y conexiones.
       </p>
       <div class="mt-6">
         <button class="btn-primary" onclick={oncreate}>
@@ -150,8 +160,8 @@
 <ConfirmDialog
   open={pendingDeleteFlowId !== null}
   title="Eliminar flujo"
-  message="¿Seguro que quieres eliminar este flujo? Esta acción no se puede deshacer."
-  confirmLabel="Sí, eliminar"
+  message="Seguro que quieres eliminar este flujo? Esta accion no se puede deshacer."
+  confirmLabel="Si, eliminar"
   oncancel={() => (pendingDeleteFlowId = null)}
   onconfirm={() => void handleDelete()}
 />

@@ -1286,6 +1286,26 @@ export function showSearch(options: NavigationOptions = {}): void {
   });
 }
 
+export function showFlows(options: NavigationOptions = {}): void {
+  navigate(
+    {
+      view: "flows",
+      categoryId: null,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: null,
+      categorySection: "flows",
+      flowId: null,
+    },
+    options,
+  );
+
+  logClientEvent({
+    source: "navigation",
+    action: "show_flows",
+    message: "Navigated to global flows view.",
+  });
+}
+
 export function setSearchQuery(query: string): void {
   appState.searchQuery = query;
 }

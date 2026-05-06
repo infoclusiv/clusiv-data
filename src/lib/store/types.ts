@@ -7,6 +7,7 @@ export type AppView =
   | "logs"
   | "quick-texts"
   | "search"
+  | "flows"
   | "item-editor"
   | "flow-editor";
 export type BoardMode = "gallery" | "detail";

@@ -8,9 +8,10 @@
     flow: Flow;
     onopen: (flowId: string) => void;
     ondelete?: (flowId: string) => void;
+    categoryLabel?: string | null;
   }
 
-  let { flow, onopen, ondelete }: Props = $props();
+  let { flow, onopen, ondelete, categoryLabel = null }: Props = $props();
 
   function formatDate(value: string): string {
     const date = new Date(value);
@@ -34,6 +35,12 @@
       <p class="truncate text-lg font-semibold text-slate-900">
         {flow.title.trim() || "Nuevo flujo"}
       </p>
+
+      {#if categoryLabel}
+        <p class="mt-1 truncate text-xs font-medium text-slate-500">
+          {categoryLabel}
+        </p>
+      {/if}
     </div>
   </div>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Bug, Clipboard, Download, FolderOpen, ListChecks, Search } from "lucide-svelte";
+  import { Bug, Clipboard, Download, FolderOpen, GitBranch, ListChecks, Search } from "lucide-svelte";
 
   import NavRail from "$lib/components/layout/NavRail.svelte";
   import {
@@ -12,6 +12,7 @@
     openBackupDirectory,
     setSidebarWidth,
     showBoard,
+    showFlows,
     showLogs,
     showQuickTexts,
     showSearch,
@@ -100,6 +101,16 @@
     >
       <ListChecks size={16} />
       Categorías
+    </button>
+  </div>
+
+  <div class="px-3 pb-2">
+    <button
+      class={`btn-ghost w-full justify-start ${appState.currentView === "flows" ? "bg-white text-brand-800 shadow-sm ring-1 ring-brand-100" : "bg-white/65"}`}
+      onclick={() => showFlows()}
+    >
+      <GitBranch size={16} />
+      Flujos
     </button>
   </div>
 
