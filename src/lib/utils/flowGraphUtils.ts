@@ -23,7 +23,6 @@ export function createFlowNode(input: {
   id: string;
   title: string;
   type?: FlowNode["type"];
-  subtitle?: string;
   description?: string;
   linked_note_ids?: string[];
   x: number;
@@ -33,7 +32,6 @@ export function createFlowNode(input: {
     id: input.id,
     type: input.type ?? "process",
     title: input.title,
-    subtitle: input.subtitle ?? "",
     description: input.description ?? "",
     linked_note_ids: input.linked_note_ids ?? [],
     position: {
@@ -180,7 +178,6 @@ export function buildTwoPathNodesAndEdges(input: {
   const upperStart = createFlowNode({
     id: createFlowNodeId(flowId),
     title: "Camino superior",
-    subtitle: "Ruta alternativa superior",
     description: "Primer paso del camino superior.",
     x: startX,
     y: upperY,
@@ -189,7 +186,6 @@ export function buildTwoPathNodesAndEdges(input: {
   const upperNext = createFlowNode({
     id: createFlowNodeId(flowId),
     title: "Nodo superior 1",
-    subtitle: "Acción superior",
     description: "",
     x: secondX,
     y: upperY,
@@ -198,7 +194,6 @@ export function buildTwoPathNodesAndEdges(input: {
   const lowerStart = createFlowNode({
     id: createFlowNodeId(flowId),
     title: "Camino inferior",
-    subtitle: "Ruta alternativa inferior",
     description: "Primer paso del camino inferior.",
     x: startX,
     y: lowerY,
@@ -207,7 +202,6 @@ export function buildTwoPathNodesAndEdges(input: {
   const lowerNext = createFlowNode({
     id: createFlowNodeId(flowId),
     title: "Nodo inferior 1",
-    subtitle: "Acción inferior",
     description: "",
     x: secondX,
     y: lowerY,

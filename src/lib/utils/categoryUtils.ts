@@ -200,7 +200,6 @@ export function normalizeFlowNode(value: FlowNodeInput | unknown, fallbackId: st
       ? candidate.type
       : "process",
     title: typeof candidate.title === "string" ? candidate.title : "",
-    subtitle: typeof candidate.subtitle === "string" ? candidate.subtitle : "",
     description: typeof candidate.description === "string" ? candidate.description : "",
     linked_note_ids: Array.isArray(candidate.linked_note_ids)
       ? candidate.linked_note_ids.filter((entry): entry is string => typeof entry === "string")

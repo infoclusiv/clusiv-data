@@ -231,7 +231,6 @@
       id: `${flow.id}-node-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
       type: "process",
       title: "Nuevo nodo",
-      subtitle: "",
       description: "",
       linked_note_ids: [],
       position,
@@ -326,7 +325,7 @@
   }
 
   function updateSelectedNode(
-    field: "title" | "subtitle" | "description",
+    field: "title" | "description",
     value: string,
   ): void {
     if (!selectedNodeId) {

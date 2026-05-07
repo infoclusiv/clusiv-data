@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { GitBranchPlus, Link, Plus, Trash2 } from "lucide-svelte";
+  import { Copy, GitBranchPlus, Link, Plus, Trash2 } from "lucide-svelte";
 
+  import { showSnackbar } from "$lib/store/snackbar.svelte";
   import type { AppData, FlowNode } from "$lib/store/types";
   import type { FlowBranchDirection } from "$lib/utils/flowGraphUtils";
   import { getNoteOptions, getLinkedNotesForNode } from "$lib/utils/noteUtils";
@@ -10,7 +11,7 @@
     appData: AppData | null;
     canCreateTwoPaths?: boolean;
     outgoingCount?: number;
-    onupdate: (field: "title" | "subtitle" | "description", value: string) => void;
+    onupdate: (field: "title" | "description", value: string) => void;
     ondelete?: (nodeId: string) => void;
     oncreatetwopaths?: (nodeId: string) => void;
     onaddtobranch?: (nodeId: string, direction: FlowBranchDirection) => void;
@@ -68,6 +69,25 @@
     noteSearch = "";
     linkingNotes = false;
   }
+
+  async function handleCopyDescription(): Promise<void> {
+    const description = node.description ?? "";
+
+    if (!description.trim()) {
+      showSnackbar("No hay descripción para copiar.", "error", 1800);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(description);
+      showSnackbar("Descripción copiada al portapapeles.", "success", 1800);
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo copiar la descripción.",
+        "error",
+      );
+    }
+  }
 </script>
 
 <section class="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -79,7 +99,7 @@
       </div>
     </div>
 
-    <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_172px]">
+    <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_172px]">
       <div class="flex flex-col gap-1.5">
         <label class="section-label" for="flow-node-title">Título</label>
         <input
@@ -89,18 +109,6 @@
           placeholder="Ej. Validar información"
           spellcheck={false}
           oninput={(event) => onupdate("title", (event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <label class="section-label" for="flow-node-subtitle">Subtítulo</label>
-        <input
-          id="flow-node-subtitle"
-          class="input-base"
-          value={node.subtitle}
-          placeholder="Texto breve de apoyo"
-          spellcheck={false}
-          oninput={(event) => onupdate("subtitle", (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 
@@ -148,7 +156,19 @@
     {/if}
 
     <div class="mt-6 flex min-h-0 flex-1 flex-col gap-1.5">
-      <label class="section-label" for="flow-node-description">Descripción</label>
+      <div class="flex items-center justify-between gap-2">
+        <label class="section-label" for="flow-node-description">Descripción</label>
+        <button
+          class="btn-ghost h-8 w-8 justify-center rounded-full p-0"
+          type="button"
+          title="Copiar descripción"
+          aria-label="Copiar descripción"
+          disabled={!node.description.trim()}
+          onclick={() => void handleCopyDescription()}
+        >
+          <Copy size={15} />
+        </button>
+      </div>
       <textarea
         id="flow-node-description"
         class="input-base min-h-[360px] flex-1 resize-none leading-7"

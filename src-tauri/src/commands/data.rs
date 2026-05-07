@@ -857,11 +857,14 @@ fn flow_node_from_value(value: Value, changed: &mut bool) -> FlowNode {
         return FlowNode::default();
     };
 
+    if map.remove("subtitle").is_some() {
+        *changed = true;
+    }
+
     FlowNode {
         id: string_value(map.remove("id"), "", changed),
         r#type: string_value(map.remove("type"), "process", changed),
         title: string_value(map.remove("title"), "", changed),
-        subtitle: string_value(map.remove("subtitle"), "", changed),
         description: string_value(map.remove("description"), "", changed),
         position: flow_position_from_value(map.remove("position"), changed),
     }
@@ -1101,7 +1104,6 @@ mod tests {
                             "id": "node_1",
                             "type": "process",
                             "title": "Paso 1",
-                            "subtitle": "",
                             "description": "",
                             "position": { "x": 120, "y": 80 }
                         }

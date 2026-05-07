@@ -5,7 +5,7 @@
 
   interface Props {
     node: FlowNode | null;
-    onupdate: (field: "title" | "subtitle" | "description", value: string) => void;
+    onupdate: (field: "title" | "description", value: string) => void;
     ondelete?: (nodeId: string) => void;
   }
 
@@ -43,18 +43,6 @@
           placeholder="Ej. Validar información"
           spellcheck={false}
           oninput={(event) => onupdate("title", (event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <label class="section-label" for="flow-node-subtitle">Subtítulo</label>
-        <input
-          id="flow-node-subtitle"
-          class="input-base"
-          value={node.subtitle}
-          placeholder="Texto breve de apoyo"
-          spellcheck={false}
-          oninput={(event) => onupdate("subtitle", (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 

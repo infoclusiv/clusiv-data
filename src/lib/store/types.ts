@@ -59,7 +59,6 @@ export interface FlowNode {
   id: string;
   type: FlowNodeType;
   title: string;
-  subtitle: string;
   description: string;
   linked_note_ids: string[];
   position: {
@@ -156,7 +155,6 @@ export interface FlowNodeInput {
   id?: string;
   type?: FlowNodeType;
   title?: string;
-  subtitle?: string;
   description?: string;
   linked_note_ids?: string[];
   position?: {

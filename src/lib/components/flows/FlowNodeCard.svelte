@@ -18,7 +18,6 @@
   onclick={() => onselect(node.id)}
 >
   <p class="font-semibold">{node.title.trim() || "Nodo sin título"}</p>
-  <p class="mt-1 text-xs opacity-75">{node.subtitle.trim() || "Sin subtítulo"}</p>
 
   {#if outgoingCount <= 1}
     <span class="pointer-events-none absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-white bg-slate-400"></span>
