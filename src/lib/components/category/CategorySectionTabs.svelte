@@ -14,6 +14,7 @@
   let { activeSection, onselect }: Props = $props();
 
   const tabs: TabOption[] = [
+    { id: "overview", label: "Vista general" },
     { id: "tasks", label: "Tareas" },
     { id: "notes", label: "Notas" },
     { id: "links", label: "Enlaces" },

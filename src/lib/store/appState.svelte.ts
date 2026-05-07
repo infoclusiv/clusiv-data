@@ -48,7 +48,7 @@ export const appState = $state({
   currentView: "welcome" as AppView,
   currentBoardMode: "gallery" as BoardMode,
   currentBoardFilterId: null as string | null,
-  currentCategorySection: "tasks" as CategorySection,
+  currentCategorySection: "overview" as CategorySection,
   currentFlowId: null as string | null,
   itemEditor: null as ItemEditorState | null,
   searchQuery: "",
@@ -102,7 +102,7 @@ interface OpenItemEditorOptions {
   recordHistory?: boolean;
 }
 
-const DEFAULT_CATEGORY_SECTION: CategorySection = "tasks";
+const DEFAULT_CATEGORY_SECTION: CategorySection = "overview";
 
 function countLinks(appData: AppData): number {
   return Object.values(appData.__SYSTEM_CATEGORIES__).reduce(

@@ -29,7 +29,6 @@
     appState,
     createFlow,
     deleteCategory,
-    deleteFlow,
     deleteItem,
     deleteLink,
     getItemIndex,
@@ -102,6 +101,10 @@
 
   const links = $derived(category ? category.links ?? [] : []);
   const canGoBack = $derived(appState.navigationHistory.length > 0);
+  const recentNote = $derived(notes[0] ?? null);
+  const pendingTask = $derived(tasks.find((task) => !task.done) ?? tasks[0] ?? null);
+  const firstLink = $derived(links[0] ?? null);
+  const firstFlow = $derived(flows[0] ?? null);
 
   const fallbackCategoryName = $derived(
     appState.appData && category
@@ -114,6 +117,35 @@
 
   function formatLinkCount(linkCount: number): string {
     return linkCount === 1 ? "1 enlace" : `${linkCount} enlaces`;
+  }
+
+  function pluralize(count: number, singular: string, plural: string): string {
+    return count === 1 ? `1 ${singular}` : `${count} ${plural}`;
+  }
+
+  function getSubcategoryCountLabel(count: number): string {
+    return pluralize(count, "subcategoría", "subcategorías");
+  }
+
+  function getNoteCountLabel(count: number): string {
+    return pluralize(count, "nota", "notas");
+  }
+
+  function getTaskCountLabel(count: number): string {
+    return pluralize(count, "tarea", "tareas");
+  }
+
+  function getFlowCountLabel(count: number): string {
+    return pluralize(count, "flujo", "flujos");
+  }
+
+  function getItemPreview(item: Item | null, fallback = "Sin contenido"): string {
+    if (!item) {
+      return fallback;
+    }
+
+    const content = item.comment.trim();
+    return content.length > 0 ? content : fallback;
   }
 
   function getCategoryIcon(categoryValue: Category) {
@@ -275,18 +307,6 @@
     }
   }
 
-  async function handleDeleteFlow(flowId: string): Promise<void> {
-    try {
-      await deleteFlow(flowId);
-      showSnackbar("Flujo eliminado.", "success");
-    } catch (error) {
-      showSnackbar(
-        error instanceof Error ? error.message : "No se pudo eliminar el flujo.",
-        "error",
-      );
-    }
-  }
-
   const fabActions = $derived.by(() => {
     if (appState.currentCategorySection === "notes") {
       return [
@@ -393,16 +413,19 @@
 
             <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
               <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
-                {getCategoryChildrenSummary(appState.appData, category.id)}
+                {getSubcategoryCountLabel(childCategories.length)}
               </span>
               <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
                 {formatLinkCount(links.length)}
               </span>
               <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
-                {formatItemCounts(notes.length, tasks.length)}
+                {getNoteCountLabel(notes.length)}
               </span>
               <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
-                {flows.length} flujo{flows.length === 1 ? "" : "s"}
+                {getTaskCountLabel(tasks.length)}
+              </span>
+              <span class="rounded-full bg-white/80 px-3 py-1 shadow-sm">
+                {getFlowCountLabel(flows.length)}
               </span>
             </div>
           </div>
@@ -415,7 +438,205 @@
       />
 
       <div class="flex-1 overflow-y-auto px-8 py-6">
-        {#if appState.currentCategorySection === "subcategories"}
+        {#if appState.currentCategorySection === "overview"}
+          <section class="space-y-6">
+            <div class="flex items-center gap-3">
+              <GitBranch size={18} class="text-brand-700" />
+              <div>
+                <p class="section-label">Resumen general</p>
+                <p class="mt-1 text-sm text-slate-500">
+                  Accesos rápidos para revisar qué hay en esta categoría.
+                </p>
+              </div>
+            </div>
+
+            <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              <button
+                type="button"
+                class="card flex min-h-[18rem] flex-col justify-between p-6 text-left hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                onclick={() => setCategorySection("links")}
+              >
+                <div>
+                  <div class="mb-5 flex items-center gap-4">
+                    <div class="rounded-2xl bg-emerald-50 p-4 text-emerald-700">
+                      <Link2 size={30} />
+                    </div>
+                    <div>
+                      <p class="text-4xl font-semibold text-slate-900">{links.length}</p>
+                      <p class="mt-1 text-sm font-semibold text-slate-700">
+                        {links.length === 1 ? "Enlace" : "Enlaces"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p class="text-sm font-medium text-slate-500">
+                    {links.length === 0 ? "Sin enlaces guardados" : formatLinkCount(links.length)}
+                  </p>
+                </div>
+
+                {#if firstLink}
+                  <div class="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                    <p class="truncate text-sm font-semibold text-slate-900">{firstLink.title}</p>
+                    <p class="mt-1 truncate text-xs text-slate-500">{firstLink.url}</p>
+                  </div>
+                {:else}
+                  <div class="mt-6 rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
+                    Agrega enlaces importantes para esta categoría.
+                  </div>
+                {/if}
+              </button>
+
+              <button
+                type="button"
+                class="card flex min-h-[18rem] flex-col justify-between p-6 text-left hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                onclick={() => setCategorySection("subcategories")}
+              >
+                <div>
+                  <div class="mb-5 flex items-center gap-4">
+                    <div class="rounded-2xl bg-blue-50 p-4 text-blue-600">
+                      <FolderPlus size={30} />
+                    </div>
+                    <div>
+                      <p class="text-4xl font-semibold text-slate-900">{childCategories.length}</p>
+                      <p class="mt-1 text-sm font-semibold text-slate-700">Subcategorías</p>
+                    </div>
+                  </div>
+
+                  <p class="text-sm font-medium text-slate-500">
+                    {getSubcategoryCountLabel(childCategories.length)}
+                  </p>
+                </div>
+
+                {#if childCategories.length > 0}
+                  <div class="mt-6 space-y-2">
+                    {#each childCategories.slice(0, 3) as child}
+                      <div class="rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                        {child.name}
+                      </div>
+                    {/each}
+                  </div>
+                {:else}
+                  <div class="mt-6 rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
+                    Crea subcategorías para dividir mejor el contenido.
+                  </div>
+                {/if}
+              </button>
+
+              <button
+                type="button"
+                class="card flex min-h-[18rem] flex-col justify-between p-6 text-left hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                onclick={() => setCategorySection("notes")}
+              >
+                <div>
+                  <div class="mb-5 flex items-center gap-4">
+                    <div class="rounded-2xl bg-amber-50 p-4 text-amber-600">
+                      <StickyNote size={30} />
+                    </div>
+                    <div>
+                      <p class="text-4xl font-semibold text-slate-900">{notes.length}</p>
+                      <p class="mt-1 text-sm font-semibold text-slate-700">Notas</p>
+                    </div>
+                  </div>
+
+                  <p class="text-sm font-medium text-slate-500">
+                    {getNoteCountLabel(notes.length)}
+                  </p>
+                </div>
+
+                {#if recentNote}
+                  <div class="mt-6 rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+                    <p class="truncate text-sm font-semibold text-slate-900">
+                      {recentNote.title.trim() || "Nota sin título"}
+                    </p>
+                    <p class="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-500">
+                      {getItemPreview(recentNote)}
+                    </p>
+                  </div>
+                {:else}
+                  <div class="mt-6 rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
+                    No hay notas en esta categoría.
+                  </div>
+                {/if}
+              </button>
+
+              <button
+                type="button"
+                class="card flex min-h-[18rem] flex-col justify-between p-6 text-left hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                onclick={() => setCategorySection("tasks")}
+              >
+                <div>
+                  <div class="mb-5 flex items-center gap-4">
+                    <div class="rounded-2xl bg-purple-50 p-4 text-purple-600">
+                      <CheckCircle2 size={30} />
+                    </div>
+                    <div>
+                      <p class="text-4xl font-semibold text-slate-900">{tasks.length}</p>
+                      <p class="mt-1 text-sm font-semibold text-slate-700">
+                        {tasks.length === 1 ? "Tarea" : "Tareas"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p class="text-sm font-medium text-slate-500">
+                    {tasks.length === 0 ? "Sin tareas" : getTaskCountLabel(tasks.length)}
+                  </p>
+                </div>
+
+                {#if pendingTask}
+                  <div class="mt-6 rounded-2xl border border-purple-100 bg-purple-50/50 p-4">
+                    <p class="truncate text-sm font-semibold text-slate-900">
+                      {pendingTask.title.trim() || "Tarea sin título"}
+                    </p>
+                    <p class={`mt-2 text-xs font-semibold ${pendingTask.done ? "text-emerald-600" : "text-red-500"}`}>
+                      {pendingTask.done ? "Tarea completada" : "Tarea pendiente"}
+                    </p>
+                  </div>
+                {:else}
+                  <div class="mt-6 rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
+                    No hay tareas pendientes.
+                  </div>
+                {/if}
+              </button>
+
+              <button
+                type="button"
+                class="card flex min-h-[18rem] flex-col justify-between p-6 text-left hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                onclick={() => setCategorySection("flows")}
+              >
+                <div>
+                  <div class="mb-5 flex items-center gap-4">
+                    <div class="rounded-2xl bg-slate-100 p-4 text-slate-600">
+                      <GitBranch size={30} />
+                    </div>
+                    <div>
+                      <p class="text-4xl font-semibold text-slate-900">{flows.length}</p>
+                      <p class="mt-1 text-sm font-semibold text-slate-700">Flujos</p>
+                    </div>
+                  </div>
+
+                  <p class="text-sm font-medium text-slate-500">
+                    {flows.length === 0 ? "Sin flujos" : getFlowCountLabel(flows.length)}
+                  </p>
+                </div>
+
+                {#if firstFlow}
+                  <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="truncate text-sm font-semibold text-slate-900">
+                      {firstFlow.title.trim() || "Nuevo flujo"}
+                    </p>
+                    <p class="mt-2 text-xs text-slate-500">
+                      {firstFlow.nodes.length} nodos · {firstFlow.edges.length} conexiones
+                    </p>
+                  </div>
+                {:else}
+                  <div class="mt-6 rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
+                    Aún no hay flujos en esta categoría.
+                  </div>
+                {/if}
+              </button>
+            </div>
+          </section>
+        {:else if appState.currentCategorySection === "subcategories"}
           <section>
             <div class="mb-4 flex items-center gap-3">
               <FolderPlus size={18} class="text-brand-700" />
@@ -528,9 +749,8 @@
             {flows}
             oncreate={() => void handleCreateFlow()}
             onopen={(flowId) => openFlowEditor(flowId)}
-            ondelete={handleDeleteFlow}
           />
-        {:else}
+        {:else if appState.currentCategorySection === "tasks"}
           <section>
             <div class="mb-4 flex items-center gap-3">
               <CheckCircle2 size={18} class="text-emerald-700" />
@@ -558,6 +778,10 @@
                 {/each}
               </div>
             {/if}
+          </section>
+        {:else}
+          <section class="card border-dashed p-8 text-center text-sm text-slate-500">
+            No se encontró esta sección.
           </section>
         {/if}
       </div>

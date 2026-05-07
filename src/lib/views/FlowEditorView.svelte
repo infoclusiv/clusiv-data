@@ -1,15 +1,16 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { ArrowLeft, Plus } from "lucide-svelte";
+  import { ArrowLeft, Plus, Trash2 } from "lucide-svelte";
 
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
   import FlowNodeEditorPanel from "$lib/components/flows/FlowNodeEditorPanel.svelte";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import {
     getNextHorizontalNodePosition,
     getNextNodePositionFromNode,
   } from "$lib/components/flows/flowLayout";
   import Input from "$lib/components/ui/Input.svelte";
-  import { appState, closeFlowEditor, updateFlow } from "$lib/store/appState.svelte";
+  import { appState, closeFlowEditor, deleteFlow, updateFlow } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import type { Flow, FlowNode } from "$lib/store/types";
   import { getCategory, getFlowById } from "$lib/utils/categoryUtils";
@@ -44,6 +45,7 @@
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let saveRequestedWhileSaving = $state(false);
   let lastAutosaveError = $state<string | null>(null);
+  let confirmDeleteFlow = $state(false);
 
   const selectedNode = $derived(
     selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null,
@@ -443,6 +445,25 @@
     await flushAutosave("leave_flow_editor");
     closeFlowEditor();
   }
+
+  async function handleDeleteCurrentFlow(): Promise<void> {
+    if (!flow) {
+      return;
+    }
+
+    try {
+      await flushAutosave("delete_flow_before_confirm");
+      await deleteFlow(flow.id);
+      showSnackbar("Flujo eliminado.", "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo eliminar el flujo.",
+        "error",
+      );
+    } finally {
+      confirmDeleteFlow = false;
+    }
+  }
 </script>
 
 {#if flow}
@@ -468,6 +489,10 @@
           <button class="btn-ghost bg-white/70" onclick={() => addNodeToEnd()}>
             <Plus size={16} />
             Agregar nodo
+          </button>
+          <button class="btn-ghost bg-white/70 text-red-700 hover:bg-red-50" onclick={() => (confirmDeleteFlow = true)}>
+            <Trash2 size={16} />
+            Eliminar flujo
           </button>
           <div
             class="rounded-full bg-white/70 px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm"
@@ -515,4 +540,13 @@
       </div>
     </div>
   </div>
+
+  <ConfirmDialog
+    open={confirmDeleteFlow}
+    title="Eliminar flujo"
+    message="¿Seguro que quieres eliminar este flujo? Esta acción no se puede deshacer."
+    confirmLabel="Sí, eliminar"
+    oncancel={() => (confirmDeleteFlow = false)}
+    onconfirm={() => void handleDeleteCurrentFlow()}
+  />
 {/if}

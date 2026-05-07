@@ -12,7 +12,13 @@ export type AppView =
   | "flow-editor";
 export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
-export type CategorySection = "tasks" | "notes" | "links" | "subcategories" | "flows";
+export type CategorySection =
+  | "overview"
+  | "tasks"
+  | "notes"
+  | "links"
+  | "subcategories"
+  | "flows";
 export interface Link {
   title: string;
   url: string;

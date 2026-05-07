@@ -2,7 +2,6 @@
   import { Filter, Grid2X2, List, Plus, Search, SlidersHorizontal } from "lucide-svelte";
 
   import FlowCard from "$lib/components/flows/FlowCard.svelte";
-  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import Select from "$lib/components/ui/Select.svelte";
   import type { Flow } from "$lib/store/types";
 
@@ -11,15 +10,13 @@
     flows: Flow[];
     oncreate: () => void;
     onopen: (flowId: string) => void;
-    ondelete: (flowId: string) => Promise<void> | void;
   }
 
-  let { categoryName, flows, oncreate, onopen, ondelete }: Props = $props();
+  let { categoryName, flows, oncreate, onopen }: Props = $props();
 
   let search = $state("");
   let sortBy = $state("updated");
   let viewMode = $state<"grid" | "list">("grid");
-  let pendingDeleteFlowId = $state<string | null>(null);
 
   const filteredFlows = $derived.by(() => {
     const query = search.trim().toLowerCase();
@@ -39,16 +36,6 @@
       return right.updated_at.localeCompare(left.updated_at);
     });
   });
-
-  async function handleDelete(): Promise<void> {
-    if (!pendingDeleteFlowId) {
-      return;
-    }
-
-    const flowId = pendingDeleteFlowId;
-    pendingDeleteFlowId = null;
-    await ondelete(flowId);
-  }
 </script>
 
 <section class="space-y-6">
@@ -151,18 +138,8 @@
         <FlowCard
           {flow}
           onopen={onopen}
-          ondelete={(flowId) => (pendingDeleteFlowId = flowId)}
         />
       {/each}
     </div>
   {/if}
 </section>
-
-<ConfirmDialog
-  open={pendingDeleteFlowId !== null}
-  title="Eliminar flujo"
-  message="Seguro que quieres eliminar este flujo? Esta accion no se puede deshacer."
-  confirmLabel="Si, eliminar"
-  oncancel={() => (pendingDeleteFlowId = null)}
-  onconfirm={() => void handleDelete()}
-/>
