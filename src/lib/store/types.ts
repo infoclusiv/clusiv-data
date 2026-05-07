@@ -5,6 +5,7 @@ export type AppView =
   | "category"
   | "board"
   | "logs"
+  | "backups"
   | "quick-texts"
   | "search"
   | "flows"
@@ -111,6 +112,14 @@ export interface LogStatus {
   appVersion: string;
   buildProfile: string;
   platform: string;
+}
+
+export interface BackupInfo {
+  name: string;
+  kind: "manual" | "auto" | "unknown";
+  sizeBytes: number;
+  modifiedAt: string;
+  createdLabel: string;
 }
 
 export interface UIState {

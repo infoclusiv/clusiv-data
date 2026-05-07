@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AppData,
   AppView,
+  BackupInfo,
   BoardMode,
   CategorySection,
   CategoryFormInput,
@@ -939,6 +940,70 @@ export async function openBackupDirectory(): Promise<void> {
   }
 }
 
+export async function listBackups(): Promise<BackupInfo[]> {
+  logClientEvent({
+    source: "appState",
+    action: "list_backups_started",
+    message: "User requested available backups list.",
+  });
+
+  try {
+    const backups = await invoke<BackupInfo[]>("list_backups");
+    logClientEvent({
+      source: "appState",
+      action: "list_backups_completed",
+      message: "Available backups loaded successfully.",
+      context: {
+        backupCount: backups.length,
+      },
+    });
+    return backups;
+  } catch (error) {
+    logClientError(
+      "appState",
+      "list_backups_failed",
+      "Failed to list available backups.",
+      error,
+    );
+    throw error;
+  }
+}
+
+export async function restoreBackup(backupName: string): Promise<string> {
+  logClientEvent({
+    source: "appState",
+    action: "restore_backup_started",
+    message: "User requested backup restoration.",
+    context: { backupName },
+  });
+
+  try {
+    const message = await invoke<string>("restore_backup", { backupName });
+    await loadAppData();
+
+    logClientEvent({
+      source: "appState",
+      action: "restore_backup_completed",
+      message: "Backup restored successfully and app data reloaded.",
+      context: {
+        backupName,
+        backendMessage: message,
+      },
+    });
+
+    return message;
+  } catch (error) {
+    logClientError(
+      "appState",
+      "restore_backup_failed",
+      "Failed to restore backup.",
+      error,
+      { backupName },
+    );
+    throw error;
+  }
+}
+
 export function isCategoryExpanded(categoryId: string): boolean {
   return appState.expandedCategoryIds.includes(categoryId);
 }
@@ -1237,6 +1302,26 @@ export function showLogs(options: NavigationOptions = {}): void {
     source: "navigation",
     action: "show_logs",
     message: "Navigated to debugging logs view.",
+  });
+}
+
+export function showBackups(options: NavigationOptions = {}): void {
+  navigate(
+    {
+      view: "backups",
+      categoryId: appState.currentCategoryId,
+      boardMode: appState.currentBoardMode,
+      boardFilterId: appState.currentBoardFilterId,
+      categorySection: appState.currentCategorySection,
+      flowId: null,
+    },
+    options,
+  );
+
+  logClientEvent({
+    source: "navigation",
+    action: "show_backups",
+    message: "Navigated to backups management view.",
   });
 }
 

@@ -4,6 +4,7 @@
   import Sidebar from "$lib/components/layout/Sidebar.svelte";
   import Snackbar from "$lib/components/ui/Snackbar.svelte";
   import { appState, initializeApp } from "$lib/store/appState.svelte";
+  import BackupsView from "$lib/views/BackupsView.svelte";
   import BoardView from "$lib/views/BoardView.svelte";
   import CategoryView from "$lib/views/CategoryView.svelte";
   import FlowEditorView from "$lib/views/FlowEditorView.svelte";
@@ -40,6 +41,8 @@
           <BoardView />
         {:else if appState.currentView === "logs"}
           <LogsView />
+        {:else if appState.currentView === "backups"}
+          <BackupsView />
         {:else if appState.currentView === "quick-texts"}
           <QuickTextsView />
         {:else if appState.currentView === "flows"}

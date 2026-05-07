@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Bug, Clipboard, Download, FolderOpen, GitBranch, ListChecks, Search } from "lucide-svelte";
+  import { Bug, Clipboard, Download, FolderArchive, GitBranch, ListChecks, Search } from "lucide-svelte";
 
   import NavRail from "$lib/components/layout/NavRail.svelte";
   import {
@@ -9,8 +9,8 @@
     MIN_SIDEBAR_WIDTH,
     appState,
     createBackup,
-    openBackupDirectory,
     setSidebarWidth,
+    showBackups,
     showBoard,
     showFlows,
     showLogs,
@@ -68,18 +68,6 @@
     } catch (error) {
       showSnackbar(
         error instanceof Error ? error.message : "No se pudo crear el backup.",
-        "error",
-      );
-    }
-  }
-
-  async function handleOpenBackups(): Promise<void> {
-    try {
-      await openBackupDirectory();
-      showSnackbar("Carpeta de backups abierta.", "success");
-    } catch (error) {
-      showSnackbar(
-        error instanceof Error ? error.message : "No se pudo abrir la carpeta de backups.",
         "error",
       );
     }
@@ -158,11 +146,11 @@
     </button>
 
     <button
-      class="btn-ghost mt-2 w-full justify-start bg-white/65"
-      onclick={() => void handleOpenBackups()}
+      class={`btn-ghost mt-2 w-full justify-start ${appState.currentView === "backups" ? "bg-white text-brand-800 shadow-sm ring-1 ring-brand-100" : "bg-white/65"}`}
+      onclick={() => showBackups()}
     >
-      <FolderOpen size={16} />
-      Abrir Backups
+      <FolderArchive size={16} />
+      Backups
     </button>
   </div>
 

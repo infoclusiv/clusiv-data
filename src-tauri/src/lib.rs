@@ -39,6 +39,8 @@ pub fn run() {
             commands::data::save_data,
             commands::backup::create_backup,
             commands::backup::open_backup_directory,
+            commands::backup::list_backups,
+            commands::backup::restore_backup,
             commands::logs::append_frontend_log,
             commands::logs::get_log_status,
             commands::logs::export_logs,
