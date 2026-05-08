@@ -168,16 +168,12 @@
         class="relative rounded-[1.25rem] border border-dashed border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50"
         style={`width: ${canvasWidth}px; height: ${canvasHeight}px; transform: scale(${zoom}); transform-origin: top left; background-image: radial-gradient(circle, rgba(15, 23, 42, 0.08) 1px, transparent 1px); background-size: 18px 18px;`}
       >
-        <svg class="pointer-events-none absolute inset-0 h-full w-full">
+        <svg class="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
           <defs>
-            <linearGradient id="flow-edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#10b981" stop-opacity="0.55" />
-              <stop offset="100%" stop-color="#059669" stop-opacity="0.95" />
-            </linearGradient>
             <marker
               id="flow-arrow"
-              markerWidth="11"
-              markerHeight="11"
+              markerWidth="12"
+              markerHeight="12"
               refX="9"
               refY="3.5"
               orient="auto"
@@ -197,10 +193,22 @@
               <path
                 d={edgePath}
                 fill="none"
-                stroke="url(#flow-edge-gradient)"
-                stroke-width="2.75"
+                stroke="#a7f3d0"
+                stroke-width="7"
                 stroke-linecap="round"
                 stroke-linejoin="round"
+                stroke-opacity="0.42"
+                vector-effect="non-scaling-stroke"
+              />
+              <path
+                d={edgePath}
+                fill="none"
+                stroke="#059669"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-opacity="0.95"
+                vector-effect="non-scaling-stroke"
                 marker-end="url(#flow-arrow)"
               />
               {#if edge.label.trim()}

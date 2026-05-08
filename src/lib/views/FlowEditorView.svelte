@@ -60,6 +60,8 @@
     selectedNode ? canOpenTwoPaths(selectedNode, edges) : false,
   );
 
+  const isNodeEditorActive = $derived(nodeEditorOpen && selectedNode);
+
   const autosaveStatusLabel = $derived(
     autosaveStatus === "saving"
       ? "Guardando..."
@@ -502,10 +504,12 @@
             <Plus size={16} />
             Agregar nodo
           </button>
-          <button class="btn-ghost bg-white/70 text-red-700 hover:bg-red-50" onclick={() => (confirmDeleteFlow = true)}>
-            <Trash2 size={16} />
-            Eliminar flujo
-          </button>
+          {#if !isNodeEditorActive}
+            <button class="btn-ghost bg-white/70 text-red-700 hover:bg-red-50" onclick={() => (confirmDeleteFlow = true)}>
+              <Trash2 size={16} />
+              Eliminar flujo
+            </button>
+          {/if}
           <div
             class="rounded-full bg-white/70 px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm"
             class:text-red-600={autosaveStatus === "error"}
