@@ -5,6 +5,7 @@
     FLOW_NODE_HEIGHT,
     FLOW_NODE_WIDTH,
     getFlowCanvasSize,
+    sortOutgoingEdgesForLayout,
   } from "$lib/components/flows/flowLayout";
   import FlowNodeCard from "$lib/components/flows/FlowNodeCard.svelte";
   import type { FlowEdge, FlowNode } from "$lib/store/types";
@@ -36,17 +37,15 @@
     node: FlowNode,
     edge: FlowEdge,
   ): { x: number; y: number } {
-    const outgoing = getOutgoingEdges(edges, node.id);
-    const edgeIndex = Math.max(0, outgoing.findIndex((candidate) => candidate.id === edge.id));
-
-    const offsets =
-      outgoing.length <= 1
-        ? [FLOW_NODE_HEIGHT / 2]
-        : [FLOW_NODE_HEIGHT * 0.35, FLOW_NODE_HEIGHT * 0.65];
+    const outgoing = sortOutgoingEdgesForLayout({
+      edges: getOutgoingEdges(edges, node.id),
+      nodesById: new Map(nodes.map((candidate) => [candidate.id, candidate])),
+    });
+    const ratio = getSourcePortRatio(edge, outgoing);
 
     return {
       x: node.position.x + FLOW_NODE_WIDTH,
-      y: node.position.y + (offsets[edgeIndex] ?? FLOW_NODE_HEIGHT / 2),
+      y: node.position.y + FLOW_NODE_HEIGHT * ratio,
     };
   }
 
@@ -58,7 +57,8 @@
   }
 
   function getEdgePath(source: { x: number; y: number }, target: { x: number; y: number }): string {
-    const curveOffset = Math.max(80, Math.abs(target.x - source.x) * 0.35);
+    const distanceX = Math.max(1, target.x - source.x);
+    const curveOffset = Math.min(96, Math.max(48, distanceX * 0.45));
 
     return [
       `M ${source.x} ${source.y}`,
@@ -66,6 +66,25 @@
       `${target.x - curveOffset} ${target.y}`,
       `${target.x} ${target.y}`,
     ].join(" ");
+  }
+
+  function getSourcePortRatio(edge: FlowEdge, outgoingEdges: FlowEdge[]): number {
+    const label = edge.label.trim().toLowerCase();
+
+    if (label === "superior") {
+      return 0.35;
+    }
+
+    if (label === "inferior") {
+      return 0.65;
+    }
+
+    if (outgoingEdges.length <= 1) {
+      return 0.5;
+    }
+
+    const index = outgoingEdges.findIndex((candidate) => candidate.id === edge.id);
+    return index === 0 ? 0.35 : 0.65;
   }
 
   function getOutgoingCount(nodeId: string): number {
@@ -147,20 +166,24 @@
     <div style={`width: ${zoomedCanvasWidth}px; height: ${zoomedCanvasHeight}px;`}>
       <div
         class="relative rounded-[1.25rem] border border-dashed border-brand-100 bg-gradient-to-br from-white via-brand-50/40 to-emerald-50/50"
-        style={`width: ${canvasWidth}px; height: ${canvasHeight}px; transform: scale(${zoom}); transform-origin: top left;`}
+        style={`width: ${canvasWidth}px; height: ${canvasHeight}px; transform: scale(${zoom}); transform-origin: top left; background-image: radial-gradient(circle, rgba(15, 23, 42, 0.08) 1px, transparent 1px); background-size: 18px 18px;`}
       >
         <svg class="pointer-events-none absolute inset-0 h-full w-full">
           <defs>
+            <linearGradient id="flow-edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#10b981" stop-opacity="0.55" />
+              <stop offset="100%" stop-color="#059669" stop-opacity="0.95" />
+            </linearGradient>
             <marker
               id="flow-arrow"
-              markerWidth="10"
-              markerHeight="10"
-              refX="8"
-              refY="3"
+              markerWidth="11"
+              markerHeight="11"
+              refX="9"
+              refY="3.5"
               orient="auto"
               markerUnits="strokeWidth"
             >
-              <path d="M0,0 L0,6 L8,3 z" fill="rgba(15, 23, 42, 0.35)" />
+              <path d="M0,0 L0,7 L9,3.5 z" fill="#059669" />
             </marker>
           </defs>
 
@@ -174,9 +197,10 @@
               <path
                 d={edgePath}
                 fill="none"
-                stroke="rgba(15, 23, 42, 0.26)"
-                stroke-width="3"
+                stroke="url(#flow-edge-gradient)"
+                stroke-width="2.75"
                 stroke-linecap="round"
+                stroke-linejoin="round"
                 marker-end="url(#flow-arrow)"
               />
               {#if edge.label.trim()}

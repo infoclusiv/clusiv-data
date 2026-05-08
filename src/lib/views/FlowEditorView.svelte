@@ -8,6 +8,7 @@
   import {
     getNextHorizontalNodePosition,
     getNextNodePositionFromNode,
+    layoutFlowGraph,
   } from "$lib/components/flows/flowLayout";
   import Input from "$lib/components/ui/Input.svelte";
   import { appState, closeFlowEditor, deleteFlow, updateFlow } from "$lib/store/appState.svelte";
@@ -101,6 +102,14 @@
     });
   }
 
+  function applyLayout(nextNodes: FlowNode[], nextEdges: Flow["edges"]): void {
+    nodes = layoutFlowGraph({
+      nodes: cloneFlowNodes(nextNodes),
+      edges: cloneFlowEdges(nextEdges),
+    });
+    edges = cloneFlowEdges(nextEdges);
+  }
+
   $effect(() => {
     if (!flow) {
       loadedFlowId = null;
@@ -116,18 +125,22 @@
     }
 
     const flowSnapshot = $state.snapshot(flow) as Flow;
+    const hydratedNodes = layoutFlowGraph({
+      nodes: cloneFlowNodes(flowSnapshot.nodes),
+      edges: cloneFlowEdges(flowSnapshot.edges),
+    });
 
     loadedFlowId = flowSnapshot.id;
     title = flowSnapshot.title;
-    nodes = cloneFlowNodes(flowSnapshot.nodes);
+    nodes = hydratedNodes;
     edges = cloneFlowEdges(flowSnapshot.edges);
-    selectedNodeId = flowSnapshot.nodes[0]?.id ?? null;
+    selectedNodeId = hydratedNodes[0]?.id ?? null;
     nodeEditorOpen = false;
     saving = false;
     hasHydratedFlow = true;
     lastSavedFingerprint = getFlowFingerprint({
       title: flowSnapshot.title.trim(),
-      nodes: cloneFlowNodes(flowSnapshot.nodes),
+      nodes: cloneFlowNodes(hydratedNodes),
       edges: cloneFlowEdges(flowSnapshot.edges),
     });
     autosaveStatus = "saved";
@@ -244,20 +257,20 @@
 
     const previousNode = nodes.at(-1) ?? null;
     const newNode = createNewFlowNode(getNextHorizontalNodePosition(nodes));
+    const nextNodes = [...nodes, newNode];
+    const nextEdges = previousNode
+      ? [
+          ...edges,
+          {
+            id: `${flow.id}-edge-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
+            source: previousNode.id,
+            target: newNode.id,
+            label: "",
+          },
+        ]
+      : edges;
 
-    nodes = [...nodes, newNode];
-
-    if (previousNode) {
-      edges = [
-        ...edges,
-        {
-          id: `${flow.id}-edge-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
-          source: previousNode.id,
-          target: newNode.id,
-          label: "",
-        },
-      ];
-    }
+    applyLayout(nextNodes, nextEdges);
 
     selectedNodeId = newNode.id;
     nodeEditorOpen = true;
@@ -297,9 +310,8 @@
     }
 
     const newNode = createNewFlowNode(getNextNodePositionFromNode(branchTail));
-
-    nodes = [...nodes, newNode];
-    edges = [
+    const nextNodes = [...nodes, newNode];
+    const nextEdges = [
       ...edges,
       {
         id: `${flow.id}-edge-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
@@ -308,6 +320,8 @@
         label: "",
       },
     ];
+
+    applyLayout(nextNodes, nextEdges);
 
     selectedNodeId = newNode.id;
     nodeEditorOpen = true;
@@ -385,8 +399,8 @@
 
   function deleteNode(nodeId: string): void {
     const nextNodes = nodes.filter((node) => node.id !== nodeId);
-    edges = edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
-    nodes = nextNodes;
+    const nextEdges = edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+    applyLayout(nextNodes, nextEdges);
     selectedNodeId = nextNodes[0]?.id ?? null;
     scheduleAutosave("node_deleted", 100);
   }
@@ -426,8 +440,7 @@
       existingNodes: nodes,
     });
 
-    nodes = [...nodes, ...branch.nodes];
-    edges = [...edges, ...branch.edges];
+    applyLayout([...nodes, ...branch.nodes], [...edges, ...branch.edges]);
     selectedNodeId = nodeId;
     nodeEditorOpen = true;
     scheduleAutosave("two_paths_created", 100);

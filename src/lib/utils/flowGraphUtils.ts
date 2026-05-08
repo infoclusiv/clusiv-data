@@ -1,4 +1,6 @@
 import {
+  FLOW_COLUMN_STEP,
+  FLOW_LANE_STEP,
   FLOW_NODE_HEIGHT,
   FLOW_NODE_WIDTH,
 } from "$lib/components/flows/flowLayout";
@@ -7,8 +9,6 @@ import type { FlowEdge, FlowNode } from "$lib/store/types";
 export { FLOW_NODE_HEIGHT, FLOW_NODE_WIDTH };
 export type FlowBranchDirection = "upper" | "lower";
 
-export const FLOW_HORIZONTAL_GAP = FLOW_NODE_WIDTH + 72;
-export const FLOW_BRANCH_VERTICAL_GAP = 170;
 const FLOW_BRANCH_MIN_Y = 40;
 
 export function createFlowNodeId(flowId: string): string {
@@ -170,10 +170,10 @@ export function buildTwoPathNodesAndEdges(input: {
 } {
   const { flowId, sourceNode } = input;
 
-  const startX = sourceNode.position.x + FLOW_HORIZONTAL_GAP;
-  const secondX = startX + FLOW_HORIZONTAL_GAP;
-  const upperY = Math.max(FLOW_BRANCH_MIN_Y, sourceNode.position.y - FLOW_BRANCH_VERTICAL_GAP);
-  const lowerY = sourceNode.position.y + FLOW_BRANCH_VERTICAL_GAP;
+  const startX = sourceNode.position.x + FLOW_COLUMN_STEP;
+  const secondX = startX + FLOW_COLUMN_STEP;
+  const upperY = Math.max(FLOW_BRANCH_MIN_Y, sourceNode.position.y - FLOW_LANE_STEP);
+  const lowerY = sourceNode.position.y + FLOW_LANE_STEP;
 
   const upperStart = createFlowNode({
     id: createFlowNodeId(flowId),
