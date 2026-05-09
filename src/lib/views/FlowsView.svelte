@@ -5,13 +5,16 @@
   import GlobalFlowLinkedNotes from "$lib/components/flows/GlobalFlowLinkedNotes.svelte";
   import {
     appState,
+    getItemIndex,
     linkNoteToGlobalFlows,
     openFlowEditor,
+    openItemEditor,
     unlinkNoteFromGlobalFlows,
   } from "$lib/store/appState.svelte";
   import type { Flow } from "$lib/store/types";
   import { GENERAL_CATEGORY_NAME } from "$lib/utils/constants";
   import { getCategory, getCategoryBreadcrumb, getFlows } from "$lib/utils/categoryUtils";
+  import { getNoteById } from "$lib/utils/noteUtils";
 
   let search = $state("");
 
@@ -57,6 +60,23 @@
   const globalFlowLinkedNoteIds = $derived(
     appState.appData?.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ ?? [],
   );
+
+  function openLinkedNote(noteId: string): void {
+    if (!appState.appData) {
+      return;
+    }
+
+    const note = getNoteById(appState.appData, noteId);
+
+    if (!note) {
+      return;
+    }
+
+    openItemEditor({
+      editingItem: note,
+      editingIndex: getItemIndex(note),
+    });
+  }
 </script>
 
 {#if appState.appData}
@@ -136,6 +156,7 @@
         linkedNoteIds={globalFlowLinkedNoteIds}
         onlinknote={(noteId) => void linkNoteToGlobalFlows(noteId)}
         onunlinknote={(noteId) => void unlinkNoteFromGlobalFlows(noteId)}
+        onopennote={(noteId) => openLinkedNote(noteId)}
       />
     </div>
   </div>

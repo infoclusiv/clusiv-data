@@ -15,9 +15,10 @@
     linkedNoteIds: string[];
     onlinknote: (noteId: string) => void | Promise<void>;
     onunlinknote: (noteId: string) => void | Promise<void>;
+    onopennote: (noteId: string) => void | Promise<void>;
   }
 
-  let { appData, linkedNoteIds, onlinknote, onunlinknote }: Props = $props();
+  let { appData, linkedNoteIds, onlinknote, onunlinknote, onopennote }: Props = $props();
 
   let linkingNotes = $state(false);
   let noteSearch = $state("");
@@ -39,10 +40,6 @@
   const cursorCategoryLabel = $derived(
     cursorCategory ? getCategoryBreadcrumb(appData, cursorCategory.id) : "Todas las categorias",
   );
-  const selectedCategoryLabel = $derived(
-    selectedCategoryId ? getCategoryBreadcrumb(appData, selectedCategoryId) : "Todas las categorias",
-  );
-
   function getAllowedCategoryIds(): Set<string> | null {
     if (!selectedCategoryId) {
       return null;
@@ -87,6 +84,10 @@
     await onunlinknote(noteId);
   }
 
+  async function handleOpenNote(noteId: string): Promise<void> {
+    await onopennote(noteId);
+  }
+
   function clearCategoryFilter(): void {
     selectedCategoryId = null;
     categoryCursorId = null;
@@ -102,20 +103,7 @@
 </script>
 
 <section class="mt-6 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div>
-      <p class="section-label">Notas enlazadas</p>
-      <h2 class="mt-2 text-xl font-semibold text-slate-900">
-        Notas vinculadas a la vista global de flujos
-      </h2>
-      <p class="mt-2 text-sm text-slate-500">
-        Adjunta notas creadas previamente para tenerlas visibles junto a todos los flujos.
-      </p>
-      <p class="mt-2 text-xs font-medium text-slate-400">
-        Filtro activo: {selectedCategoryLabel}
-      </p>
-    </div>
-
+  <div class="flex justify-end">
     <button class="btn-primary" type="button" onclick={() => (linkingNotes = !linkingNotes)}>
       <Link size={15} />
       Enlazar nota
@@ -123,7 +111,7 @@
   </div>
 
   {#if linkingNotes}
-    <div class="mt-5 rounded-[1.25rem] border border-slate-200 bg-slate-50/70 p-4">
+    <div class="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50/70 p-4">
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div>
           <label class="section-label" for="global-flow-linked-note-search">Buscar nota</label>
@@ -241,7 +229,7 @@
   {/if}
 
   {#if linkedNotes.length === 0}
-    <div class="mt-5 rounded-[1.25rem] border border-dashed border-slate-200 bg-white/70 px-5 py-8 text-center">
+    <div class="mt-4 rounded-[1.25rem] border border-dashed border-slate-200 bg-white/70 px-5 py-8 text-center">
       <p class="text-sm font-semibold text-slate-700">No hay notas enlazadas todavia.</p>
       <p class="mt-2 text-sm text-slate-500">
         Enlaza notas creadas previamente para verlas aqui.
@@ -252,10 +240,21 @@
       </button>
     </div>
   {:else}
-    <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {#each linkedNotes as note (note.id)}
         {@const noteMeta = noteOptionById.get(note.id)}
-        <article class="min-h-36 rounded-[1.1rem] border border-amber-200 bg-amber-50/40 p-3">
+        <div
+          class="min-h-36 cursor-pointer rounded-[1.1rem] border border-amber-200 bg-amber-50/40 p-3 transition hover:border-amber-300 hover:bg-amber-50/70 focus-within:ring-2 focus-within:ring-amber-200"
+          role="button"
+          tabindex="0"
+          onclick={() => void handleOpenNote(note.id)}
+          onkeydown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              void handleOpenNote(note.id);
+            }
+          }}
+        >
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <p class="line-clamp-2 text-sm font-semibold text-slate-800">
@@ -270,7 +269,10 @@
               class="btn-ghost h-8 w-8 rounded-full p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
               type="button"
               aria-label="Quitar nota enlazada"
-              onclick={() => void handleUnlinkNote(note.id)}
+              onclick={(event) => {
+                event.stopPropagation();
+                void handleUnlinkNote(note.id);
+              }}
             >
               <Trash2 size={14} />
             </button>
@@ -279,7 +281,7 @@
           <p class="mt-3 line-clamp-4 text-xs leading-5 text-slate-600">
             {noteMeta?.preview || "Sin contenido"}
           </p>
-        </article>
+        </div>
       {/each}
     </div>
   {/if}
