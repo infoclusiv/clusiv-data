@@ -1,15 +1,16 @@
 <script lang="ts">
-  import { ExternalLink, Link as LinkIcon, Trash2 } from "lucide-svelte";
+  import { ExternalLink, Link as LinkIcon, Pencil, Trash2 } from "lucide-svelte";
 
   import type { Link } from "$lib/store/types";
 
   interface Props {
     link: Link;
     onopen: (url: string) => void;
+    onedit: () => void;
     ondelete: () => void;
   }
 
-  let { link, onopen, ondelete }: Props = $props();
+  let { link, onopen, onedit, ondelete }: Props = $props();
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === "Enter" || event.key === " ") {
@@ -45,6 +46,18 @@
     aria-label="Abrir enlace"
   >
     <ExternalLink size={16} />
+  </button>
+
+  <button
+    class="rounded-xl p-2 text-slate-500 opacity-0 transition hover:bg-amber-50 hover:text-amber-700 group-hover:opacity-100"
+    onclick={(event) => {
+      event.stopPropagation();
+      onedit();
+    }}
+    title="Editar"
+    aria-label="Editar enlace"
+  >
+    <Pencil size={16} />
   </button>
 
   <button

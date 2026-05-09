@@ -100,6 +100,15 @@
   function goToParentCategory(): void {
     categoryCursorId = cursorCategory?.parent_id ?? null;
   }
+
+  function getRealNoteTitle(note: { title: string }): string {
+    return note.title.trim();
+  }
+
+  function getNotePreviewText(note: { comment: string }, fallback = "Sin contenido"): string {
+    const content = note.comment.trim();
+    return content.length > 0 ? content : fallback;
+  }
 </script>
 
 <section class="mt-6 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
@@ -243,6 +252,8 @@
     <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {#each linkedNotes as note (note.id)}
         {@const noteMeta = noteOptionById.get(note.id)}
+        {@const realTitle = getRealNoteTitle(note)}
+        {@const previewText = getNotePreviewText(note)}
         <div
           class="min-h-36 cursor-pointer rounded-[1.1rem] border border-amber-200 bg-amber-50/40 p-3 transition hover:border-amber-300 hover:bg-amber-50/70 focus-within:ring-2 focus-within:ring-amber-200"
           role="button"
@@ -256,17 +267,28 @@
           }}
         >
           <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <p class="line-clamp-2 text-sm font-semibold text-slate-800">
-                {noteMeta?.title || note.title.trim() || "Sin titulo"}
-              </p>
-              <p class="mt-1 text-[11px] font-medium text-slate-400">
+            <div class="min-w-0 flex-1">
+              {#if realTitle}
+                <p class="line-clamp-2 text-sm font-semibold text-slate-800">
+                  {realTitle}
+                </p>
+
+                <p class="mt-2 line-clamp-4 text-xs leading-5 text-slate-600">
+                  {previewText}
+                </p>
+              {:else}
+                <p class="line-clamp-5 text-xs leading-5 text-slate-600">
+                  {previewText}
+                </p>
+              {/if}
+
+              <p class="mt-2 text-[11px] font-medium text-slate-400">
                 {noteMeta?.categoryPath || "Sin categoria"}
               </p>
             </div>
 
             <button
-              class="btn-ghost h-8 w-8 rounded-full p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+              class="btn-ghost h-8 w-8 shrink-0 rounded-full p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
               type="button"
               aria-label="Quitar nota enlazada"
               onclick={(event) => {
@@ -277,10 +299,6 @@
               <Trash2 size={14} />
             </button>
           </div>
-
-          <p class="mt-3 line-clamp-4 text-xs leading-5 text-slate-600">
-            {noteMeta?.preview || "Sin contenido"}
-          </p>
         </div>
       {/each}
     </div>

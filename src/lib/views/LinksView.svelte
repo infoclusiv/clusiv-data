@@ -27,6 +27,7 @@
     showBoard,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
+  import type { Link } from "$lib/store/types";
   import { GENERAL_CATEGORY_ID } from "$lib/utils/constants";
   import {
     getCategory,
@@ -40,6 +41,7 @@
   let showBulkDialog = $state(false);
   let showCategoryDialog = $state(false);
   let pendingDeleteLinkIndex = $state<number | null>(null);
+  let editingLinkIndex = $state<number | null>(null);
   let confirmDeleteCategory = $state(false);
 
   const category = $derived(
@@ -61,6 +63,24 @@
   );
 
   const links = $derived(category ? category.links ?? [] : []);
+  const editingLink = $derived<Link | null>(
+    editingLinkIndex !== null ? links[editingLinkIndex] ?? null : null,
+  );
+
+  function openCreateLinkDialog(): void {
+    editingLinkIndex = null;
+    showLinkDialog = true;
+  }
+
+  function openEditLinkDialog(index: number): void {
+    editingLinkIndex = index;
+    showLinkDialog = true;
+  }
+
+  function closeLinkDialog(): void {
+    showLinkDialog = false;
+    editingLinkIndex = null;
+  }
 
   async function handleOpenAll(): Promise<void> {
     if (!category) {
@@ -195,6 +215,7 @@
               <LinkCard
                 {link}
                 onopen={(url) => void openUrl(url)}
+                onedit={() => openEditLinkDialog(index)}
                 ondelete={() => (pendingDeleteLinkIndex = index)}
               />
             {/each}
@@ -203,7 +224,7 @@
       </section>
     </div>
 
-    <button class="fab" onclick={() => (showLinkDialog = true)} title="Agregar enlace" aria-label="Agregar enlace">
+    <button class="fab" onclick={openCreateLinkDialog} title="Agregar enlace" aria-label="Agregar enlace">
       <Plus size={22} />
     </button>
   </div>
@@ -211,7 +232,9 @@
   <LinkDialog
     open={showLinkDialog}
     categoryId={category.id}
-    onclose={() => (showLinkDialog = false)}
+    {editingLink}
+    {editingLinkIndex}
+    onclose={closeLinkDialog}
   />
 
   <BulkImportDialog

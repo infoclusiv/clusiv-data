@@ -41,7 +41,7 @@
     toggleTaskStatus,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
-  import type { Category, Item, ItemType } from "$lib/store/types";
+  import type { Category, Item, ItemType, Link } from "$lib/store/types";
   import { GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME } from "$lib/utils/constants";
   import {
     formatItemCounts,
@@ -60,6 +60,7 @@
   let showBulkDialog = $state(false);
   let pendingDeleteIndex = $state<number | null>(null);
   let pendingDeleteLinkIndex = $state<number | null>(null);
+  let editingLinkIndex = $state<number | null>(null);
   let confirmDeleteCategory = $state(false);
   let categoryDialogMode = $state<"edit" | "create-child" | null>(null);
 
@@ -105,6 +106,9 @@
   const pendingTask = $derived(tasks.find((task) => !task.done) ?? tasks[0] ?? null);
   const firstLink = $derived(links[0] ?? null);
   const firstFlow = $derived(flows[0] ?? null);
+  const editingLink = $derived<Link | null>(
+    editingLinkIndex !== null ? links[editingLinkIndex] ?? null : null,
+  );
 
   const fallbackCategoryName = $derived(
     appState.appData && category
@@ -307,6 +311,21 @@
     }
   }
 
+  function openCreateLinkDialog(): void {
+    editingLinkIndex = null;
+    showLinkDialog = true;
+  }
+
+  function openEditLinkDialog(index: number): void {
+    editingLinkIndex = index;
+    showLinkDialog = true;
+  }
+
+  function closeLinkDialog(): void {
+    showLinkDialog = false;
+    editingLinkIndex = null;
+  }
+
   const fabActions = $derived.by(() => {
     if (appState.currentCategorySection === "notes") {
       return [
@@ -325,7 +344,7 @@
           id: "link",
           label: "Agregar enlace",
           icon: Link2,
-          onclick: () => (showLinkDialog = true),
+          onclick: openCreateLinkDialog,
         },
       ];
     }
@@ -388,7 +407,7 @@
           </button>
 
           <div class="flex flex-wrap items-center gap-1">
-            <IconButton icon={Link2} label="Agregar enlace" tone="accent" onclick={() => (showLinkDialog = true)} />
+            <IconButton icon={Link2} label="Agregar enlace" tone="accent" onclick={openCreateLinkDialog} />
             <IconButton icon={Upload} label="Importar enlaces" tone="warning" onclick={() => (showBulkDialog = true)} />
             <IconButton icon={Pencil} label="Editar categoría" onclick={() => (categoryDialogMode = "edit")} />
             <IconButton
@@ -682,7 +701,7 @@
               </div>
 
               <div class="flex flex-wrap gap-2">
-                <button class="btn-ghost bg-white/70" onclick={() => (showLinkDialog = true)}>
+                <button class="btn-ghost bg-white/70" onclick={openCreateLinkDialog}>
                   <Link2 size={16} />
                   Agregar Enlace
                 </button>
@@ -709,6 +728,7 @@
                   <LinkCard
                     {link}
                     onopen={(url) => void openUrl(url)}
+                    onedit={() => openEditLinkDialog(index)}
                     ondelete={() => (pendingDeleteLinkIndex = index)}
                   />
                 {/each}
@@ -796,7 +816,9 @@
   <LinkDialog
     open={showLinkDialog}
     categoryId={category.id}
-    onclose={() => (showLinkDialog = false)}
+    {editingLink}
+    {editingLinkIndex}
+    onclose={closeLinkDialog}
   />
 
   <BulkImportDialog

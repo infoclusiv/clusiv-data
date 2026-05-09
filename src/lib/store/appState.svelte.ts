@@ -1709,6 +1709,88 @@ export async function addLink(categoryId: string, link: Link): Promise<void> {
   }
 }
 
+export async function updateLink(
+  categoryId: string,
+  linkIndex: number,
+  input: Link,
+): Promise<void> {
+  const currentData = requireAppData();
+  const existingLink = currentData.__SYSTEM_CATEGORIES__[categoryId]?.links[linkIndex];
+  const normalizedUrl = input.url.trim();
+  const normalizedTitle = input.title.trim() || normalizedUrl;
+
+  if (!normalizedUrl) {
+    throw new Error("La URL es requerida.");
+  }
+
+  logClientEvent({
+    source: "links",
+    action: "update_link_started",
+    message: "Updating link in category.",
+    context: {
+      categoryId,
+      linkIndex,
+      previousTitle: existingLink?.title ?? null,
+      previousUrl: existingLink?.url ?? null,
+      title: normalizedTitle,
+      url: normalizedUrl,
+      host: getUrlHost(normalizedUrl),
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      const category = draft.__SYSTEM_CATEGORIES__[categoryId];
+      if (!category) {
+        throw new Error("La categorÃ­a no existe.");
+      }
+
+      if (linkIndex < 0 || linkIndex >= category.links.length) {
+        throw new Error("No se encontrÃ³ el enlace.");
+      }
+
+      category.links = category.links.map((link, index) =>
+        index === linkIndex
+          ? {
+              ...link,
+              title: normalizedTitle,
+              url: normalizedUrl,
+            }
+          : link,
+      );
+    });
+
+    logClientEvent({
+      source: "links",
+      action: "update_link_completed",
+      message: "Link updated successfully.",
+      context: {
+        categoryId,
+        linkIndex,
+        title: normalizedTitle,
+        url: normalizedUrl,
+        host: getUrlHost(normalizedUrl),
+      },
+    });
+  } catch (error) {
+    logClientError(
+      "links",
+      "update_link_failed",
+      "Failed to update link in category.",
+      error,
+      {
+        categoryId,
+        linkIndex,
+        previousTitle: existingLink?.title ?? null,
+        previousUrl: existingLink?.url ?? null,
+        title: normalizedTitle,
+        url: normalizedUrl,
+      },
+    );
+    throw error;
+  }
+}
+
 export async function importLinks(categoryId: string, links: Link[]): Promise<void> {
   if (links.length === 0) {
     return;
