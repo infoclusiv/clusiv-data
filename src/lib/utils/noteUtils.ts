@@ -22,12 +22,23 @@ export function getNoteById(appData: AppData, noteId: string): Item | null {
   return getAllNotes(appData).find((item) => item.id === noteId) ?? null;
 }
 
-export function getLinkedNotesForNode(appData: AppData, node: FlowNode): Item[] {
+export function getLinkedNotesByIds(appData: AppData, linkedNoteIds: string[]): Item[] {
   const notesById = new Map(getAllNotes(appData).map((note) => [note.id, note]));
 
-  return node.linked_note_ids
+  return linkedNoteIds
     .map((noteId) => notesById.get(noteId) ?? null)
     .filter((note): note is Item => note !== null);
+}
+
+export function getGlobalFlowLinkedNotes(appData: AppData): Item[] {
+  return getLinkedNotesByIds(
+    appData,
+    appData.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ ?? [],
+  );
+}
+
+export function getLinkedNotesForNode(appData: AppData, node: FlowNode): Item[] {
+  return getLinkedNotesByIds(appData, node.linked_note_ids ?? []);
 }
 
 export function getNoteOptions(appData: AppData): NoteOption[] {

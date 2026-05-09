@@ -3,9 +3,10 @@
 
   interface Props {
     flow: Flow;
+    compact?: boolean;
   }
 
-  let { flow }: Props = $props();
+  let { flow, compact = false }: Props = $props();
 
   const width = 220;
   const height = 120;
@@ -25,8 +26,12 @@
   }
 </script>
 
-<div class="overflow-hidden rounded-[1.25rem] border border-emerald-100/70 bg-gradient-to-br from-emerald-50 via-white to-brand-50/70 p-3">
-  <svg viewBox={`0 0 ${width} ${height}`} class="h-28 w-full">
+<div
+  class={compact
+    ? "overflow-hidden rounded-[1rem] border border-emerald-100/70 bg-gradient-to-br from-emerald-50 via-white to-brand-50/70 p-2"
+    : "overflow-hidden rounded-[1.25rem] border border-emerald-100/70 bg-gradient-to-br from-emerald-50 via-white to-brand-50/70 p-3"}
+>
+  <svg viewBox={`0 0 ${width} ${height}`} class={compact ? "h-20 w-full" : "h-28 w-full"}>
     {#each flow.edges as edge (edge.id)}
       {@const source = flow.nodes.find((node) => node.id === edge.source)}
       {@const target = flow.nodes.find((node) => node.id === edge.target)}

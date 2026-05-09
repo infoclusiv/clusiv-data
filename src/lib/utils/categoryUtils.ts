@@ -49,6 +49,7 @@ export function createDefaultAppData(): AppData {
     __SYSTEM_TASKS__: [],
     __SYSTEM_QUICK_TEXTS__: [],
     __SYSTEM_FLOWS__: [],
+    __SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__: [],
   };
 }
 
@@ -120,6 +121,18 @@ export function normalizeItemImages(images: unknown): ItemImage[] {
   return images
     .map((image, index) => normalizeItemImage(image, `image-${index + 1}`))
     .filter((image): image is ItemImage => image !== null);
+}
+
+function normalizeLinkedNoteIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(
+    value.filter((entry): entry is string =>
+      typeof entry === "string" && entry.trim().length > 0
+    ),
+  )];
 }
 
 function normalizeItem(value: unknown, fallbackId: string): Item | null {
@@ -201,9 +214,7 @@ export function normalizeFlowNode(value: FlowNodeInput | unknown, fallbackId: st
       : "process",
     title: typeof candidate.title === "string" ? candidate.title : "",
     description: typeof candidate.description === "string" ? candidate.description : "",
-    linked_note_ids: Array.isArray(candidate.linked_note_ids)
-      ? candidate.linked_note_ids.filter((entry): entry is string => typeof entry === "string")
-      : [],
+    linked_note_ids: normalizeLinkedNoteIds(candidate.linked_note_ids),
     position: {
       x: Number.isFinite(x) ? x : 0,
       y: Number.isFinite(y) ? y : 0,
@@ -347,6 +358,9 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   normalized.__SYSTEM_FLOWS__ = getFlows(normalized)
     .map((flow, index) => normalizeFlow(flow, `flow-${index + 1}`))
     .filter((flow): flow is Flow => flow !== null);
+  normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ = normalizeLinkedNoteIds(
+    (normalized as Partial<AppData>).__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__,
+  );
   const validCategoryIds = new Set(Object.keys(categories));
 
   const generalCategory = categories[GENERAL_CATEGORY_ID];
@@ -386,10 +400,26 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     }
   }
 
+  const validNoteIds = new Set(
+    tasks
+      .filter((item) => item.type === "note")
+      .map((item) => item.id),
+  );
+
+  normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ =
+    normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__.filter((noteId) =>
+      validNoteIds.has(noteId)
+    );
+
   for (const flow of normalized.__SYSTEM_FLOWS__) {
     if (!flow.category_id || !validCategoryIds.has(flow.category_id)) {
       flow.category_id = GENERAL_CATEGORY_ID;
     }
+
+    flow.nodes = flow.nodes.map((node) => ({
+      ...node,
+      linked_note_ids: node.linked_note_ids.filter((noteId) => validNoteIds.has(noteId)),
+    }));
   }
 
   return normalized;

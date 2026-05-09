@@ -1993,6 +1993,48 @@ export async function deleteFlow(flowId: string): Promise<void> {
   }
 }
 
+export async function updateGlobalFlowLinkedNotes(noteIds: string[]): Promise<void> {
+  const appData = requireAppData();
+
+  const validNoteIds = new Set(
+    appData.__SYSTEM_TASKS__
+      .filter((item) => item.type === "note")
+      .map((item) => item.id),
+  );
+
+  appData.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ = [...new Set(noteIds)]
+    .filter((noteId) => validNoteIds.has(noteId));
+
+  logClientEvent({
+    source: "globalFlows",
+    action: "global_flow_linked_notes_updated",
+    message: "Global flow linked notes were updated.",
+    context: {
+      linkedNoteCount: appData.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__.length,
+    },
+  });
+
+  await persistData();
+}
+
+export async function linkNoteToGlobalFlows(noteId: string): Promise<void> {
+  const appData = requireAppData();
+
+  await updateGlobalFlowLinkedNotes([
+    ...(appData.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ ?? []),
+    noteId,
+  ]);
+}
+
+export async function unlinkNoteFromGlobalFlows(noteId: string): Promise<void> {
+  const appData = requireAppData();
+
+  await updateGlobalFlowLinkedNotes(
+    (appData.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ ?? [])
+      .filter((id) => id !== noteId),
+  );
+}
+
 export async function saveQuickText(
   input: QuickTextFormInput,
   editingQuickTextId: string | null = null,

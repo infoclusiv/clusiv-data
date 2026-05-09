@@ -14,6 +14,7 @@ use crate::models::{
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
 const FLOWS_KEY: &str = "__SYSTEM_FLOWS__";
+const GLOBAL_FLOW_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__";
 const QUICK_TEXTS_KEY: &str = "__SYSTEM_QUICK_TEXTS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
 const TASKS_KEY: &str = "__SYSTEM_TASKS__";
@@ -286,6 +287,13 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             Value::Array(Vec::new())
         }
     };
+    let global_flow_linked_note_ids_value = match root.remove(GLOBAL_FLOW_LINKED_NOTE_IDS_KEY) {
+        Some(value) => value,
+        None => {
+            changed = true;
+            Value::Array(Vec::new())
+        }
+    };
     let tasks_value = root
         .remove(TASKS_KEY)
         .unwrap_or_else(|| Value::Array(Vec::new()));
@@ -343,12 +351,35 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         }
     }
 
+    let valid_note_ids: HashSet<String> = tasks
+        .iter()
+        .filter(|item| matches!(item.item_type, ItemType::Note))
+        .map(|item| item.id.clone())
+        .collect();
+
     for flow in &mut flows {
         if !valid_category_ids.contains(&flow.category_id) {
             flow.category_id = GENERAL_CATEGORY_ID.to_string();
             changed = true;
         }
+
+        for node in &mut flow.nodes {
+            node.linked_note_ids = filter_known_note_ids(
+                dedupe_string_values(std::mem::take(&mut node.linked_note_ids), &mut changed),
+                &valid_note_ids,
+                &mut changed,
+            );
+        }
     }
+
+    let global_flow_linked_note_ids = filter_known_note_ids(
+        dedupe_string_values(
+            string_array_value(Some(global_flow_linked_note_ids_value), &mut changed),
+            &mut changed,
+        ),
+        &valid_note_ids,
+        &mut changed,
+    );
 
     if original_schema != Some(SCHEMA_VERSION as u64) {
         changed = true;
@@ -361,6 +392,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             tasks,
             quick_texts,
             flows,
+            global_flow_linked_note_ids,
         },
         changed,
     )
@@ -586,6 +618,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
     let Value::Object(mut map) = value else {
         *changed = true;
         return Item {
+            id: Uuid::new_v4().to_string(),
             title: String::new(),
             comment: String::new(),
             images: Vec::new(),
@@ -595,6 +628,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
         };
     };
 
+    let id = string_value(map.remove("id"), "", changed);
     let title = string_value(map.remove("title"), "", changed);
     let comment = string_value(map.remove("comment"), "", changed);
     let images = item_images_value(map.remove("images"), changed);
@@ -603,6 +637,12 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
     let category_id = string_value(map.remove("category_id"), GENERAL_CATEGORY_ID, changed);
 
     Item {
+        id: if id.is_empty() {
+            *changed = true;
+            Uuid::new_v4().to_string()
+        } else {
+            id
+        },
         title,
         comment,
         images,
@@ -708,6 +748,58 @@ fn item_type_value(value: Option<Value>, changed: &mut bool) -> ItemType {
         }
         None => ItemType::Task,
     }
+}
+
+fn string_array_value(value: Option<Value>, changed: &mut bool) -> Vec<String> {
+    match value {
+        Some(Value::Array(values)) => values
+            .into_iter()
+            .filter_map(|value| match value {
+                Value::String(value) if !value.is_empty() => Some(value),
+                Value::String(_) => {
+                    *changed = true;
+                    None
+                }
+                _ => {
+                    *changed = true;
+                    None
+                }
+            })
+            .collect(),
+        Some(_) => {
+            *changed = true;
+            Vec::new()
+        }
+        None => Vec::new(),
+    }
+}
+
+fn dedupe_string_values(values: Vec<String>, changed: &mut bool) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut deduped = Vec::new();
+
+    for value in values {
+        if seen.insert(value.clone()) {
+            deduped.push(value);
+        } else {
+            *changed = true;
+        }
+    }
+
+    deduped
+}
+
+fn filter_known_note_ids(
+    mut note_ids: Vec<String>,
+    valid_note_ids: &HashSet<String>,
+    changed: &mut bool,
+) -> Vec<String> {
+    let original_len = note_ids.len();
+    note_ids.retain(|note_id| valid_note_ids.contains(note_id));
+    if note_ids.len() != original_len {
+        *changed = true;
+    }
+    note_ids
 }
 
 fn links_value(value: Option<Value>, changed: &mut bool) -> Vec<Link> {
@@ -866,6 +958,7 @@ fn flow_node_from_value(value: Value, changed: &mut bool) -> FlowNode {
         r#type: string_value(map.remove("type"), "process", changed),
         title: string_value(map.remove("title"), "", changed),
         description: string_value(map.remove("description"), "", changed),
+        linked_note_ids: string_array_value(map.remove("linked_note_ids"), changed),
         position: flow_position_from_value(map.remove("position"), changed),
     }
 }
@@ -984,9 +1077,11 @@ mod tests {
             None
         );
         assert_eq!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
+        assert!(!data.tasks[0].id.is_empty());
         assert!(data.tasks[0].images.is_empty());
         assert!(data.quick_texts.is_empty());
         assert!(data.flows.is_empty());
+        assert!(data.global_flow_linked_note_ids.is_empty());
         assert_eq!(data.schema_version, SCHEMA_VERSION);
     }
 
@@ -1006,6 +1101,7 @@ mod tests {
             },
             "__SYSTEM_TASKS__": [
                 {
+                    "id": "note_1",
                     "title": "",
                     "comment": "Primera línea\nSegunda línea",
                     "images": [
@@ -1020,6 +1116,7 @@ mod tests {
                     "category_id": "general"
                 },
                 {
+                    "id": "task_1",
                     "title": "Tarea",
                     "comment": "",
                     "type": "task",
@@ -1028,12 +1125,14 @@ mod tests {
                 }
             ],
             "__SYSTEM_QUICK_TEXTS__": [],
-            "__SYSTEM_FLOWS__": []
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
         });
 
         let (data, changed) = normalize_data(raw);
 
         assert!(!changed);
+        assert_eq!(data.tasks[0].id, "note_1");
         assert_eq!(data.tasks[0].images.len(), 1);
         assert_eq!(data.tasks[0].images[0].name, "captura.png");
         assert!(data.tasks[1].images.is_empty());
@@ -1063,7 +1162,8 @@ mod tests {
                     "content": "Hola,\nCarlos"
                 }
             ],
-            "__SYSTEM_FLOWS__": []
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -1090,7 +1190,16 @@ mod tests {
                     "notes": ""
                 }
             },
-            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_TASKS__": [
+                {
+                    "id": "note_1",
+                    "title": "Nota enlazada",
+                    "comment": "",
+                    "type": "note",
+                    "done": false,
+                    "category_id": "general"
+                }
+            ],
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_FLOWS__": [
                 {
@@ -1105,6 +1214,7 @@ mod tests {
                             "type": "process",
                             "title": "Paso 1",
                             "description": "",
+                            "linked_note_ids": ["note_1", "note_1", "missing_note"],
                             "position": { "x": 120, "y": 80 }
                         }
                     ],
@@ -1112,7 +1222,8 @@ mod tests {
                     "created_at": "2026-05-03T00:00:00.000Z",
                     "updated_at": "2026-05-03T00:00:00.000Z"
                 }
-            ]
+            ],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": ["note_1", "missing_note", "note_1"]
         });
 
         let (data, changed) = normalize_data(raw);
@@ -1122,8 +1233,10 @@ mod tests {
         assert_eq!(data.flows[0].id, "flow_1");
         assert_eq!(data.flows[0].category_id, "general");
         assert_eq!(data.flows[0].nodes.len(), 1);
+        assert_eq!(data.flows[0].nodes[0].linked_note_ids, vec!["note_1".to_string()]);
         assert_eq!(data.flows[0].nodes[0].position.x, 120);
         assert_eq!(data.flows[0].nodes[0].position.y, 80);
+        assert_eq!(data.global_flow_linked_note_ids, vec!["note_1".to_string()]);
     }
 
     #[test]

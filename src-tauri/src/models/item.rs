@@ -19,6 +19,8 @@ pub struct ItemImage {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Item {
+    #[serde(default)]
+    pub id: String,
     pub title: String,
     #[serde(default)]
     pub comment: String,

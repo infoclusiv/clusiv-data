@@ -6,7 +6,7 @@ use super::{Category, Item};
 
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
-pub const SCHEMA_VERSION: u32 = 9;
+pub const SCHEMA_VERSION: u32 = 10;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct QuickText {
@@ -36,6 +36,8 @@ pub struct FlowNode {
     pub title: String,
     #[serde(default)]
     pub description: String,
+    #[serde(default)]
+    pub linked_note_ids: Vec<String>,
     #[serde(default)]
     pub position: FlowPosition,
 }
@@ -82,6 +84,8 @@ pub struct AppData {
     pub quick_texts: Vec<QuickText>,
     #[serde(rename = "__SYSTEM_FLOWS__", default)]
     pub flows: Vec<Flow>,
+    #[serde(rename = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__", default)]
+    pub global_flow_linked_note_ids: Vec<String>,
 }
 
 impl AppData {
@@ -105,6 +109,7 @@ impl AppData {
             tasks: Vec::new(),
             quick_texts: Vec::new(),
             flows: Vec::new(),
+            global_flow_linked_note_ids: Vec::new(),
         }
     }
 }

@@ -28,15 +28,15 @@
 
 <button
   type="button"
-  class="card group flex h-full w-full cursor-pointer flex-col p-4 text-left focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 hover:-translate-y-0.5 hover:shadow-lg"
+  class="card group flex h-full w-full cursor-pointer flex-col p-3 text-left focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 hover:-translate-y-0.5 hover:shadow-lg"
   onclick={() => onopen(flow.id)}
   aria-label={`Abrir flujo ${flow.title.trim() || "Nuevo flujo"}`}
 >
-  <FlowThumbnail {flow} />
+  <FlowThumbnail {flow} compact />
 
-  <div class="mt-4">
+  <div class="mt-3">
     <div class="min-w-0">
-      <p class="truncate text-lg font-semibold text-slate-900 group-hover:text-brand-800">
+      <p class="truncate text-base font-semibold text-slate-900 group-hover:text-brand-800">
         {flow.title.trim() || "Nuevo flujo"}
       </p>
 
@@ -48,21 +48,17 @@
     </div>
   </div>
 
-  <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
-    <span class="rounded-full bg-slate-100 px-3 py-1">
+  <div class="mt-auto flex flex-wrap gap-2 pt-3 text-xs font-semibold text-slate-500">
+    <span class="rounded-full bg-slate-100 px-2.5 py-0.5">
       <GitBranchPlus size={12} class="mr-1 inline" />
       {flow.nodes.length} nodos
     </span>
-    <span class="rounded-full bg-slate-100 px-3 py-1">
+    <span class="rounded-full bg-slate-100 px-2.5 py-0.5">
       {flow.edges.length} conexiones
     </span>
-    <span class="rounded-full bg-slate-100 px-3 py-1">
+    <span class="rounded-full bg-slate-100 px-2.5 py-0.5">
       <Clock3 size={12} class="mr-1 inline" />
       {formatDate(flow.updated_at)}
     </span>
-  </div>
-
-  <div class="mt-auto pt-5 text-sm font-semibold text-brand-700 opacity-0 transition group-hover:opacity-100">
-    Clic para abrir →
   </div>
 </button>

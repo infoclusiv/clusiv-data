@@ -2,7 +2,13 @@
   import { Filter, GitBranch, Search, SlidersHorizontal } from "lucide-svelte";
 
   import FlowCard from "$lib/components/flows/FlowCard.svelte";
-  import { appState, openFlowEditor } from "$lib/store/appState.svelte";
+  import GlobalFlowLinkedNotes from "$lib/components/flows/GlobalFlowLinkedNotes.svelte";
+  import {
+    appState,
+    linkNoteToGlobalFlows,
+    openFlowEditor,
+    unlinkNoteFromGlobalFlows,
+  } from "$lib/store/appState.svelte";
   import type { Flow } from "$lib/store/types";
   import { GENERAL_CATEGORY_NAME } from "$lib/utils/constants";
   import { getCategory, getCategoryBreadcrumb, getFlows } from "$lib/utils/categoryUtils";
@@ -47,6 +53,10 @@
       return title.includes(query) || categoryLabel.includes(query);
     });
   });
+
+  const globalFlowLinkedNoteIds = $derived(
+    appState.appData?.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ ?? [],
+  );
 </script>
 
 {#if appState.appData}
@@ -110,7 +120,7 @@
           No hay flujos que coincidan con la busqueda actual.
         </div>
       {:else}
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {#each filteredFlows as flow (flow.id)}
             <FlowCard
               {flow}
@@ -120,6 +130,13 @@
           {/each}
         </div>
       {/if}
+
+      <GlobalFlowLinkedNotes
+        appData={appState.appData}
+        linkedNoteIds={globalFlowLinkedNoteIds}
+        onlinknote={(noteId) => void linkNoteToGlobalFlows(noteId)}
+        onunlinknote={(noteId) => void unlinkNoteFromGlobalFlows(noteId)}
+      />
     </div>
   </div>
 {/if}
