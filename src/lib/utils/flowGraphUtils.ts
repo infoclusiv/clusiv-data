@@ -3,8 +3,8 @@ import {
   FLOW_LANE_STEP,
   FLOW_NODE_HEIGHT,
   FLOW_NODE_WIDTH,
-} from "../components/flows/flowLayout.ts";
-import type { FlowEdge, FlowNode } from "../store/types.ts";
+} from "../components/flows/flowLayout";
+import type { FlowEdge, FlowNode } from "../store/types";
 
 export { FLOW_NODE_HEIGHT, FLOW_NODE_WIDTH };
 export type FlowBranchDirection = "upper" | "lower";
@@ -12,6 +12,13 @@ export interface FlowInsertResult {
   nodes: FlowNode[];
   edges: FlowEdge[];
   insertedNode: FlowNode;
+}
+export interface FlowDeleteResult {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  deletedNode: FlowNode;
+  removedEdges: FlowEdge[];
+  reconnectedEdges: FlowEdge[];
 }
 
 const FLOW_BRANCH_MIN_Y = 40;
@@ -438,5 +445,66 @@ export function insertNodeBetweenEdge(input: {
       }),
     ],
     insertedNode: input.insertedNode,
+  };
+}
+
+export function deleteNodeAndReconnect(input: {
+  flowId: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  nodeId: string;
+}): FlowDeleteResult {
+  const deletedNode = input.nodes.find((node) => node.id === input.nodeId);
+
+  if (!deletedNode) {
+    throw new Error("No se encontró el nodo que se desea eliminar.");
+  }
+
+  const incomingEdges = getIncomingEdges(input.edges, input.nodeId);
+  const outgoingEdges = getOutgoingEdges(input.edges, input.nodeId);
+  const removedEdgeIds = new Set(
+    [...incomingEdges, ...outgoingEdges].map((edge) => edge.id),
+  );
+
+  const remainingNodes = input.nodes.filter((node) => node.id !== input.nodeId);
+  const remainingEdges = input.edges.filter((edge) => !removedEdgeIds.has(edge.id));
+  const existingPairs = new Set(
+    remainingEdges.map((edge) => `${edge.source}->${edge.target}`),
+  );
+  const reconnectedEdges: FlowEdge[] = [];
+
+  for (const incomingEdge of incomingEdges) {
+    for (const outgoingEdge of outgoingEdges) {
+      const source = incomingEdge.source;
+      const target = outgoingEdge.target;
+
+      if (source === target) {
+        continue;
+      }
+
+      const pairKey = `${source}->${target}`;
+
+      if (existingPairs.has(pairKey)) {
+        continue;
+      }
+
+      existingPairs.add(pairKey);
+      reconnectedEdges.push(
+        createFlowEdge({
+          id: createFlowEdgeId(input.flowId),
+          source,
+          target,
+          label: incomingEdge.label ?? "",
+        }),
+      );
+    }
+  }
+
+  return {
+    nodes: remainingNodes,
+    edges: [...remainingEdges, ...reconnectedEdges],
+    deletedNode,
+    removedEdges: [...incomingEdges, ...outgoingEdges],
+    reconnectedEdges,
   };
 }

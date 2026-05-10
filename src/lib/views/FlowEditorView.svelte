@@ -11,7 +11,13 @@
     layoutFlowGraph,
   } from "$lib/components/flows/flowLayout";
   import Input from "$lib/components/ui/Input.svelte";
-  import { appState, closeFlowEditor, deleteFlow, updateFlow } from "$lib/store/appState.svelte";
+  import {
+    appState,
+    closeFlowEditor,
+    deleteFlow,
+    logClientEvent,
+    updateFlow,
+  } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import type { Flow, FlowNode } from "$lib/store/types";
   import { getCategory, getFlowById } from "$lib/utils/categoryUtils";
@@ -21,6 +27,7 @@
     createFlowEdge,
     createFlowEdgeId,
     createFlowNodeId,
+    deleteNodeAndReconnect,
     getBranchTailFromSource,
     getFirstFlowNode,
     getLastFlowNode,
@@ -570,11 +577,74 @@
   }
 
   function deleteNode(nodeId: string): void {
-    const nextNodes = nodes.filter((node) => node.id !== nodeId);
-    const nextEdges = edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
-    applyLayout(nextNodes, nextEdges);
-    selectedNodeId = nextNodes[0]?.id ?? null;
-    scheduleAutosave("node_deleted", 100);
+    if (!flow) {
+      return;
+    }
+
+    try {
+      const result = deleteNodeAndReconnect({
+        flowId: flow.id,
+        nodes,
+        edges,
+        nodeId,
+      });
+
+      logClientEvent({
+        source: "flows",
+        action: "delete_node_reconnect_completed",
+        message: "Deleted flow node and reconnected surrounding graph edges.",
+        context: {
+          flowId: flow.id,
+          deletedNodeId: result.deletedNode.id,
+          incomingEdgeCount: result.removedEdges.filter(
+            (edge) => edge.target === result.deletedNode.id,
+          ).length,
+          outgoingEdgeCount: result.removedEdges.filter(
+            (edge) => edge.source === result.deletedNode.id,
+          ).length,
+          removedEdgeCount: result.removedEdges.length,
+          reconnectedEdgeCount: result.reconnectedEdges.length,
+          reconnectedEdges: result.reconnectedEdges.map((edge) => ({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            label: edge.label,
+          })),
+          remainingNodeCount: result.nodes.length,
+          remainingEdgeCount: result.edges.length,
+        },
+      });
+
+      applyLayout(result.nodes, result.edges);
+
+      selectedNodeId =
+        result.nodes.find((node) =>
+          result.reconnectedEdges.some(
+            (edge) => edge.source === node.id || edge.target === node.id,
+          ),
+        )?.id ??
+        result.nodes[0]?.id ??
+        null;
+
+      scheduleAutosave("node_deleted_reconnected", 100);
+    } catch (error) {
+      logClientEvent({
+        level: "error",
+        source: "flows",
+        action: "delete_node_reconnect_failed",
+        message: "Failed to delete flow node with reconnection.",
+        context: {
+          flowId: flow.id,
+          nodeId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo eliminar el nodo.",
+        "error",
+      );
+    }
   }
 
   function handleDeleteSelectedNode(nodeId: string): void {
