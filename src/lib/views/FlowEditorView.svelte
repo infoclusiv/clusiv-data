@@ -18,8 +18,16 @@
   import {
     buildTwoPathNodesAndEdges,
     canOpenTwoPaths,
+    createFlowEdge,
+    createFlowEdgeId,
+    createFlowNodeId,
     getBranchTailFromSource,
+    getFirstFlowNode,
+    getLastFlowNode,
     getOutgoingEdges,
+    insertNodeAfterSource,
+    insertNodeBeforeTarget,
+    insertNodeBetweenEdge,
     type FlowBranchDirection,
   } from "$lib/utils/flowGraphUtils";
 
@@ -243,7 +251,7 @@
     }
 
     return {
-      id: `${flow.id}-node-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
+      id: createFlowNodeId(flow.id),
       type: "process",
       title: "Nuevo nodo",
       description: "",
@@ -252,31 +260,43 @@
     };
   }
 
+  function commitInsertedNode(input: {
+    nextNodes: FlowNode[];
+    nextEdges: Flow["edges"];
+    insertedNodeId: string;
+    autosaveReason: string;
+  }): void {
+    applyLayout(input.nextNodes, input.nextEdges);
+    selectedNodeId = input.insertedNodeId;
+    nodeEditorOpen = true;
+    scheduleAutosave(input.autosaveReason, 100);
+  }
+
   function addNodeToEnd(): void {
     if (!flow) {
       return;
     }
 
-    const previousNode = nodes.at(-1) ?? null;
+    const previousNode = getLastFlowNode(nodes, edges);
     const newNode = createNewFlowNode(getNextHorizontalNodePosition(nodes));
     const nextNodes = [...nodes, newNode];
     const nextEdges = previousNode
       ? [
           ...edges,
-          {
-            id: `${flow.id}-edge-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
+          createFlowEdge({
+            id: createFlowEdgeId(flow.id),
             source: previousNode.id,
             target: newNode.id,
-            label: "",
-          },
+          }),
         ]
       : edges;
 
-    applyLayout(nextNodes, nextEdges);
-
-    selectedNodeId = newNode.id;
-    nodeEditorOpen = true;
-    scheduleAutosave("node_added", 100);
+    commitInsertedNode({
+      nextNodes,
+      nextEdges,
+      insertedNodeId: newNode.id,
+      autosaveReason: "node_added",
+    });
   }
 
   function addNodeToBranch(
@@ -315,19 +335,169 @@
     const nextNodes = [...nodes, newNode];
     const nextEdges = [
       ...edges,
-      {
-        id: `${flow.id}-edge-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`,
+      createFlowEdge({
+        id: createFlowEdgeId(flow.id),
         source: branchTail.id,
         target: newNode.id,
-        label: "",
-      },
+      }),
     ];
 
-    applyLayout(nextNodes, nextEdges);
+    commitInsertedNode({
+      nextNodes,
+      nextEdges,
+      insertedNodeId: newNode.id,
+      autosaveReason: "branch_node_added",
+    });
+  }
 
-    selectedNodeId = newNode.id;
-    nodeEditorOpen = true;
-    scheduleAutosave("branch_node_added", 100);
+  function insertNodeBeforeFirst(): void {
+    if (!flow) {
+      return;
+    }
+
+    const firstNode = getFirstFlowNode(nodes, edges);
+
+    if (!firstNode) {
+      const newNode = createNewFlowNode(getNextHorizontalNodePosition(nodes));
+      commitInsertedNode({
+        nextNodes: [...nodes, newNode],
+        nextEdges: edges,
+        insertedNodeId: newNode.id,
+        autosaveReason: "node_inserted_before_first_empty_flow",
+      });
+      return;
+    }
+
+    insertNodeBeforeNode(firstNode.id, "node_inserted_before_first");
+  }
+
+  function insertNodeBeforeNode(
+    targetNodeId: string,
+    autosaveReason = "node_inserted_before",
+  ): void {
+    if (!flow) {
+      return;
+    }
+
+    const targetNode = nodes.find((node) => node.id === targetNodeId);
+
+    if (!targetNode) {
+      showSnackbar("No se encontro el nodo objetivo.", "error");
+      return;
+    }
+
+    const newNode = createNewFlowNode({
+      x: Math.max(0, targetNode.position.x - 240),
+      y: targetNode.position.y,
+    });
+
+    try {
+      const result = insertNodeBeforeTarget({
+        flowId: flow.id,
+        nodes,
+        edges,
+        targetNodeId,
+        insertedNode: newNode,
+      });
+
+      commitInsertedNode({
+        nextNodes: result.nodes,
+        nextEdges: result.edges,
+        insertedNodeId: result.insertedNode.id,
+        autosaveReason,
+      });
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo insertar el nodo.",
+        "error",
+      );
+    }
+  }
+
+  function insertNodeAfterNode(sourceNodeId: string): void {
+    if (!flow) {
+      return;
+    }
+
+    const sourceNode = nodes.find((node) => node.id === sourceNodeId);
+
+    if (!sourceNode) {
+      showSnackbar("No se encontro el nodo seleccionado.", "error");
+      return;
+    }
+
+    const newNode = createNewFlowNode(getNextNodePositionFromNode(sourceNode));
+
+    try {
+      const result = insertNodeAfterSource({
+        flowId: flow.id,
+        nodes,
+        edges,
+        sourceNodeId,
+        insertedNode: newNode,
+      });
+
+      commitInsertedNode({
+        nextNodes: result.nodes,
+        nextEdges: result.edges,
+        insertedNodeId: result.insertedNode.id,
+        autosaveReason: "node_inserted_after",
+      });
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo insertar el nodo.",
+        "error",
+      );
+    }
+  }
+
+  function insertNodeOnEdge(edgeId: string): void {
+    if (!flow) {
+      return;
+    }
+
+    const edge = edges.find((candidate) => candidate.id === edgeId);
+
+    if (!edge) {
+      showSnackbar("No se encontro la conexion seleccionada.", "error");
+      return;
+    }
+
+    const sourceNode = nodes.find((node) => node.id === edge.source);
+    const targetNode = nodes.find((node) => node.id === edge.target);
+    const fallbackPosition = getNextHorizontalNodePosition(nodes);
+    const newNode = createNewFlowNode({
+      x: sourceNode && targetNode
+        ? (sourceNode.position.x + targetNode.position.x) / 2
+        : fallbackPosition.x,
+      y: sourceNode && targetNode
+        ? (sourceNode.position.y + targetNode.position.y) / 2
+        : fallbackPosition.y,
+    });
+
+    try {
+      const result = insertNodeBetweenEdge({
+        flowId: flow.id,
+        nodes,
+        edges,
+        edgeId,
+        insertedNode: newNode,
+      });
+
+      commitInsertedNode({
+        nextNodes: result.nodes,
+        nextEdges: result.edges,
+        insertedNodeId: result.insertedNode.id,
+        autosaveReason: "node_inserted_between_edge",
+      });
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error
+          ? error.message
+          : "No se pudo insertar el nodo en la conexion.",
+        "error",
+      );
+    }
   }
 
   function openNodeEditor(nodeId: string): void {
@@ -500,9 +670,13 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
+          <button class="btn-ghost bg-white/70" onclick={() => insertNodeBeforeFirst()}>
+            <Plus size={16} />
+            Insertar antes del inicio
+          </button>
           <button class="btn-ghost bg-white/70" onclick={() => addNodeToEnd()}>
             <Plus size={16} />
-            Agregar nodo
+            Agregar al final
           </button>
           {#if !isNodeEditorActive}
             <button class="btn-ghost bg-white/70 text-red-700 hover:bg-red-50" onclick={() => (confirmDeleteFlow = true)}>
@@ -528,10 +702,13 @@
             node={selectedNode}
             appData={appState.appData}
             canCreateTwoPaths={selectedNodeCanOpenTwoPaths}
+            canInsertAfter={selectedNodeOutgoingEdges.length <= 1}
             outgoingCount={selectedNodeOutgoingEdges.length}
             onupdate={updateSelectedNode}
             ondelete={handleDeleteSelectedNode}
             oncreatetwopaths={openTwoPathsFromNode}
+            oninsertbefore={insertNodeBeforeNode}
+            oninsertafter={insertNodeAfterNode}
             onaddtobranch={addNodeToBranch}
             onlinknote={linkNoteToSelectedNode}
             onunlinknote={unlinkNoteFromSelectedNode}
@@ -551,6 +728,7 @@
             {edges}
             {selectedNodeId}
             onselectnode={openNodeEditor}
+            oninsertbetween={insertNodeOnEdge}
           />
         {/if}
       </div>

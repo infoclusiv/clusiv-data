@@ -3,11 +3,16 @@ import {
   FLOW_LANE_STEP,
   FLOW_NODE_HEIGHT,
   FLOW_NODE_WIDTH,
-} from "$lib/components/flows/flowLayout";
-import type { FlowEdge, FlowNode } from "$lib/store/types";
+} from "../components/flows/flowLayout.ts";
+import type { FlowEdge, FlowNode } from "../store/types.ts";
 
 export { FLOW_NODE_HEIGHT, FLOW_NODE_WIDTH };
 export type FlowBranchDirection = "upper" | "lower";
+export interface FlowInsertResult {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  insertedNode: FlowNode;
+}
 
 const FLOW_BRANCH_MIN_Y = 40;
 
@@ -57,6 +62,66 @@ export function createFlowEdge(input: {
 
 export function getOutgoingEdges(edges: FlowEdge[], nodeId: string): FlowEdge[] {
   return edges.filter((edge) => edge.source === nodeId);
+}
+
+export function getIncomingEdges(edges: FlowEdge[], nodeId: string): FlowEdge[] {
+  return edges.filter((edge) => edge.target === nodeId);
+}
+
+export function sortNodesByVisualOrder(nodes: FlowNode[]): FlowNode[] {
+  return [...nodes].sort((a, b) => {
+    if (a.position.x !== b.position.x) {
+      return a.position.x - b.position.x;
+    }
+
+    if (a.position.y !== b.position.y) {
+      return a.position.y - b.position.y;
+    }
+
+    return a.id.localeCompare(b.id);
+  });
+}
+
+export function getRootNodes(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
+  const targetNodeIds = new Set(edges.map((edge) => edge.target));
+  return nodes.filter((node) => !targetNodeIds.has(node.id));
+}
+
+export function getTailNodes(nodes: FlowNode[], edges: FlowEdge[]): FlowNode[] {
+  const sourceNodeIds = new Set(edges.map((edge) => edge.source));
+  return nodes.filter((node) => !sourceNodeIds.has(node.id));
+}
+
+export function getFirstFlowNode(nodes: FlowNode[], edges: FlowEdge[]): FlowNode | null {
+  if (!nodes.length) {
+    return null;
+  }
+
+  const roots = getRootNodes(nodes, edges);
+  const candidates = roots.length ? roots : nodes;
+
+  return sortNodesByVisualOrder(candidates)[0] ?? null;
+}
+
+export function getLastFlowNode(nodes: FlowNode[], edges: FlowEdge[]): FlowNode | null {
+  if (!nodes.length) {
+    return null;
+  }
+
+  const tails = getTailNodes(nodes, edges);
+  const candidates = tails.length ? tails : nodes;
+
+  return [...candidates].sort((a, b) => {
+    if (a.position.x !== b.position.x) {
+      return b.position.x - a.position.x;
+    }
+
+    if (a.position.y !== b.position.y) {
+      return a.position.y - b.position.y;
+    }
+
+    return a.id.localeCompare(b.id);
+  })[0] ?? null;
 }
 
 export function getBranchStartEdge(input: {
@@ -236,5 +301,142 @@ export function buildTwoPathNodesAndEdges(input: {
   return {
     nodes,
     edges,
+  };
+}
+
+export function insertNodeBeforeTarget(input: {
+  flowId: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  targetNodeId: string;
+  insertedNode: FlowNode;
+}): FlowInsertResult {
+  const targetNode = input.nodes.find((node) => node.id === input.targetNodeId);
+
+  if (!targetNode) {
+    throw new Error("No se encontro el nodo objetivo.");
+  }
+
+  const incomingEdges = getIncomingEdges(input.edges, input.targetNodeId);
+
+  if (!incomingEdges.length) {
+    return {
+      nodes: [...input.nodes, input.insertedNode],
+      edges: [
+        ...input.edges,
+        createFlowEdge({
+          id: createFlowEdgeId(input.flowId),
+          source: input.insertedNode.id,
+          target: input.targetNodeId,
+        }),
+      ],
+      insertedNode: input.insertedNode,
+    };
+  }
+
+  const incomingEdgeIds = new Set(incomingEdges.map((edge) => edge.id));
+
+  return {
+    nodes: [...input.nodes, input.insertedNode],
+    edges: [
+      ...input.edges.map((edge) =>
+        incomingEdgeIds.has(edge.id)
+          ? { ...edge, target: input.insertedNode.id }
+          : edge,
+      ),
+      createFlowEdge({
+        id: createFlowEdgeId(input.flowId),
+        source: input.insertedNode.id,
+        target: input.targetNodeId,
+      }),
+    ],
+    insertedNode: input.insertedNode,
+  };
+}
+
+export function insertNodeAfterSource(input: {
+  flowId: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  sourceNodeId: string;
+  insertedNode: FlowNode;
+}): FlowInsertResult {
+  const sourceNode = input.nodes.find((node) => node.id === input.sourceNodeId);
+
+  if (!sourceNode) {
+    throw new Error("No se encontro el nodo fuente.");
+  }
+
+  const outgoingEdges = getOutgoingEdges(input.edges, input.sourceNodeId);
+
+  if (outgoingEdges.length > 1) {
+    throw new Error(
+      "Este nodo tiene varias salidas. Usa el boton + de la conexion especifica.",
+    );
+  }
+
+  if (!outgoingEdges.length) {
+    return {
+      nodes: [...input.nodes, input.insertedNode],
+      edges: [
+        ...input.edges,
+        createFlowEdge({
+          id: createFlowEdgeId(input.flowId),
+          source: input.sourceNodeId,
+          target: input.insertedNode.id,
+        }),
+      ],
+      insertedNode: input.insertedNode,
+    };
+  }
+
+  const originalEdge = outgoingEdges[0];
+
+  return {
+    nodes: [...input.nodes, input.insertedNode],
+    edges: [
+      ...input.edges.map((edge) =>
+        edge.id === originalEdge.id
+          ? { ...edge, target: input.insertedNode.id }
+          : edge,
+      ),
+      createFlowEdge({
+        id: createFlowEdgeId(input.flowId),
+        source: input.insertedNode.id,
+        target: originalEdge.target,
+      }),
+    ],
+    insertedNode: input.insertedNode,
+  };
+}
+
+export function insertNodeBetweenEdge(input: {
+  flowId: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  edgeId: string;
+  insertedNode: FlowNode;
+}): FlowInsertResult {
+  const originalEdge = input.edges.find((edge) => edge.id === input.edgeId);
+
+  if (!originalEdge) {
+    throw new Error("No se encontro la conexion seleccionada.");
+  }
+
+  return {
+    nodes: [...input.nodes, input.insertedNode],
+    edges: [
+      ...input.edges.map((edge) =>
+        edge.id === input.edgeId
+          ? { ...edge, target: input.insertedNode.id }
+          : edge,
+      ),
+      createFlowEdge({
+        id: createFlowEdgeId(input.flowId),
+        source: input.insertedNode.id,
+        target: originalEdge.target,
+      }),
+    ],
+    insertedNode: input.insertedNode,
   };
 }

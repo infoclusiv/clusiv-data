@@ -16,9 +16,10 @@
     edges: FlowEdge[];
     selectedNodeId: string | null;
     onselectnode: (nodeId: string) => void;
+    oninsertbetween?: (edgeId: string) => void;
   }
 
-  let { nodes, edges, selectedNodeId, onselectnode }: Props = $props();
+  let { nodes, edges, selectedNodeId, onselectnode, oninsertbetween }: Props = $props();
 
   let viewportElement = $state<HTMLDivElement | null>(null);
   let zoom = $state(1);
@@ -66,6 +67,16 @@
       `${target.x - curveOffset} ${target.y}`,
       `${target.x} ${target.y}`,
     ].join(" ");
+  }
+
+  function getEdgeActionPoint(
+    source: { x: number; y: number },
+    target: { x: number; y: number },
+  ): { x: number; y: number } {
+    return {
+      x: (source.x + target.x) / 2,
+      y: (source.y + target.y) / 2,
+    };
   }
 
   function getSourcePortRatio(edge: FlowEdge, outgoingEdges: FlowEdge[]): number {
@@ -224,6 +235,32 @@
             {/if}
           {/each}
         </svg>
+
+        {#if oninsertbetween}
+          {#each edges as edge (edge.id)}
+            {@const source = nodes.find((node) => node.id === edge.source)}
+            {@const target = nodes.find((node) => node.id === edge.target)}
+            {#if source && target}
+              {@const sourcePoint = getSourceConnectionPoint(source, edge)}
+              {@const targetPoint = getTargetConnectionPoint(target)}
+              {@const actionPoint = getEdgeActionPoint(sourcePoint, targetPoint)}
+              {@const labelOffset = edge.label.trim() ? 12 : 0}
+              <button
+                type="button"
+                class="absolute z-20 flex h-7 w-7 items-center justify-center rounded-full border border-emerald-200 bg-white text-sm font-bold text-emerald-700 shadow-sm transition hover:scale-105 hover:border-emerald-400 hover:bg-emerald-50"
+                style={`left: ${actionPoint.x - 14}px; top: ${actionPoint.y + labelOffset - 14}px;`}
+                title="Insertar nodo entre estos dos nodos"
+                aria-label="Insertar nodo entre estos dos nodos"
+                onclick={(event) => {
+                  event.stopPropagation();
+                  oninsertbetween?.(edge.id);
+                }}
+              >
+                +
+              </button>
+            {/if}
+          {/each}
+        {/if}
 
         {#each nodes as node (node.id)}
           <FlowNodeCard

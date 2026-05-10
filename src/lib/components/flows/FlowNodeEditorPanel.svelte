@@ -10,10 +10,13 @@
     node: FlowNode;
     appData: AppData | null;
     canCreateTwoPaths?: boolean;
+    canInsertAfter?: boolean;
     outgoingCount?: number;
     onupdate: (field: "title" | "description", value: string) => void;
     ondelete?: (nodeId: string) => void;
     oncreatetwopaths?: (nodeId: string) => void;
+    oninsertbefore?: (nodeId: string) => void;
+    oninsertafter?: (nodeId: string) => void;
     onaddtobranch?: (nodeId: string, direction: FlowBranchDirection) => void;
     onlinknote?: (noteId: string) => void;
     onunlinknote?: (noteId: string) => void;
@@ -24,10 +27,13 @@
     node,
     appData,
     canCreateTwoPaths = false,
+    canInsertAfter = true,
     outgoingCount = 0,
     onupdate,
     ondelete,
     oncreatetwopaths,
+    oninsertbefore,
+    oninsertafter,
     onaddtobranch,
     onlinknote,
     onunlinknote,
@@ -62,6 +68,12 @@
       : outgoingCount > 0
         ? "Este nodo ya tiene una salida. Elimina la salida existente para abrir dos caminos."
         : "Abrir dos caminos desde este nodo."
+  );
+
+  const insertAfterTitle = $derived(
+    canInsertAfter
+      ? "Insertar un nodo despues de este nodo."
+      : "Este nodo tiene varias salidas. Usa el boton + de la conexion especifica."
   );
 
   function handleLinkNote(noteId: string): void {
@@ -114,16 +126,40 @@
 
       <div class="flex flex-col gap-1.5">
         <span class="section-label">Acciones del flujo</span>
-        <button
-          class="btn-ghost justify-center bg-white"
-          type="button"
-          disabled={!canCreateTwoPaths || !oncreatetwopaths}
-          onclick={() => oncreatetwopaths?.(node.id)}
-          title={createTwoPathsTitle}
-        >
-          <GitBranchPlus size={16} />
-          Abrir dos caminos
-        </button>
+        <div class="grid grid-cols-1 gap-2">
+          <button
+            class="btn-ghost justify-center bg-white"
+            type="button"
+            disabled={!oninsertbefore}
+            onclick={() => oninsertbefore?.(node.id)}
+            title="Insertar un nodo antes de este nodo."
+          >
+            <Plus size={16} />
+            Insertar antes
+          </button>
+
+          <button
+            class="btn-ghost justify-center bg-white"
+            type="button"
+            disabled={!canInsertAfter || !oninsertafter}
+            onclick={() => oninsertafter?.(node.id)}
+            title={insertAfterTitle}
+          >
+            <Plus size={16} />
+            Insertar despues
+          </button>
+
+          <button
+            class="btn-ghost justify-center bg-white"
+            type="button"
+            disabled={!canCreateTwoPaths || !oncreatetwopaths}
+            onclick={() => oncreatetwopaths?.(node.id)}
+            title={createTwoPathsTitle}
+          >
+            <GitBranchPlus size={16} />
+            Abrir dos caminos
+          </button>
+        </div>
       </div>
     </div>
 
