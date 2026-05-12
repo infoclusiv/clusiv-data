@@ -90,6 +90,7 @@
   function cloneFlowNodes(sourceNodes: FlowNode[]): FlowNode[] {
     return sourceNodes.map((node) => ({
       ...node,
+      comments: node.comments ?? "",
       linked_note_ids: [...(node.linked_note_ids ?? [])],
       position: {
         ...node.position,
@@ -262,6 +263,7 @@
       type: "process",
       title: "Nuevo nodo",
       description: "",
+      comments: "",
       linked_note_ids: [],
       position,
     };
@@ -518,7 +520,7 @@
   }
 
   function updateSelectedNode(
-    field: "title" | "description",
+    field: "title" | "description" | "comments",
     value: string,
   ): void {
     if (!selectedNodeId) {

@@ -15,6 +15,7 @@ function makeNode(id, title = id) {
     type: "process",
     title,
     description: "",
+    comments: "",
     linked_note_ids: [],
     position: { x: 0, y: 0 },
   };

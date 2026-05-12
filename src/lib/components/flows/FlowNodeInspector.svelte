@@ -5,7 +5,7 @@
 
   interface Props {
     node: FlowNode | null;
-    onupdate: (field: "title" | "description", value: string) => void;
+    onupdate: (field: "title" | "description" | "comments", value: string) => void;
     ondelete?: (nodeId: string) => void;
   }
 

@@ -214,6 +214,7 @@ export function normalizeFlowNode(value: FlowNodeInput | unknown, fallbackId: st
       : "process",
     title: typeof candidate.title === "string" ? candidate.title : "",
     description: typeof candidate.description === "string" ? candidate.description : "",
+    comments: typeof candidate.comments === "string" ? candidate.comments : "",
     linked_note_ids: normalizeLinkedNoteIds(candidate.linked_note_ids),
     position: {
       x: Number.isFinite(x) ? x : 0,

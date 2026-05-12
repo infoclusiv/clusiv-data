@@ -12,7 +12,7 @@
     canCreateTwoPaths?: boolean;
     canInsertAfter?: boolean;
     outgoingCount?: number;
-    onupdate: (field: "title" | "description", value: string) => void;
+    onupdate: (field: "title" | "description" | "comments", value: string) => void;
     ondelete?: (nodeId: string) => void;
     oncreatetwopaths?: (nodeId: string) => void;
     oninsertbefore?: (nodeId: string) => void;
@@ -86,16 +86,16 @@
     const description = node.description ?? "";
 
     if (!description.trim()) {
-      showSnackbar("No hay descripción para copiar.", "error", 1800);
+      showSnackbar("No hay descripcion para copiar.", "error", 1800);
       return;
     }
 
     try {
       await navigator.clipboard.writeText(description);
-      showSnackbar("Descripción copiada al portapapeles.", "success", 1800);
+      showSnackbar("Descripcion copiada al portapapeles.", "success", 1800);
     } catch (error) {
       showSnackbar(
-        error instanceof Error ? error.message : "No se pudo copiar la descripción.",
+        error instanceof Error ? error.message : "No se pudo copiar la descripcion.",
         "error",
       );
     }
@@ -111,22 +111,22 @@
       </div>
     </div>
 
-    <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_172px]">
-      <div class="flex flex-col gap-1.5">
-        <label class="section-label" for="flow-node-title">Título</label>
+    <div class="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(260px,420px)_minmax(0,1fr)]">
+      <div class="flex max-w-[420px] flex-col gap-1.5">
+        <label class="section-label" for="flow-node-title">Titulo</label>
         <input
           id="flow-node-title"
           class="input-base"
           value={node.title}
-          placeholder="Ej. Validar información"
+          placeholder="Ej. Validar informacion"
           spellcheck={false}
           oninput={(event) => onupdate("title", (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 
-      <div class="flex flex-col gap-1.5">
+      <div class="flex min-w-0 flex-col gap-1.5">
         <span class="section-label">Acciones del flujo</span>
-        <div class="grid grid-cols-1 gap-2">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <button
             class="btn-ghost justify-center bg-white"
             type="button"
@@ -157,7 +157,7 @@
             title={createTwoPathsTitle}
           >
             <GitBranchPlus size={16} />
-            Abrir dos caminos
+            Abrir caminos
           </button>
         </div>
       </div>
@@ -191,14 +191,14 @@
       </p>
     {/if}
 
-    <div class="mt-6 flex min-h-0 flex-1 flex-col gap-1.5">
+    <div class="mt-5 flex min-h-0 flex-1 flex-col gap-1.5">
       <div class="flex items-center justify-between gap-2">
-        <label class="section-label" for="flow-node-description">Descripción</label>
+        <label class="section-label" for="flow-node-description">Descripcion</label>
         <button
           class="btn-ghost h-8 w-8 justify-center rounded-full p-0"
           type="button"
-          title="Copiar descripción"
-          aria-label="Copiar descripción"
+          title="Copiar descripcion"
+          aria-label="Copiar descripcion"
           disabled={!node.description.trim()}
           onclick={() => void handleCopyDescription()}
         >
@@ -207,8 +207,8 @@
       </div>
       <textarea
         id="flow-node-description"
-        class="input-base min-h-[360px] flex-1 resize-none leading-7"
-        placeholder="Describe con detalle qué ocurre en este nodo"
+        class="input-base min-h-[320px] flex-1 resize-none leading-7 xl:min-h-[420px]"
+        placeholder="Describe con detalle que ocurre en este nodo"
         spellcheck={false}
         oninput={(event) =>
           onupdate("description", (event.currentTarget as HTMLTextAreaElement).value)}
@@ -234,90 +234,113 @@
   </div>
 
   <aside class="flex min-h-0 flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm lg:p-6">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <p class="section-label">Notas del nodo</p>
-        <p class="mt-2 text-xs text-slate-500">
-          Adjunta notas ya creadas relacionadas con este nodo.
-        </p>
+    <div class="flex min-h-0 flex-1 flex-col">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="section-label">Notas del nodo</p>
+          <p class="mt-2 text-xs text-slate-500">
+            Adjunta notas ya creadas relacionadas con este nodo.
+          </p>
+        </div>
+
+        <button class="btn-primary" type="button" onclick={() => (linkingNotes = !linkingNotes)}>
+          <Link size={15} />
+          Enlazar nota
+        </button>
       </div>
 
-      <button class="btn-primary" type="button" onclick={() => (linkingNotes = !linkingNotes)}>
-        <Link size={15} />
-        Enlazar nota
-      </button>
-    </div>
+      {#if linkingNotes}
+        <div class="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50/70 p-3">
+          <input
+            class="input-base"
+            placeholder="Buscar nota por titulo, texto o categoria..."
+            bind:value={noteSearch}
+            spellcheck={false}
+          />
 
-    {#if linkingNotes}
-      <div class="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50/70 p-3">
-        <input
-          class="input-base"
-          placeholder="Buscar nota por título, texto o categoría..."
-          bind:value={noteSearch}
-          spellcheck={false}
-        />
+          <div class="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+            {#if filteredAvailableNotes.length === 0}
+              <div class="rounded-2xl border border-slate-200 bg-white px-3 py-4 text-sm text-slate-500">
+                No hay notas disponibles con ese filtro.
+              </div>
+            {:else}
+              {#each filteredAvailableNotes as note}
+                <button
+                  type="button"
+                  class="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left hover:border-emerald-300 hover:bg-emerald-50/40"
+                  onclick={() => handleLinkNote(note.id)}
+                >
+                  <p class="text-sm font-semibold text-slate-800">{note.title}</p>
+                  <p class="mt-1 line-clamp-2 text-xs text-slate-500">{note.preview || "Sin vista previa"}</p>
+                  <p class="mt-2 text-[11px] font-medium text-slate-400">
+                    {note.categoryPath || "Sin categoria"}
+                  </p>
+                </button>
+              {/each}
+            {/if}
+          </div>
+        </div>
+      {/if}
 
-        <div class="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
-          {#if filteredAvailableNotes.length === 0}
-            <div class="rounded-2xl border border-slate-200 bg-white px-3 py-4 text-sm text-slate-500">
-              No hay notas disponibles con ese filtro.
-            </div>
-          {:else}
-            {#each filteredAvailableNotes as note}
-              <button
-                type="button"
-                class="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left hover:border-emerald-300 hover:bg-emerald-50/40"
-                onclick={() => handleLinkNote(note.id)}
-              >
-                <p class="text-sm font-semibold text-slate-800">{note.title}</p>
-                <p class="mt-1 line-clamp-2 text-xs text-slate-500">{note.preview || "Sin vista previa"}</p>
-                <p class="mt-2 text-[11px] font-medium text-slate-400">
-                  {note.categoryPath || "Sin categoría"}
-                </p>
-              </button>
-            {/each}
-          {/if}
+      <div class="mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-2">
+          {#each linkedNotes as note}
+            <article class="min-h-40 rounded-[1.1rem] border border-amber-200 bg-amber-50/40 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="line-clamp-2 text-sm font-semibold text-slate-800">
+                    {note.title.trim() || "Sin titulo"}
+                  </p>
+                  <p class="mt-1 text-[11px] font-medium text-slate-400">
+                    {noteOptions.find((option) => option.id === note.id)?.categoryPath || "Sin categoria"}
+                  </p>
+                </div>
+
+                <button
+                  class="text-red-500 hover:text-red-700"
+                  type="button"
+                  aria-label="Quitar nota enlazada"
+                  onclick={() => onunlinknote?.(note.id)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+
+              <p class="mt-3 line-clamp-6 text-xs leading-5 text-slate-600">
+                {noteOptions.find((option) => option.id === note.id)?.preview || "Sin contenido"}
+              </p>
+            </article>
+          {/each}
+
+          <button
+            type="button"
+            class="flex min-h-40 flex-col items-center justify-center rounded-[1.1rem] border border-dashed border-slate-300 bg-white/70 text-slate-400 hover:border-emerald-300 hover:text-emerald-700"
+            onclick={() => (linkingNotes = true)}
+          >
+            <Plus size={24} />
+            <span class="mt-2 text-xs font-medium">Enlazar nota</span>
+          </button>
         </div>
       </div>
-    {/if}
+    </div>
 
-    <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-2">
-      {#each linkedNotes as note}
-        <article class="min-h-40 rounded-[1.1rem] border border-amber-200 bg-amber-50/40 p-3">
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <p class="line-clamp-2 text-sm font-semibold text-slate-800">
-                {note.title.trim() || "Sin título"}
-              </p>
-              <p class="mt-1 text-[11px] font-medium text-slate-400">
-                {noteOptions.find((option) => option.id === note.id)?.categoryPath || "Sin categoría"}
-              </p>
-            </div>
-
-            <button
-              class="text-red-500 hover:text-red-700"
-              type="button"
-              aria-label="Quitar nota enlazada"
-              onclick={() => onunlinknote?.(note.id)}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-
-          <p class="mt-3 line-clamp-6 text-xs leading-5 text-slate-600">
-            {noteOptions.find((option) => option.id === note.id)?.preview || "Sin contenido"}
+    <div class="mt-5 border-t border-slate-200 pt-4">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <p class="section-label">Comentarios</p>
+          <p class="mt-1 text-xs text-slate-400">
+            Apuntes rapidos para este nodo.
           </p>
-        </article>
-      {/each}
+        </div>
+      </div>
 
-      <button
-        type="button"
-        class="flex min-h-40 flex-col items-center justify-center rounded-[1.1rem] border border-dashed border-slate-300 bg-white/70 text-slate-400 hover:border-emerald-300 hover:text-emerald-700"
-        onclick={() => (linkingNotes = true)}
-      >
-        <Plus size={24} />
-        <span class="mt-2 text-xs font-medium">Enlazar nota</span>
-      </button>
+      <textarea
+        class="input-base mt-3 min-h-[120px] resize-none text-sm leading-6"
+        placeholder="Anade comentarios breves sobre este nodo..."
+        spellcheck={false}
+        oninput={(event) =>
+          onupdate("comments", (event.currentTarget as HTMLTextAreaElement).value)}
+      >{node.comments ?? ""}</textarea>
     </div>
   </aside>
 </section>

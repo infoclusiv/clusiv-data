@@ -3,7 +3,7 @@ import {
   FLOW_LANE_STEP,
   FLOW_NODE_HEIGHT,
   FLOW_NODE_WIDTH,
-} from "../components/flows/flowLayout";
+} from "../components/flows/flowLayout.ts";
 import type { FlowEdge, FlowNode } from "../store/types";
 
 export { FLOW_NODE_HEIGHT, FLOW_NODE_WIDTH };
@@ -36,6 +36,7 @@ export function createFlowNode(input: {
   title: string;
   type?: FlowNode["type"];
   description?: string;
+  comments?: string;
   linked_note_ids?: string[];
   x: number;
   y: number;
@@ -45,6 +46,7 @@ export function createFlowNode(input: {
     type: input.type ?? "process",
     title: input.title,
     description: input.description ?? "",
+    comments: input.comments ?? "",
     linked_note_ids: input.linked_note_ids ?? [],
     position: {
       x: input.x,
