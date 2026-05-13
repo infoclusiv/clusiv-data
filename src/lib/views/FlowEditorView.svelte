@@ -3,6 +3,7 @@
   import { ArrowLeft, Plus, Trash2 } from "lucide-svelte";
 
   import FlowCanvas from "$lib/components/flows/FlowCanvas.svelte";
+  import FlowContextPanel from "$lib/components/flows/FlowContextPanel.svelte";
   import FlowNodeEditorPanel from "$lib/components/flows/FlowNodeEditorPanel.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import {
@@ -49,6 +50,8 @@
   );
 
   let title = $state("");
+  let flowComments = $state("");
+  let flowLinkedNoteIds = $state<string[]>([]);
   let nodes = $state<FlowNode[]>([]);
   let edges = $state<Flow["edges"]>([]);
   let selectedNodeId = $state<string | null>(null);
@@ -104,17 +107,26 @@
     }));
   }
 
-  function getCurrentFlowPayload(): Pick<Flow, "title" | "nodes" | "edges"> {
+  function getCurrentFlowPayload(): Pick<
+    Flow,
+    "title" | "comments" | "linked_note_ids" | "nodes" | "edges"
+  > {
     return {
       title: title.trim(),
+      comments: flowComments,
+      linked_note_ids: [...new Set(flowLinkedNoteIds)],
       nodes: cloneFlowNodes(nodes),
       edges: cloneFlowEdges(edges),
     };
   }
 
-  function getFlowFingerprint(payload: Pick<Flow, "title" | "nodes" | "edges">): string {
+  function getFlowFingerprint(
+    payload: Pick<Flow, "title" | "comments" | "linked_note_ids" | "nodes" | "edges">,
+  ): string {
     return JSON.stringify({
       title: payload.title,
+      comments: payload.comments,
+      linked_note_ids: payload.linked_note_ids,
       nodes: payload.nodes,
       edges: payload.edges,
     });
@@ -132,6 +144,13 @@
     if (!flow) {
       loadedFlowId = null;
       hasHydratedFlow = false;
+      title = "";
+      flowComments = "";
+      flowLinkedNoteIds = [];
+      nodes = [];
+      edges = [];
+      selectedNodeId = null;
+      nodeEditorOpen = false;
       lastSavedFingerprint = "";
       autosaveStatus = "idle";
       lastAutosaveError = null;
@@ -150,6 +169,8 @@
 
     loadedFlowId = flowSnapshot.id;
     title = flowSnapshot.title;
+    flowComments = flowSnapshot.comments ?? "";
+    flowLinkedNoteIds = [...(flowSnapshot.linked_note_ids ?? [])];
     nodes = hydratedNodes;
     edges = cloneFlowEdges(flowSnapshot.edges);
     selectedNodeId = hydratedNodes[0]?.id ?? null;
@@ -158,6 +179,8 @@
     hasHydratedFlow = true;
     lastSavedFingerprint = getFlowFingerprint({
       title: flowSnapshot.title.trim(),
+      comments: flowSnapshot.comments ?? "",
+      linked_note_ids: [...(flowSnapshot.linked_note_ids ?? [])],
       nodes: cloneFlowNodes(hydratedNodes),
       edges: cloneFlowEdges(flowSnapshot.edges),
     });
@@ -557,6 +580,24 @@
     scheduleAutosave("node_linked_notes_updated");
   }
 
+  function updateFlowComments(value: string): void {
+    flowComments = value;
+    scheduleAutosave("flow_comments_updated");
+  }
+
+  function updateFlowLinkedNotes(linkedNoteIds: string[]): void {
+    flowLinkedNoteIds = [...new Set(linkedNoteIds)];
+    scheduleAutosave("flow_linked_notes_updated");
+  }
+
+  function linkNoteToFlow(noteId: string): void {
+    updateFlowLinkedNotes([...flowLinkedNoteIds, noteId]);
+  }
+
+  function unlinkNoteFromFlow(noteId: string): void {
+    updateFlowLinkedNotes(flowLinkedNoteIds.filter((id) => id !== noteId));
+  }
+
   function linkNoteToSelectedNode(noteId: string): void {
     if (!selectedNode) {
       return;
@@ -801,6 +842,15 @@
             {selectedNodeId}
             onselectnode={openNodeEditor}
             oninsertbetween={insertNodeOnEdge}
+          />
+
+          <FlowContextPanel
+            appData={appState.appData}
+            linkedNoteIds={flowLinkedNoteIds}
+            comments={flowComments}
+            onlinknote={linkNoteToFlow}
+            onunlinknote={unlinkNoteFromFlow}
+            oncommentschange={updateFlowComments}
           />
         {/if}
       </div>

@@ -327,7 +327,7 @@
     <div class="mt-5 border-t border-slate-200 pt-4">
       <div class="flex items-center justify-between gap-2">
         <div>
-          <p class="section-label">Comentarios</p>
+          <p class="section-label">Comentarios del nodo</p>
           <p class="mt-1 text-xs text-slate-400">
             Apuntes rapidos para este nodo.
           </p>

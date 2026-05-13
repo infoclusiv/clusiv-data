@@ -275,6 +275,8 @@ export function normalizeFlow(value: unknown, fallbackId: string): Flow | null {
       ? candidate.category_id
       : GENERAL_CATEGORY_ID,
     title: typeof candidate.title === "string" ? candidate.title : "",
+    comments: typeof candidate.comments === "string" ? candidate.comments : "",
+    linked_note_ids: normalizeLinkedNoteIds(candidate.linked_note_ids),
     nodes: normalizedNodes,
     edges: normalizedEdges,
     created_at: typeof candidate.created_at === "string" && candidate.created_at.trim().length > 0
@@ -417,6 +419,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
       flow.category_id = GENERAL_CATEGORY_ID;
     }
 
+    flow.linked_note_ids = flow.linked_note_ids.filter((noteId) => validNoteIds.has(noteId));
     flow.nodes = flow.nodes.map((node) => ({
       ...node,
       linked_note_ids: node.linked_note_ids.filter((noteId) => validNoteIds.has(noteId)),

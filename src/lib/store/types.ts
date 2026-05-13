@@ -80,6 +80,8 @@ export interface Flow {
   id: string;
   category_id: string;
   title: string;
+  comments: string;
+  linked_note_ids: string[];
   nodes: FlowNode[];
   edges: FlowEdge[];
   created_at: string;
@@ -185,6 +187,8 @@ export interface FlowEdgeInput {
 export interface CreateFlowInput {
   categoryId: string;
   title?: string;
+  comments?: string;
+  linked_note_ids?: string[];
   nodes?: FlowNodeInput[];
   edges?: FlowEdgeInput[];
 }
@@ -192,6 +196,8 @@ export interface CreateFlowInput {
 export interface UpdateFlowInput {
   categoryId?: string;
   title?: string;
+  comments?: string;
+  linked_note_ids?: string[];
   nodes?: FlowNodeInput[];
   edges?: FlowEdgeInput[];
 }
