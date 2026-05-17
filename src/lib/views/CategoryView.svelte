@@ -497,6 +497,11 @@
                   <div class="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
                     <p class="truncate text-sm font-semibold text-slate-900">{firstLink.title}</p>
                     <p class="mt-1 truncate text-xs text-slate-500">{firstLink.url}</p>
+                    {#if firstLink.images.length > 0}
+                      <p class="mt-2 text-xs font-semibold text-emerald-700">
+                        {firstLink.images.length === 1 ? "1 imagen adjunta" : `${firstLink.images.length} imágenes adjuntas`}
+                      </p>
+                    {/if}
                   </div>
                 {:else}
                   <div class="mt-6 rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">

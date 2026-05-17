@@ -9,6 +9,7 @@ import type {
   Item,
   ItemImage,
   Link,
+  LinkFormInput,
   QuickText,
 } from "$lib/store/types";
 import {
@@ -121,6 +122,30 @@ export function normalizeItemImages(images: unknown): ItemImage[] {
   return images
     .map((image, index) => normalizeItemImage(image, `image-${index + 1}`))
     .filter((image): image is ItemImage => image !== null);
+}
+
+export function normalizeLink(link: LinkFormInput | unknown, _fallbackIndex: number): Link | null {
+  if (!link || typeof link !== "object") {
+    return null;
+  }
+
+  const candidate = link as Partial<LinkFormInput>;
+
+  return {
+    title: typeof candidate.title === "string" ? candidate.title : "",
+    url: typeof candidate.url === "string" ? candidate.url : "",
+    images: normalizeItemImages(candidate.images),
+  };
+}
+
+export function normalizeLinks(value: unknown): Link[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry, index) => normalizeLink(entry, index + 1))
+    .filter((entry): entry is Link => entry !== null);
 }
 
 function normalizeLinkedNoteIds(value: unknown): string[] {
@@ -371,7 +396,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   generalCategory.name = GENERAL_CATEGORY_NAME;
   generalCategory.parent_id = null;
   generalCategory.icon ||= "Carpeta";
-  generalCategory.links ||= [];
+  generalCategory.links = normalizeLinks(generalCategory.links);
   generalCategory.notes ||= "";
   delete (generalCategory as Category & { type?: string }).type;
 
@@ -379,7 +404,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     category.id ||= categoryId;
     category.name ||= categoryId === GENERAL_CATEGORY_ID ? GENERAL_CATEGORY_NAME : "Sin nombre";
     category.icon ||= "Carpeta";
-    category.links ||= [];
+    category.links = normalizeLinks(category.links);
     category.notes ||= "";
     delete (category as Category & { type?: string }).type;
     if (categoryId === GENERAL_CATEGORY_ID) {

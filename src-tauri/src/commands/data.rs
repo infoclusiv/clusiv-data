@@ -833,12 +833,14 @@ fn link_from_value(value: Value, changed: &mut bool) -> Link {
         return Link {
             title: String::new(),
             url: String::new(),
+            images: Vec::new(),
         };
     };
 
     Link {
         title: string_value(map.remove("title"), "", changed),
         url: string_value(map.remove("url"), "", changed),
+        images: item_images_value(map.remove("images"), changed),
     }
 }
 
@@ -1019,6 +1021,7 @@ fn links_from_map(map: &Map<String, Value>, key: &str) -> Vec<Link> {
                             .and_then(Value::as_str)
                             .unwrap_or_default()
                             .to_string(),
+                        images: Vec::new(),
                     })
                 })
                 .collect()
@@ -1138,6 +1141,77 @@ mod tests {
         assert!(data.tasks[1].images.is_empty());
         assert!(data.quick_texts.is_empty());
         assert!(data.flows.is_empty());
+    }
+
+    #[test]
+    fn normalize_data_preserves_link_images() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [
+                        {
+                            "title": "Example",
+                            "url": "https://example.com",
+                            "images": [
+                                {
+                                    "id": "img_test",
+                                    "data_url": "data:image/png;base64,abc",
+                                    "name": "test.png"
+                                }
+                            ]
+                        }
+                    ],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(!changed);
+        let link = &data.categories["general"].links[0];
+        assert_eq!(link.images.len(), 1);
+        assert_eq!(link.images[0].data_url, "data:image/png;base64,abc");
+        assert_eq!(link.images[0].name, "test.png");
+    }
+
+    #[test]
+    fn normalize_data_defaults_missing_link_images_to_empty() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [
+                        {
+                            "title": "Legacy",
+                            "url": "https://example.com"
+                        }
+                    ],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, _changed) = normalize_data(raw);
+
+        assert!(data.categories["general"].links[0].images.is_empty());
     }
 
     #[test]
@@ -1281,5 +1355,26 @@ mod tests {
         assert_eq!(data.tasks.len(), 2);
         assert_ne!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
         assert_ne!(data.tasks[1].category_id, GENERAL_CATEGORY_ID);
+    }
+
+    #[test]
+    fn migrate_legacy_data_defaults_link_images_to_empty() {
+        let raw = json!({
+            "General": {
+                "icon": "Trabajo",
+                "links": [
+                    {
+                        "title": "Legacy",
+                        "url": "https://example.com"
+                    }
+                ],
+                "notes": ""
+            }
+        });
+
+        let data = migrate_legacy_data(raw);
+
+        assert_eq!(data.categories[GENERAL_CATEGORY_ID].links.len(), 1);
+        assert!(data.categories[GENERAL_CATEGORY_ID].links[0].images.is_empty());
     }
 }

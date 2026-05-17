@@ -16,6 +16,7 @@ import type {
   ItemFormInput,
   ItemType,
   Link,
+  LinkFormInput,
   LogLevel,
   LogStatus,
   NavigationSnapshot,
@@ -37,6 +38,8 @@ import {
   normalizeFlowEdge,
   normalizeFlowNode,
   normalizeItemImages,
+  normalizeLink,
+  normalizeLinks,
 } from "$lib/utils/categoryUtils";
 import {
   GENERAL_CATEGORY_ID,
@@ -328,6 +331,16 @@ function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
     type: input.type,
     categoryId: input.categoryId,
     images: input.type === "note" ? normalizeItemImages(input.images) : [],
+  };
+}
+
+function buildSafeLinkLogContext(link: Pick<Link, "url" | "images">): Record<string, unknown> {
+  const imageCount = link.images.length;
+
+  return {
+    ...getUrlLogContext(link.url),
+    imageCount,
+    hasImages: imageCount > 0,
   };
 }
 
@@ -1665,16 +1678,21 @@ export async function deleteCategory(categoryId: string): Promise<string> {
   }
 }
 
-export async function addLink(categoryId: string, link: Link): Promise<void> {
+export async function addLink(categoryId: string, link: LinkFormInput): Promise<void> {
+  const normalizedLink = normalizeLink(link, 1);
+  if (!normalizedLink) {
+    throw new Error("No se pudo normalizar el enlace.");
+  }
+
   logClientEvent({
     source: "links",
     action: "add_link_started",
     message: "Adding a link to category.",
     context: {
       categoryId,
-      title: link.title,
-      url: link.url,
-      host: getUrlHost(link.url),
+      title: normalizedLink.title,
+      url: normalizedLink.url,
+      ...buildSafeLinkLogContext(normalizedLink),
     },
   });
 
@@ -1684,7 +1702,7 @@ export async function addLink(categoryId: string, link: Link): Promise<void> {
       if (!category) {
         throw new Error("La categoría no existe.");
       }
-      category.links.push(link);
+      category.links.push(normalizedLink);
     });
 
     logClientEvent({
@@ -1693,9 +1711,9 @@ export async function addLink(categoryId: string, link: Link): Promise<void> {
       message: "Link added successfully.",
       context: {
         categoryId,
-        title: link.title,
-        url: link.url,
-        host: getUrlHost(link.url),
+        title: normalizedLink.title,
+        url: normalizedLink.url,
+        ...buildSafeLinkLogContext(normalizedLink),
       },
     });
   } catch (error) {
@@ -1706,8 +1724,9 @@ export async function addLink(categoryId: string, link: Link): Promise<void> {
       error,
       {
         categoryId,
-        title: link.title,
-        url: link.url,
+        title: normalizedLink.title,
+        url: normalizedLink.url,
+        ...buildSafeLinkLogContext(normalizedLink),
       },
     );
     throw error;
@@ -1717,12 +1736,13 @@ export async function addLink(categoryId: string, link: Link): Promise<void> {
 export async function updateLink(
   categoryId: string,
   linkIndex: number,
-  input: Link,
+  input: LinkFormInput,
 ): Promise<void> {
   const currentData = requireAppData();
   const existingLink = currentData.__SYSTEM_CATEGORIES__[categoryId]?.links[linkIndex];
   const normalizedUrl = input.url.trim();
   const normalizedTitle = input.title.trim() || normalizedUrl;
+  const normalizedImages = normalizeItemImages(input.images ?? existingLink?.images ?? []);
 
   if (!normalizedUrl) {
     throw new Error("La URL es requerida.");
@@ -1737,9 +1757,13 @@ export async function updateLink(
       linkIndex,
       previousTitle: existingLink?.title ?? null,
       previousUrl: existingLink?.url ?? null,
+      previousImageCount: existingLink?.images.length ?? 0,
       title: normalizedTitle,
       url: normalizedUrl,
-      host: getUrlHost(normalizedUrl),
+      ...buildSafeLinkLogContext({
+        url: normalizedUrl,
+        images: normalizedImages,
+      }),
     },
   });
 
@@ -1760,6 +1784,7 @@ export async function updateLink(
               ...link,
               title: normalizedTitle,
               url: normalizedUrl,
+              images: normalizedImages,
             }
           : link,
       );
@@ -1774,7 +1799,10 @@ export async function updateLink(
         linkIndex,
         title: normalizedTitle,
         url: normalizedUrl,
-        host: getUrlHost(normalizedUrl),
+        ...buildSafeLinkLogContext({
+          url: normalizedUrl,
+          images: normalizedImages,
+        }),
       },
     });
   } catch (error) {
@@ -1788,18 +1816,26 @@ export async function updateLink(
         linkIndex,
         previousTitle: existingLink?.title ?? null,
         previousUrl: existingLink?.url ?? null,
+        previousImageCount: existingLink?.images.length ?? 0,
         title: normalizedTitle,
         url: normalizedUrl,
+        ...buildSafeLinkLogContext({
+          url: normalizedUrl,
+          images: normalizedImages,
+        }),
       },
     );
     throw error;
   }
 }
 
-export async function importLinks(categoryId: string, links: Link[]): Promise<void> {
-  if (links.length === 0) {
+export async function importLinks(categoryId: string, links: LinkFormInput[]): Promise<void> {
+  const normalizedLinks = normalizeLinks(links);
+  if (normalizedLinks.length === 0) {
     return;
   }
+
+  const linkImageCount = normalizedLinks.reduce((total, link) => total + link.images.length, 0);
 
   logClientEvent({
     source: "links",
@@ -1807,7 +1843,9 @@ export async function importLinks(categoryId: string, links: Link[]): Promise<vo
     message: "Importing links in bulk.",
     context: {
       categoryId,
-      linkCount: links.length,
+      linkCount: normalizedLinks.length,
+      imageCount: linkImageCount,
+      hasImages: linkImageCount > 0,
     },
   });
 
@@ -1817,7 +1855,7 @@ export async function importLinks(categoryId: string, links: Link[]): Promise<vo
       if (!category) {
         throw new Error("La categoría no existe.");
       }
-      category.links.push(...links);
+      category.links.push(...normalizedLinks);
     });
 
     logClientEvent({
@@ -1826,7 +1864,9 @@ export async function importLinks(categoryId: string, links: Link[]): Promise<vo
       message: "Bulk link import completed.",
       context: {
         categoryId,
-        linkCount: links.length,
+        linkCount: normalizedLinks.length,
+        imageCount: linkImageCount,
+        hasImages: linkImageCount > 0,
       },
     });
   } catch (error) {
@@ -1837,7 +1877,9 @@ export async function importLinks(categoryId: string, links: Link[]): Promise<vo
       error,
       {
         categoryId,
-        linkCount: links.length,
+        linkCount: normalizedLinks.length,
+        imageCount: linkImageCount,
+        hasImages: linkImageCount > 0,
       },
     );
     throw error;
@@ -1857,6 +1899,8 @@ export async function deleteLink(categoryId: string, linkIndex: number): Promise
       linkIndex,
       title: link?.title ?? null,
       url: link?.url ?? null,
+      imageCount: link?.images.length ?? 0,
+      hasImages: (link?.images.length ?? 0) > 0,
     },
   });
 
@@ -1879,6 +1923,8 @@ export async function deleteLink(categoryId: string, linkIndex: number): Promise
         linkIndex,
         title: link?.title ?? null,
         url: link?.url ?? null,
+        imageCount: link?.images.length ?? 0,
+        hasImages: (link?.images.length ?? 0) > 0,
       },
     });
   } catch (error) {
@@ -1892,6 +1938,8 @@ export async function deleteLink(categoryId: string, linkIndex: number): Promise
         linkIndex,
         title: link?.title ?? null,
         url: link?.url ?? null,
+        imageCount: link?.images.length ?? 0,
+        hasImages: (link?.images.length ?? 0) > 0,
       },
     );
     throw error;

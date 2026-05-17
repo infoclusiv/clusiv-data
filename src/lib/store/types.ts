@@ -23,6 +23,13 @@ export type CategorySection =
 export interface Link {
   title: string;
   url: string;
+  images: ItemImage[];
+}
+
+export interface LinkFormInput {
+  title: string;
+  url: string;
+  images?: ItemImage[];
 }
 
 export interface QuickText {

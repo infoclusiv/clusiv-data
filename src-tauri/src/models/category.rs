@@ -1,11 +1,15 @@
 use serde::{Deserialize, Serialize};
 
+use super::ItemImage;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Link {
     #[serde(default)]
     pub title: String,
     #[serde(default)]
     pub url: String,
+    #[serde(default)]
+    pub images: Vec<ItemImage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -34,6 +34,7 @@
       .map((url) => ({
         title: url.startsWith("http") ? url : `https://${url}`,
         url: url.startsWith("http") ? url : `https://${url}`,
+        images: [],
       }));
 
     if (links.length === 0) {
