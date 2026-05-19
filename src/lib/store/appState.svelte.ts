@@ -2180,6 +2180,7 @@ export async function saveQuickText(
     id: editingQuickTextId ?? crypto.randomUUID(),
     title: input.title.trim(),
     content: input.content.trim(),
+    group_id: input.group_id ?? null,
   };
 
   logClientEvent({
@@ -2206,11 +2207,22 @@ export async function saveQuickText(
           throw new Error("El texto rápido ya no existe.");
         }
 
-        quickTexts[existingIndex] = normalizedInput;
+        quickTexts[existingIndex] = {
+          ...quickTexts[existingIndex],
+          ...normalizedInput,
+        };
         return;
       }
 
-      quickTexts.unshift(normalizedInput);
+      const nextSortOrder = quickTexts.reduce(
+        (lowestSortOrder, entry) => Math.min(lowestSortOrder, entry.sort_order),
+        0,
+      ) - 1;
+
+      quickTexts.unshift({
+        ...normalizedInput,
+        sort_order: nextSortOrder,
+      });
     });
 
     logClientEvent({

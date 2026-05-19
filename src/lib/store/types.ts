@@ -36,6 +36,17 @@ export interface QuickText {
   id: string;
   title: string;
   content: string;
+  group_id: string | null;
+  sort_order: number;
+}
+
+export interface QuickTextGroup {
+  id: string;
+  name: string;
+  description: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Category {
@@ -108,6 +119,7 @@ export interface AppData {
   __SYSTEM_CATEGORIES__: Record<string, Category>;
   __SYSTEM_TASKS__: Item[];
   __SYSTEM_QUICK_TEXTS__: QuickText[];
+  __SYSTEM_QUICK_TEXT_GROUPS__: QuickTextGroup[];
   __SYSTEM_FLOWS__: Flow[];
   __SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__: string[];
 }
@@ -169,6 +181,12 @@ export interface ItemFormInput {
 export interface QuickTextFormInput {
   title: string;
   content: string;
+  group_id?: string | null;
+}
+
+export interface QuickTextGroupFormInput {
+  name: string;
+  description: string;
 }
 
 export interface FlowNodeInput {

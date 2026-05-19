@@ -6,7 +6,7 @@ use super::{Category, Item};
 
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
-pub const SCHEMA_VERSION: u32 = 11;
+pub const SCHEMA_VERSION: u32 = 12;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct QuickText {
@@ -16,6 +16,26 @@ pub struct QuickText {
     pub title: String,
     #[serde(default)]
     pub content: String,
+    #[serde(default)]
+    pub group_id: Option<String>,
+    #[serde(default)]
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct QuickTextGroup {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub sort_order: i32,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -82,6 +102,8 @@ pub struct AppData {
     pub tasks: Vec<Item>,
     #[serde(rename = "__SYSTEM_QUICK_TEXTS__", default)]
     pub quick_texts: Vec<QuickText>,
+    #[serde(rename = "__SYSTEM_QUICK_TEXT_GROUPS__", default)]
+    pub quick_text_groups: Vec<QuickTextGroup>,
     #[serde(rename = "__SYSTEM_FLOWS__", default)]
     pub flows: Vec<Flow>,
     #[serde(rename = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__", default)]
@@ -108,6 +130,7 @@ impl AppData {
             categories,
             tasks: Vec::new(),
             quick_texts: Vec::new(),
+            quick_text_groups: Vec::new(),
             flows: Vec::new(),
             global_flow_linked_note_ids: Vec::new(),
         }

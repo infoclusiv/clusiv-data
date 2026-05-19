@@ -11,6 +11,7 @@ import type {
   Link,
   LinkFormInput,
   QuickText,
+  QuickTextGroup,
 } from "$lib/store/types";
 import {
   GENERAL_CATEGORY_ID,
@@ -49,6 +50,7 @@ export function createDefaultAppData(): AppData {
     },
     __SYSTEM_TASKS__: [],
     __SYSTEM_QUICK_TEXTS__: [],
+    __SYSTEM_QUICK_TEXT_GROUPS__: [],
     __SYSTEM_FLOWS__: [],
     __SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__: [],
   };
@@ -82,6 +84,14 @@ export function getQuickTexts(appData: AppData): QuickText[] {
     appData.__SYSTEM_QUICK_TEXTS__ = [];
   }
   return appData.__SYSTEM_QUICK_TEXTS__;
+}
+
+export function getQuickTextGroups(appData: AppData): QuickTextGroup[] {
+  if (!appData.__SYSTEM_QUICK_TEXT_GROUPS__) {
+    appData.__SYSTEM_QUICK_TEXT_GROUPS__ = [];
+  }
+
+  return appData.__SYSTEM_QUICK_TEXT_GROUPS__;
 }
 
 export function getFlows(appData: AppData): Flow[] {
@@ -192,7 +202,48 @@ export function normalizeItems(value: unknown): Item[] {
     .filter((entry): entry is Item => entry !== null);
 }
 
-function normalizeQuickText(value: unknown, fallbackId: string): QuickText | null {
+function normalizeQuickTextGroup(value: unknown, fallbackIndex: number): QuickTextGroup | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<QuickTextGroup>;
+  const now = new Date().toISOString();
+
+  return {
+    id: typeof candidate.id === "string" && candidate.id.trim().length > 0
+      ? candidate.id
+      : `quick-text-group-${fallbackIndex}`,
+    name: typeof candidate.name === "string" && candidate.name.trim().length > 0
+      ? candidate.name
+      : "Sin nombre",
+    description: typeof candidate.description === "string"
+      ? candidate.description
+      : "",
+    sort_order: Number.isFinite(Number(candidate.sort_order))
+      ? Number(candidate.sort_order)
+      : fallbackIndex,
+    created_at: typeof candidate.created_at === "string" && candidate.created_at.trim().length > 0
+      ? candidate.created_at
+      : now,
+    updated_at: typeof candidate.updated_at === "string" && candidate.updated_at.trim().length > 0
+      ? candidate.updated_at
+      : now,
+  };
+}
+
+export function normalizeQuickTextGroups(value: unknown): QuickTextGroup[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry, index) => normalizeQuickTextGroup(entry, index + 1))
+    .filter((entry): entry is QuickTextGroup => entry !== null)
+    .sort((left, right) => left.sort_order - right.sort_order);
+}
+
+function normalizeQuickText(value: unknown, fallbackIndex: number): QuickText | null {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -202,9 +253,15 @@ function normalizeQuickText(value: unknown, fallbackId: string): QuickText | nul
   return {
     id: typeof candidate.id === "string" && candidate.id.trim().length > 0
       ? candidate.id
-      : fallbackId,
+      : `quick-text-${fallbackIndex}`,
     title: typeof candidate.title === "string" ? candidate.title : "",
     content: typeof candidate.content === "string" ? candidate.content : "",
+    group_id: typeof candidate.group_id === "string" && candidate.group_id.trim().length > 0
+      ? candidate.group_id
+      : null,
+    sort_order: Number.isFinite(Number(candidate.sort_order))
+      ? Number(candidate.sort_order)
+      : fallbackIndex,
   };
 }
 
@@ -214,7 +271,7 @@ export function normalizeQuickTexts(value: unknown): QuickText[] {
   }
 
   return value
-    .map((entry, index) => normalizeQuickText(entry, `quick-text-${index + 1}`))
+    .map((entry, index) => normalizeQuickText(entry, index + 1))
     .filter((entry): entry is QuickText => entry !== null);
 }
 
@@ -383,6 +440,9 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   normalized.__SYSTEM_TASKS__ = normalizeItems(getTasks(normalized));
   const tasks = getTasks(normalized);
   normalized.__SYSTEM_QUICK_TEXTS__ = normalizeQuickTexts(getQuickTexts(normalized));
+  normalized.__SYSTEM_QUICK_TEXT_GROUPS__ = normalizeQuickTextGroups(
+    (normalized as Partial<AppData>).__SYSTEM_QUICK_TEXT_GROUPS__,
+  );
   normalized.__SYSTEM_FLOWS__ = getFlows(normalized)
     .map((flow, index) => normalizeFlow(flow, `flow-${index + 1}`))
     .filter((flow): flow is Flow => flow !== null);
@@ -433,6 +493,15 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
       .filter((item) => item.type === "note")
       .map((item) => item.id),
   );
+  const validQuickTextGroupIds = new Set(
+    normalized.__SYSTEM_QUICK_TEXT_GROUPS__.map((group) => group.id),
+  );
+
+  for (const quickText of normalized.__SYSTEM_QUICK_TEXTS__) {
+    if (quickText.group_id && !validQuickTextGroupIds.has(quickText.group_id)) {
+      quickText.group_id = null;
+    }
+  }
 
   normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ =
     normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__.filter((noteId) =>

@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Instant;
 
+use chrono::Utc;
 use serde_json::{json, Map, Value};
 use tauri::{command, State};
 use uuid::Uuid;
@@ -9,13 +10,14 @@ use uuid::Uuid;
 use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
     AppData, Category, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
-    QuickText, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
+    QuickText, QuickTextGroup, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
 };
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
 const FLOWS_KEY: &str = "__SYSTEM_FLOWS__";
 const GLOBAL_FLOW_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__";
 const QUICK_TEXTS_KEY: &str = "__SYSTEM_QUICK_TEXTS__";
+const QUICK_TEXT_GROUPS_KEY: &str = "__SYSTEM_QUICK_TEXT_GROUPS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
 const TASKS_KEY: &str = "__SYSTEM_TASKS__";
 
@@ -280,6 +282,13 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             Value::Array(Vec::new())
         }
     };
+    let quick_text_groups_value = match root.remove(QUICK_TEXT_GROUPS_KEY) {
+        Some(value) => value,
+        None => {
+            changed = true;
+            Value::Array(Vec::new())
+        }
+    };
     let flows_value = match root.remove(FLOWS_KEY) {
         Some(value) => value,
         None => {
@@ -300,7 +309,8 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
 
     let mut categories = parse_categories(categories_value, &mut changed);
     let mut flows = parse_flows(flows_value, &mut changed);
-    let quick_texts = parse_quick_texts(quick_texts_value, &mut changed);
+    let quick_text_groups = parse_quick_text_groups(quick_text_groups_value, &mut changed);
+    let mut quick_texts = parse_quick_texts(quick_texts_value, &mut changed);
 
     if !categories.contains_key(GENERAL_CATEGORY_ID) {
         categories.insert(
@@ -356,6 +366,21 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         .filter(|item| matches!(item.item_type, ItemType::Note))
         .map(|item| item.id.clone())
         .collect();
+    let valid_quick_text_group_ids: HashSet<String> = quick_text_groups
+        .iter()
+        .map(|group| group.id.clone())
+        .collect();
+
+    for quick_text in &mut quick_texts {
+        if quick_text
+            .group_id
+            .as_ref()
+            .is_some_and(|group_id| !valid_quick_text_group_ids.contains(group_id))
+        {
+            quick_text.group_id = None;
+            changed = true;
+        }
+    }
 
     for flow in &mut flows {
         if !valid_category_ids.contains(&flow.category_id) {
@@ -391,6 +416,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             categories,
             tasks,
             quick_texts,
+            quick_text_groups,
             flows,
             global_flow_linked_note_ids,
         },
@@ -554,8 +580,25 @@ fn parse_quick_texts(value: Value, changed: &mut bool) -> Vec<QuickText> {
 
     entries
         .into_iter()
-        .map(|entry| quick_text_from_value(entry, changed))
+        .enumerate()
+        .map(|(index, entry)| quick_text_from_value(entry, index as i32 + 1, changed))
         .collect()
+}
+
+fn parse_quick_text_groups(value: Value, changed: &mut bool) -> Vec<QuickTextGroup> {
+    let Value::Array(entries) = value else {
+        *changed = true;
+        return Vec::new();
+    };
+
+    let mut groups: Vec<QuickTextGroup> = entries
+        .into_iter()
+        .enumerate()
+        .map(|(index, entry)| quick_text_group_from_value(entry, index as i32 + 1, changed))
+        .collect();
+
+    groups.sort_by_key(|group| group.sort_order);
+    groups
 }
 
 fn parse_flows(value: Value, changed: &mut bool) -> Vec<Flow> {
@@ -868,17 +911,20 @@ fn item_image_from_value(value: Value, changed: &mut bool) -> ItemImage {
     }
 }
 
-fn quick_text_from_value(value: Value, changed: &mut bool) -> QuickText {
+fn quick_text_from_value(value: Value, fallback_index: i32, changed: &mut bool) -> QuickText {
     let Value::Object(mut map) = value else {
         *changed = true;
         return QuickText {
             id: Uuid::new_v4().to_string(),
             title: String::new(),
             content: String::new(),
+            group_id: None,
+            sort_order: fallback_index,
         };
     };
 
     let id = string_value(map.remove("id"), "", changed);
+    let group_id = string_value(map.remove("group_id"), "", changed);
 
     QuickText {
         id: if id.is_empty() {
@@ -889,6 +935,66 @@ fn quick_text_from_value(value: Value, changed: &mut bool) -> QuickText {
         },
         title: string_value(map.remove("title"), "", changed),
         content: string_value(map.remove("content"), "", changed),
+        group_id: if group_id.trim().is_empty() {
+            None
+        } else {
+            Some(group_id)
+        },
+        sort_order: i32_value(map.remove("sort_order"), fallback_index, changed),
+    }
+}
+
+fn quick_text_group_from_value(
+    value: Value,
+    fallback_index: i32,
+    changed: &mut bool,
+) -> QuickTextGroup {
+    let Value::Object(mut map) = value else {
+        *changed = true;
+        let now = Utc::now().to_rfc3339();
+        return QuickTextGroup {
+            id: format!("quick-text-group-{fallback_index}"),
+            name: "Sin nombre".to_string(),
+            description: String::new(),
+            sort_order: fallback_index,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+    };
+
+    let id = string_value(map.remove("id"), "", changed);
+    let name = string_value(map.remove("name"), "", changed);
+    let created_at = string_value(map.remove("created_at"), "", changed);
+    let updated_at = string_value(map.remove("updated_at"), "", changed);
+    let now = Utc::now().to_rfc3339();
+
+    QuickTextGroup {
+        id: if id.trim().is_empty() {
+            *changed = true;
+            format!("quick-text-group-{fallback_index}")
+        } else {
+            id
+        },
+        name: if name.trim().is_empty() {
+            *changed = true;
+            "Sin nombre".to_string()
+        } else {
+            name
+        },
+        description: string_value(map.remove("description"), "", changed),
+        sort_order: i32_value(map.remove("sort_order"), fallback_index, changed),
+        created_at: if created_at.trim().is_empty() {
+            *changed = true;
+            now.clone()
+        } else {
+            created_at
+        },
+        updated_at: if updated_at.trim().is_empty() {
+            *changed = true;
+            now
+        } else {
+            updated_at
+        },
     }
 }
 
@@ -1128,6 +1234,7 @@ mod tests {
                 }
             ],
             "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
             "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
         });
@@ -1171,6 +1278,7 @@ mod tests {
             },
             "__SYSTEM_TASKS__": [],
             "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
             "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
         });
@@ -1205,6 +1313,7 @@ mod tests {
             },
             "__SYSTEM_TASKS__": [],
             "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
             "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
         });
@@ -1236,6 +1345,7 @@ mod tests {
                     "content": "Hola,\nCarlos"
                 }
             ],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
             "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
         });
@@ -1275,6 +1385,7 @@ mod tests {
                 }
             ],
             "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [
                 {
                     "id": "flow_1",
