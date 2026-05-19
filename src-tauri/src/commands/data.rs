@@ -372,14 +372,15 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         .collect();
 
     for quick_text in &mut quick_texts {
-        if quick_text
-            .group_id
-            .as_ref()
-            .is_some_and(|group_id| !valid_quick_text_group_ids.contains(group_id))
-        {
-            quick_text.group_id = None;
+        let original_len = quick_text.group_ids.len();
+        quick_text
+            .group_ids
+            .retain(|group_id| valid_quick_text_group_ids.contains(group_id));
+        if quick_text.group_ids.len() != original_len {
             changed = true;
         }
+
+        sync_legacy_quick_text_group_id(quick_text, &mut changed);
     }
 
     for flow in &mut flows {
@@ -832,6 +833,54 @@ fn dedupe_string_values(values: Vec<String>, changed: &mut bool) -> Vec<String> 
     deduped
 }
 
+fn normalize_quick_text_group_ids(
+    group_ids_value: Option<Value>,
+    legacy_group_id: Option<String>,
+    changed: &mut bool,
+) -> Vec<String> {
+    let mut group_ids = Vec::new();
+
+    match group_ids_value {
+        Some(Value::Array(values)) => {
+            for value in values {
+                match value {
+                    Value::String(entry) => {
+                        let trimmed_entry = entry.trim();
+                        if trimmed_entry.is_empty() {
+                            *changed = true;
+                            continue;
+                        }
+
+                        group_ids.push(trimmed_entry.to_string());
+                    }
+                    _ => *changed = true,
+                }
+            }
+        }
+        Some(_) => *changed = true,
+        None => {}
+    }
+
+    if let Some(group_id) = legacy_group_id {
+        let trimmed_group_id = group_id.trim();
+        if trimmed_group_id.is_empty() {
+            *changed = true;
+        } else {
+            group_ids.push(trimmed_group_id.to_string());
+        }
+    }
+
+    dedupe_string_values(group_ids, changed)
+}
+
+fn sync_legacy_quick_text_group_id(quick_text: &mut QuickText, changed: &mut bool) {
+    let next_group_id = quick_text.group_ids.first().cloned();
+    if quick_text.group_id != next_group_id {
+        quick_text.group_id = next_group_id;
+        *changed = true;
+    }
+}
+
 fn filter_known_note_ids(
     mut note_ids: Vec<String>,
     valid_note_ids: &HashSet<String>,
@@ -918,6 +967,7 @@ fn quick_text_from_value(value: Value, fallback_index: i32, changed: &mut bool) 
             id: Uuid::new_v4().to_string(),
             title: String::new(),
             content: String::new(),
+            group_ids: Vec::new(),
             group_id: None,
             sort_order: fallback_index,
         };
@@ -925,8 +975,7 @@ fn quick_text_from_value(value: Value, fallback_index: i32, changed: &mut bool) 
 
     let id = string_value(map.remove("id"), "", changed);
     let group_id = string_value(map.remove("group_id"), "", changed);
-
-    QuickText {
+    let mut quick_text = QuickText {
         id: if id.is_empty() {
             *changed = true;
             Uuid::new_v4().to_string()
@@ -935,13 +984,21 @@ fn quick_text_from_value(value: Value, fallback_index: i32, changed: &mut bool) 
         },
         title: string_value(map.remove("title"), "", changed),
         content: string_value(map.remove("content"), "", changed),
-        group_id: if group_id.trim().is_empty() {
-            None
-        } else {
-            Some(group_id)
-        },
+        group_ids: normalize_quick_text_group_ids(
+            map.remove("group_ids"),
+            if group_id.trim().is_empty() {
+                None
+            } else {
+                Some(group_id)
+            },
+            changed,
+        ),
+        group_id: None,
         sort_order: i32_value(map.remove("sort_order"), fallback_index, changed),
-    }
+    };
+
+    sync_legacy_quick_text_group_id(&mut quick_text, changed);
+    quick_text
 }
 
 fn quick_text_group_from_value(
@@ -1357,7 +1414,111 @@ mod tests {
         assert_eq!(data.quick_texts[0].id, "qt_1");
         assert_eq!(data.quick_texts[0].title, "Firma");
         assert_eq!(data.quick_texts[0].content, "Hola,\nCarlos");
+        assert!(data.quick_texts[0].group_ids.is_empty());
+        assert_eq!(data.quick_texts[0].group_id, None);
         assert!(data.flows.is_empty());
+    }
+
+    #[test]
+    fn normalize_data_migrates_legacy_quick_text_group_id_to_group_ids() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [
+                {
+                    "id": "group_a",
+                    "name": "Grupo A",
+                    "description": "",
+                    "sort_order": 1,
+                    "created_at": "2026-05-18T00:00:00.000Z",
+                    "updated_at": "2026-05-18T00:00:00.000Z"
+                }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [
+                {
+                    "id": "qt_legacy",
+                    "title": "Firma",
+                    "content": "Hola",
+                    "group_id": "group_a",
+                    "sort_order": 1
+                }
+            ],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(changed);
+        assert_eq!(data.quick_texts[0].group_ids, vec!["group_a".to_string()]);
+        assert_eq!(data.quick_texts[0].group_id, Some("group_a".to_string()));
+    }
+
+    #[test]
+    fn normalize_data_filters_and_dedupes_quick_text_group_ids() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [
+                {
+                    "id": "group_a",
+                    "name": "Grupo A",
+                    "description": "",
+                    "sort_order": 1,
+                    "created_at": "2026-05-18T00:00:00.000Z",
+                    "updated_at": "2026-05-18T00:00:00.000Z"
+                },
+                {
+                    "id": "group_b",
+                    "name": "Grupo B",
+                    "description": "",
+                    "sort_order": 2,
+                    "created_at": "2026-05-18T00:00:00.000Z",
+                    "updated_at": "2026-05-18T00:00:00.000Z"
+                }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [
+                {
+                    "id": "qt_multi",
+                    "title": "Firma",
+                    "content": "Hola",
+                    "group_ids": ["group_a", "group_b", "group_a", "missing_group"],
+                    "group_id": "group_b",
+                    "sort_order": 1
+                }
+            ],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(changed);
+        assert_eq!(
+            data.quick_texts[0].group_ids,
+            vec!["group_a".to_string(), "group_b".to_string()]
+        );
+        assert_eq!(data.quick_texts[0].group_id, Some("group_a".to_string()));
     }
 
     #[test]

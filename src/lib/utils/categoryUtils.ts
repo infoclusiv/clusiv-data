@@ -243,6 +243,53 @@ export function normalizeQuickTextGroups(value: unknown): QuickTextGroup[] {
     .sort((left, right) => left.sort_order - right.sort_order);
 }
 
+export function normalizeQuickTextGroupIds(value: {
+  group_ids?: unknown;
+  group_id?: unknown;
+}): string[] {
+  const groupIds: string[] = [];
+
+  if (Array.isArray(value.group_ids)) {
+    for (const entry of value.group_ids) {
+      if (typeof entry !== "string") {
+        continue;
+      }
+
+      const trimmedEntry = entry.trim();
+      if (trimmedEntry.length === 0 || groupIds.includes(trimmedEntry)) {
+        continue;
+      }
+
+      groupIds.push(trimmedEntry);
+    }
+  }
+
+  if (typeof value.group_id === "string") {
+    const trimmedGroupId = value.group_id.trim();
+    if (trimmedGroupId.length > 0 && !groupIds.includes(trimmedGroupId)) {
+      groupIds.push(trimmedGroupId);
+    }
+  }
+
+  return groupIds;
+}
+
+export function syncLegacyQuickTextGroupId<T extends {
+  group_ids: string[];
+  group_id: string | null;
+}>(quickText: T): T {
+  quickText.group_id = quickText.group_ids[0] ?? null;
+  return quickText;
+}
+
+export function getEffectiveQuickTextGroupIds(
+  quickText: Pick<QuickText, "group_ids" | "group_id">,
+  validGroupIds?: Set<string>,
+): string[] {
+  const groupIds = normalizeQuickTextGroupIds(quickText);
+  return validGroupIds ? groupIds.filter((groupId) => validGroupIds.has(groupId)) : groupIds;
+}
+
 function normalizeQuickText(value: unknown, fallbackIndex: number): QuickText | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -250,19 +297,18 @@ function normalizeQuickText(value: unknown, fallbackIndex: number): QuickText | 
 
   const candidate = value as Partial<QuickText>;
 
-  return {
+  return syncLegacyQuickTextGroupId({
     id: typeof candidate.id === "string" && candidate.id.trim().length > 0
       ? candidate.id
       : `quick-text-${fallbackIndex}`,
     title: typeof candidate.title === "string" ? candidate.title : "",
     content: typeof candidate.content === "string" ? candidate.content : "",
-    group_id: typeof candidate.group_id === "string" && candidate.group_id.trim().length > 0
-      ? candidate.group_id
-      : null,
+    group_ids: normalizeQuickTextGroupIds(candidate),
+    group_id: null,
     sort_order: Number.isFinite(Number(candidate.sort_order))
       ? Number(candidate.sort_order)
       : fallbackIndex,
-  };
+  });
 }
 
 export function normalizeQuickTexts(value: unknown): QuickText[] {
@@ -498,9 +544,9 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   );
 
   for (const quickText of normalized.__SYSTEM_QUICK_TEXTS__) {
-    if (quickText.group_id && !validQuickTextGroupIds.has(quickText.group_id)) {
-      quickText.group_id = null;
-    }
+    quickText.group_ids = normalizeQuickTextGroupIds(quickText)
+      .filter((groupId) => validQuickTextGroupIds.has(groupId));
+    syncLegacyQuickTextGroupId(quickText);
   }
 
   normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ =

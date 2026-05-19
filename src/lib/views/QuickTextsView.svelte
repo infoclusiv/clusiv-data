@@ -12,6 +12,7 @@
     appState,
     deleteQuickText,
     deleteQuickTextGroup,
+    moveQuickTextGroup,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { getQuickTextGroups, getQuickTexts } from "$lib/utils/categoryUtils";
@@ -59,6 +60,27 @@
     showQuickTextGroupDialog = true;
   }
 
+  async function handleMoveQuickTextGroup(
+    group: QuickTextGroup,
+    direction: "up" | "down",
+  ): Promise<void> {
+    try {
+      await moveQuickTextGroup(group.id, direction);
+      showSnackbar(
+        direction === "up"
+          ? "Grupo movido hacia arriba."
+          : "Grupo movido hacia abajo.",
+        "success",
+        1800,
+      );
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo mover el grupo.",
+        "error",
+      );
+    }
+  }
+
   async function handleCopy(quickText: QuickText): Promise<void> {
     try {
       await navigator.clipboard.writeText(quickText.content);
@@ -97,7 +119,7 @@
     try {
       await deleteQuickTextGroup(pendingDeleteQuickTextGroupId);
       showSnackbar(
-        "Grupo eliminado. Sus textos pasaron a Textos sin grupo.",
+        "Grupo eliminado. Sus textos conservaron sus otros grupos o pasaron a Textos sin grupo.",
         "success",
       );
     } catch (error) {
@@ -148,6 +170,7 @@
           ondelete={(quickText) => (pendingDeleteQuickTextId = quickText.id)}
           oneditgroup={openEditQuickTextGroup}
           ondeletegroup={(group) => (pendingDeleteQuickTextGroupId = group.id)}
+          onmovegroup={(group, direction) => void handleMoveQuickTextGroup(group, direction)}
         />
       {:else}
         <QuickTextsListView
@@ -207,7 +230,7 @@
   <ConfirmDialog
     open={pendingDeleteQuickTextGroupId !== null}
     title="Eliminar grupo"
-    message="¿Quieres eliminar este grupo? Sus textos no se borrarán; pasarán a Textos sin grupo."
+    message="¿Quieres eliminar este grupo? Sus textos no se borrarán; conservarán sus otros grupos o pasarán a Textos sin grupo."
     confirmLabel="Sí, eliminar grupo"
     oncancel={() => (pendingDeleteQuickTextGroupId = null)}
     onconfirm={() => void handleDeleteQuickTextGroup()}

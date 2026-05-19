@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Folder, Pencil, Trash2 } from "lucide-svelte";
+  import { ArrowDown, ArrowUp, Folder, Pencil, Trash2 } from "lucide-svelte";
 
   import QuickTextRow from "$lib/components/quick-texts/QuickTextRow.svelte";
   import type { QuickText, QuickTextGroup } from "$lib/store/types";
@@ -13,6 +13,9 @@
     ondelete: (quickText: QuickText) => void;
     oneditgroup?: (group: QuickTextGroup) => void;
     ondeletegroup?: (group: QuickTextGroup) => void;
+    onmovegroup?: (group: QuickTextGroup, direction: "up" | "down") => void;
+    canMoveUp?: boolean;
+    canMoveDown?: boolean;
   }
 
   let {
@@ -24,12 +27,16 @@
     ondelete,
     oneditgroup,
     ondeletegroup,
+    onmovegroup,
+    canMoveUp = false,
+    canMoveDown = false,
   }: Props = $props();
 
   const heading = $derived(group?.name ?? "Textos sin grupo");
   const description = $derived(group?.description?.trim() || "Textos no asignados a ningún grupo");
   const canEditGroup = $derived(!virtual && group !== null && oneditgroup !== undefined);
   const canDeleteGroup = $derived(!virtual && group !== null && ondeletegroup !== undefined);
+  const canMoveGroup = $derived(!virtual && group !== null && onmovegroup !== undefined);
 </script>
 
 <section class="card overflow-hidden">
@@ -53,8 +60,36 @@
       </div>
     </div>
 
-    {#if canEditGroup || canDeleteGroup}
+    {#if canMoveGroup || canEditGroup || canDeleteGroup}
       <div class="flex shrink-0 items-center gap-2">
+        {#if canMoveGroup && group}
+          <div class="flex items-center gap-1">
+            <button
+              class="btn-ghost px-3 py-2"
+              type="button"
+              onclick={() => onmovegroup?.(group, "up")}
+              disabled={!canMoveUp}
+              title="Mover grupo hacia arriba"
+              aria-label="Mover grupo hacia arriba"
+            >
+              <ArrowUp size={16} />
+              <span>Subir</span>
+            </button>
+
+            <button
+              class="btn-ghost px-3 py-2"
+              type="button"
+              onclick={() => onmovegroup?.(group, "down")}
+              disabled={!canMoveDown}
+              title="Mover grupo hacia abajo"
+              aria-label="Mover grupo hacia abajo"
+            >
+              <ArrowDown size={16} />
+              <span>Bajar</span>
+            </button>
+          </div>
+        {/if}
+
         {#if canEditGroup && group}
           <button
             class="btn-ghost px-3 py-2"

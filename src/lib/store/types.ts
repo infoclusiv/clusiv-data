@@ -36,6 +36,8 @@ export interface QuickText {
   id: string;
   title: string;
   content: string;
+  group_ids: string[];
+  // Legacy compatibility field. Prefer group_ids for new logic.
   group_id: string | null;
   sort_order: number;
 }
@@ -181,6 +183,7 @@ export interface ItemFormInput {
 export interface QuickTextFormInput {
   title: string;
   content: string;
+  group_ids?: string[];
   group_id?: string | null;
 }
 

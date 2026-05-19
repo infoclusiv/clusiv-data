@@ -1,6 +1,7 @@
 <script lang="ts">
   import QuickTextRow from "$lib/components/quick-texts/QuickTextRow.svelte";
   import type { QuickText, QuickTextGroup } from "$lib/store/types";
+  import { getEffectiveQuickTextGroupIds } from "$lib/utils/categoryUtils";
 
   interface Props {
     groups: QuickTextGroup[];
@@ -29,8 +30,14 @@
     return quickTexts
       .slice()
       .sort((left, right) => {
-        const leftOrder = left.group_id ? (groupOrder.get(left.group_id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
-        const rightOrder = right.group_id ? (groupOrder.get(right.group_id) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+        const leftGroupIds = getEffectiveQuickTextGroupIds(left);
+        const rightGroupIds = getEffectiveQuickTextGroupIds(right);
+        const leftOrder = leftGroupIds.length > 0
+          ? (groupOrder.get(leftGroupIds[0]) ?? Number.MAX_SAFE_INTEGER)
+          : Number.MAX_SAFE_INTEGER;
+        const rightOrder = rightGroupIds.length > 0
+          ? (groupOrder.get(rightGroupIds[0]) ?? Number.MAX_SAFE_INTEGER)
+          : Number.MAX_SAFE_INTEGER;
 
         if (leftOrder !== rightOrder) {
           return leftOrder - rightOrder;
@@ -42,10 +49,18 @@
 
         return left.title.localeCompare(right.title);
       })
-      .map((quickText) => ({
-        quickText,
-        groupName: quickText.group_id ? (groupNames.get(quickText.group_id) ?? "Textos sin grupo") : "Textos sin grupo",
-      }));
+      .map((quickText) => {
+        const groupIds = getEffectiveQuickTextGroupIds(quickText);
+
+        return {
+          quickText,
+          groupName: groupIds.length === 0
+            ? "Textos sin grupo"
+            : groupIds
+              .map((groupId) => groupNames.get(groupId) ?? "Textos sin grupo")
+              .join(", "),
+        };
+      });
   });
 </script>
 

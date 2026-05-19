@@ -6,7 +6,7 @@ use super::{Category, Item};
 
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
-pub const SCHEMA_VERSION: u32 = 12;
+pub const SCHEMA_VERSION: u32 = 13;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct QuickText {
@@ -16,6 +16,8 @@ pub struct QuickText {
     pub title: String,
     #[serde(default)]
     pub content: String,
+    #[serde(default)]
+    pub group_ids: Vec<String>,
     #[serde(default)]
     pub group_id: Option<String>,
     #[serde(default)]
