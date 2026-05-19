@@ -21,6 +21,7 @@ import type {
   LogStatus,
   NavigationSnapshot,
   QuickTextFormInput,
+  QuickTextGroupFormInput,
   UpdateFlowInput,
 } from "$lib/store/types";
 import {
@@ -33,6 +34,7 @@ import {
   getCategoryPathIds,
   getFlatCategoryEntries,
   getItemCategoryId,
+  getQuickTextGroups,
   normalizeAppData,
   normalizeFlow,
   normalizeFlowEdge,
@@ -119,6 +121,10 @@ function countQuickTexts(appData: AppData): number {
   return appData.__SYSTEM_QUICK_TEXTS__.length;
 }
 
+function countQuickTextGroups(appData: AppData): number {
+  return appData.__SYSTEM_QUICK_TEXT_GROUPS__.length;
+}
+
 function countFlows(appData: AppData): number {
   return appData.__SYSTEM_FLOWS__.length;
 }
@@ -134,6 +140,7 @@ function getAppDataSummary(appData: AppData | null): Record<string, unknown> {
     taskCount: appData.__SYSTEM_TASKS__.length,
     linkCount: countLinks(appData),
     quickTextCount: countQuickTexts(appData),
+    quickTextGroupCount: countQuickTextGroups(appData),
     flowCount: countFlows(appData),
   };
 }
@@ -430,6 +437,43 @@ function buildDefaultFlowEdges(flowId: string): FlowEdge[] {
       `${flowId}-edge-2`,
     ) as FlowEdge,
   ];
+}
+
+function generateQuickTextGroupId(appData: AppData): string {
+  const existingIds = new Set(getQuickTextGroups(appData).map((group) => group.id));
+
+  while (true) {
+    const candidate = `quick_text_group_${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`;
+    if (!existingIds.has(candidate)) {
+      return candidate;
+    }
+  }
+}
+
+function getNextQuickTextGroupSortOrder(appData: AppData): number {
+  return getQuickTextGroups(appData).reduce(
+    (maxOrder, group) => Math.max(maxOrder, group.sort_order),
+    0,
+  ) + 1;
+}
+
+function getNextQuickTextSortOrder(appData: AppData, groupId: string | null): number {
+  return appData.__SYSTEM_QUICK_TEXTS__
+    .filter((quickText) => quickText.group_id === groupId)
+    .reduce((maxOrder, quickText) => Math.max(maxOrder, quickText.sort_order), 0) + 1;
+}
+
+function resolveQuickTextGroupId(
+  appData: AppData,
+  groupId: string | null | undefined,
+): string | null {
+  if (!groupId) {
+    return null;
+  }
+
+  return getQuickTextGroups(appData).some((group) => group.id === groupId)
+    ? groupId
+    : null;
 }
 
 function normalizeFlowDraft(flowId: string, input: CreateFlowInput | UpdateFlowInput): Flow {
@@ -2176,11 +2220,26 @@ export async function saveQuickText(
   input: QuickTextFormInput,
   editingQuickTextId: string | null = null,
 ): Promise<string> {
+  const currentData = requireAppData();
+  const existingQuickText = editingQuickTextId
+    ? currentData.__SYSTEM_QUICK_TEXTS__.find((entry) => entry.id === editingQuickTextId) ?? null
+    : null;
+  const previousGroupId = existingQuickText?.group_id ?? null;
+  const nextGroupId = resolveQuickTextGroupId(currentData, input.group_id);
+  const groupChanged = Boolean(existingQuickText) && previousGroupId !== nextGroupId;
+  const sortOrder = editingQuickTextId
+    ? (existingQuickText
+      ? (groupChanged
+        ? getNextQuickTextSortOrder(currentData, nextGroupId)
+        : existingQuickText.sort_order)
+      : 0)
+    : getNextQuickTextSortOrder(currentData, nextGroupId);
   const normalizedInput = {
     id: editingQuickTextId ?? crypto.randomUUID(),
     title: input.title.trim(),
     content: input.content.trim(),
-    group_id: input.group_id ?? null,
+    group_id: nextGroupId,
+    sort_order: sortOrder,
   };
 
   logClientEvent({
@@ -2194,6 +2253,10 @@ export async function saveQuickText(
       editingQuickTextId,
       hasTitle: normalizedInput.title.length > 0,
       contentLength: normalizedInput.content.length,
+      previousGroupId,
+      nextGroupId,
+      groupChanged,
+      sortOrder: normalizedInput.sort_order,
     },
   });
 
@@ -2207,21 +2270,26 @@ export async function saveQuickText(
           throw new Error("El texto rápido ya no existe.");
         }
 
+        const previousDraftGroupId = quickTexts[existingIndex].group_id;
+        const nextDraftGroupId = resolveQuickTextGroupId(draft, input.group_id);
+        const sortOrderForDraft = previousDraftGroupId === nextDraftGroupId
+          ? quickTexts[existingIndex].sort_order
+          : getNextQuickTextSortOrder(draft, nextDraftGroupId);
+
         quickTexts[existingIndex] = {
           ...quickTexts[existingIndex],
           ...normalizedInput,
+          group_id: nextDraftGroupId,
+          sort_order: sortOrderForDraft,
         };
         return;
       }
 
-      const nextSortOrder = quickTexts.reduce(
-        (lowestSortOrder, entry) => Math.min(lowestSortOrder, entry.sort_order),
-        0,
-      ) - 1;
-
+      const resolvedGroupId = resolveQuickTextGroupId(draft, input.group_id);
       quickTexts.unshift({
         ...normalizedInput,
-        sort_order: nextSortOrder,
+        group_id: resolvedGroupId,
+        sort_order: getNextQuickTextSortOrder(draft, resolvedGroupId),
       });
     });
 
@@ -2235,6 +2303,10 @@ export async function saveQuickText(
         quickTextId: normalizedInput.id,
         hasTitle: normalizedInput.title.length > 0,
         contentLength: normalizedInput.content.length,
+        previousGroupId,
+        nextGroupId,
+        groupChanged,
+        sortOrder: normalizedInput.sort_order,
       },
     });
 
@@ -2252,6 +2324,180 @@ export async function saveQuickText(
         editingQuickTextId,
         hasTitle: normalizedInput.title.length > 0,
         contentLength: normalizedInput.content.length,
+        previousGroupId,
+        nextGroupId,
+        groupChanged,
+        sortOrder: normalizedInput.sort_order,
+      },
+    );
+    throw error;
+  }
+}
+
+export async function saveQuickTextGroup(
+  input: QuickTextGroupFormInput,
+  editingGroupId: string | null = null,
+): Promise<string> {
+  const normalizedName = input.name.trim();
+  const normalizedDescription = input.description.trim();
+  const currentData = requireAppData();
+  const existingGroup = editingGroupId
+    ? getQuickTextGroups(currentData).find((group) => group.id === editingGroupId) ?? null
+    : null;
+  const groupId = editingGroupId ?? generateQuickTextGroupId(currentData);
+  const startedAction = editingGroupId
+    ? "update_quick_text_group_started"
+    : "create_quick_text_group_started";
+  const completedAction = editingGroupId
+    ? "update_quick_text_group_completed"
+    : "create_quick_text_group_completed";
+  const failedAction = editingGroupId
+    ? "update_quick_text_group_failed"
+    : "create_quick_text_group_failed";
+
+  logClientEvent({
+    source: "quickTextGroups",
+    action: startedAction,
+    message: editingGroupId ? "Updating quick text group." : "Creating quick text group.",
+    context: {
+      groupId,
+      editingGroupId,
+      hasName: normalizedName.length > 0,
+      hasDescription: normalizedDescription.length > 0,
+      previousName: existingGroup?.name ?? null,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      if (!normalizedName) {
+        throw new Error("El nombre del grupo es obligatorio.");
+      }
+
+      const groups = getQuickTextGroups(draft);
+      const timestamp = new Date().toISOString();
+
+      if (editingGroupId) {
+        const groupIndex = groups.findIndex((group) => group.id === editingGroupId);
+        if (groupIndex === -1) {
+          throw new Error("El grupo de textos rápidos ya no existe.");
+        }
+
+        const existingDraftGroup = groups[groupIndex];
+        groups[groupIndex] = {
+          ...existingDraftGroup,
+          id: existingDraftGroup.id,
+          name: normalizedName,
+          description: normalizedDescription,
+          created_at: existingDraftGroup.created_at,
+          updated_at: timestamp,
+        };
+        return;
+      }
+
+      groups.push({
+        id: groupId,
+        name: normalizedName,
+        description: normalizedDescription,
+        sort_order: getNextQuickTextGroupSortOrder(draft),
+        created_at: timestamp,
+        updated_at: timestamp,
+      });
+    });
+
+    logClientEvent({
+      source: "quickTextGroups",
+      action: completedAction,
+      message: editingGroupId
+        ? "Quick text group updated successfully."
+        : "Quick text group created successfully.",
+      context: {
+        groupId,
+        hasName: normalizedName.length > 0,
+        hasDescription: normalizedDescription.length > 0,
+      },
+    });
+
+    return groupId;
+  } catch (error) {
+    logClientError(
+      "quickTextGroups",
+      failedAction,
+      editingGroupId
+        ? "Failed to update quick text group."
+        : "Failed to create quick text group.",
+      error,
+      {
+        groupId,
+        editingGroupId,
+        hasName: normalizedName.length > 0,
+        hasDescription: normalizedDescription.length > 0,
+      },
+    );
+    throw error;
+  }
+}
+
+export async function deleteQuickTextGroup(groupId: string): Promise<void> {
+  const currentData = requireAppData();
+  const group = getQuickTextGroups(currentData).find((entry) => entry.id === groupId) ?? null;
+  const assignedTextCount = currentData.__SYSTEM_QUICK_TEXTS__
+    .filter((quickText) => quickText.group_id === groupId)
+    .length;
+
+  logClientEvent({
+    source: "quickTextGroups",
+    action: "delete_quick_text_group_started",
+    message: "Deleting quick text group.",
+    context: {
+      groupId,
+      name: group?.name ?? null,
+      assignedTextCount,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      const groups = getQuickTextGroups(draft);
+      const groupIndex = groups.findIndex((entry) => entry.id === groupId);
+
+      if (groupIndex === -1) {
+        throw new Error("El grupo de textos rápidos ya no existe.");
+      }
+
+      groups.splice(groupIndex, 1);
+
+      let nextUngroupedSortOrder = getNextQuickTextSortOrder(draft, null);
+      for (const quickText of draft.__SYSTEM_QUICK_TEXTS__) {
+        if (quickText.group_id !== groupId) {
+          continue;
+        }
+
+        quickText.group_id = null;
+        quickText.sort_order = nextUngroupedSortOrder;
+        nextUngroupedSortOrder += 1;
+      }
+    });
+
+    logClientEvent({
+      source: "quickTextGroups",
+      action: "delete_quick_text_group_completed",
+      message: "Quick text group deleted successfully.",
+      context: {
+        groupId,
+        assignedTextCount,
+      },
+    });
+  } catch (error) {
+    logClientError(
+      "quickTextGroups",
+      "delete_quick_text_group_failed",
+      "Failed to delete quick text group.",
+      error,
+      {
+        groupId,
+        name: group?.name ?? null,
+        assignedTextCount,
       },
     );
     throw error;
