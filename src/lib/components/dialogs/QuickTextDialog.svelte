@@ -2,26 +2,43 @@
   import Button from "$lib/components/ui/Button.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
+  import Select from "$lib/components/ui/Select.svelte";
   import { saveQuickText } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
-  import type { QuickText } from "$lib/store/types";
+  import type { QuickText, QuickTextGroup } from "$lib/store/types";
+
+  const UNGROUPED_OPTION = "__UNGROUPED__";
 
   interface Props {
     open: boolean;
     onclose: () => void;
     editingQuickText?: QuickText | null;
+    quickTextGroups?: QuickTextGroup[];
   }
 
   let {
     open,
     onclose,
     editingQuickText = null,
+    quickTextGroups = [],
   }: Props = $props();
 
   let title = $state("");
   let content = $state("");
+  let selectedGroupId = $state(UNGROUPED_OPTION);
   let contentError = $state<string | null>(null);
   let saving = $state(false);
+
+  const groupOptions = $derived([
+    { value: UNGROUPED_OPTION, label: "Textos sin grupo" },
+    ...quickTextGroups
+      .slice()
+      .sort((left, right) => left.sort_order - right.sort_order)
+      .map((group) => ({
+        value: group.id,
+        label: group.name,
+      })),
+  ]);
 
   $effect(() => {
     if (!open) {
@@ -30,6 +47,7 @@
 
     title = editingQuickText?.title ?? "";
     content = editingQuickText?.content ?? "";
+    selectedGroupId = editingQuickText?.group_id ?? UNGROUPED_OPTION;
     contentError = null;
     saving = false;
   });
@@ -55,6 +73,7 @@
         {
           title: trimmedTitle,
           content: trimmedContent,
+          group_id: selectedGroupId === UNGROUPED_OPTION ? null : selectedGroupId,
         },
         editingQuickText?.id ?? null,
       );
@@ -87,6 +106,12 @@
         bind:value={title}
         placeholder="Ejemplo: Firma, respuesta rápida, dirección..."
         autofocus={true}
+      />
+
+      <Select
+        label="Grupo"
+        bind:value={selectedGroupId}
+        options={groupOptions}
       />
 
       <Input
