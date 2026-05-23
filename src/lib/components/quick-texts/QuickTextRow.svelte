@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Pencil, Trash2 } from "lucide-svelte";
+  import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-svelte";
 
   import type { QuickText } from "$lib/store/types";
   import { getQuickTextDisplayTitle, getQuickTextPreview } from "$lib/utils/categoryUtils";
@@ -9,6 +9,13 @@
     index: number;
     groupName?: string;
     showGroupLabel?: boolean;
+    deleteTitle?: string;
+    deleteAriaLabel?: string;
+    showMoveControls?: boolean;
+    canMoveUp?: boolean;
+    canMoveDown?: boolean;
+    onmoveup?: () => void;
+    onmovedown?: () => void;
     oncopy: () => void;
     onedit: () => void;
     ondelete: () => void;
@@ -19,6 +26,13 @@
     index,
     groupName = "Textos sin grupo",
     showGroupLabel = false,
+    deleteTitle = "Borrar",
+    deleteAriaLabel = "Borrar texto rápido",
+    showMoveControls = false,
+    canMoveUp = false,
+    canMoveDown = false,
+    onmoveup,
+    onmovedown,
     oncopy,
     onedit,
     ondelete,
@@ -60,8 +74,38 @@
   </div>
 
   <div class="flex shrink-0 items-center gap-1">
+    {#if showMoveControls}
+      <button
+        class="btn-ghost p-2"
+        type="button"
+        onclick={(event) => {
+          event.stopPropagation();
+          onmoveup?.();
+        }}
+        disabled={!canMoveUp}
+        title="Mover texto hacia arriba"
+        aria-label="Mover texto hacia arriba"
+      >
+        <ArrowUp size={16} />
+      </button>
+
+      <button
+        class="btn-ghost p-2"
+        type="button"
+        onclick={(event) => {
+          event.stopPropagation();
+          onmovedown?.();
+        }}
+        disabled={!canMoveDown}
+        title="Mover texto hacia abajo"
+        aria-label="Mover texto hacia abajo"
+      >
+        <ArrowDown size={16} />
+      </button>
+    {/if}
+
     <button
-      class="btn-ghost px-3 py-2"
+      class="btn-ghost p-2"
       type="button"
       onclick={(event) => {
         event.stopPropagation();
@@ -71,18 +115,17 @@
       aria-label="Editar texto rápido"
     >
       <Pencil size={16} />
-      <span>Editar</span>
     </button>
 
     <button
-      class="btn-danger px-3 py-2"
+      class="btn-danger p-2"
       type="button"
       onclick={(event) => {
         event.stopPropagation();
         ondelete();
       }}
-      title="Borrar"
-      aria-label="Borrar texto rápido"
+      title={deleteTitle}
+      aria-label={deleteAriaLabel}
     >
       <Trash2 size={16} />
     </button>

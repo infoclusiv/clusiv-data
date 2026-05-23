@@ -381,6 +381,25 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         }
 
         sync_legacy_quick_text_group_id(quick_text, &mut changed);
+        let normalized_group_sort_orders = normalize_quick_text_group_sort_orders(
+            Some(Value::Object(
+                quick_text
+                    .group_sort_orders
+                    .iter()
+                    .map(|(group_id, sort_order)| {
+                        (group_id.clone(), Value::Number((*sort_order).into()))
+                    })
+                    .collect(),
+            )),
+            &quick_text.group_ids,
+            quick_text.sort_order,
+            &mut changed,
+        );
+
+        if quick_text.group_sort_orders != normalized_group_sort_orders {
+            quick_text.group_sort_orders = normalized_group_sort_orders;
+            changed = true;
+        }
     }
 
     for flow in &mut flows {
@@ -881,6 +900,64 @@ fn sync_legacy_quick_text_group_id(quick_text: &mut QuickText, changed: &mut boo
     }
 }
 
+fn normalize_quick_text_group_sort_orders(
+    group_sort_orders_value: Option<Value>,
+    group_ids: &[String],
+    fallback_sort_order: i32,
+    changed: &mut bool,
+) -> HashMap<String, i32> {
+    let mut parsed_group_sort_orders = HashMap::new();
+
+    match group_sort_orders_value {
+        Some(Value::Object(entries)) => {
+            for (group_id, value) in entries {
+                if !group_ids.contains(&group_id) {
+                    *changed = true;
+                    continue;
+                }
+
+                if parsed_group_sort_orders.contains_key(&group_id) {
+                    *changed = true;
+                    continue;
+                }
+
+                match value {
+                    Value::Number(number) => {
+                        if let Some(sort_order) = number.as_i64() {
+                            parsed_group_sort_orders.insert(group_id, sort_order as i32);
+                        } else if let Some(sort_order) = number.as_f64() {
+                            if sort_order.is_finite() {
+                                parsed_group_sort_orders.insert(group_id, sort_order.round() as i32);
+                                *changed = true;
+                            } else {
+                                *changed = true;
+                            }
+                        } else {
+                            *changed = true;
+                        }
+                    }
+                    _ => *changed = true,
+                }
+            }
+        }
+        Some(_) => *changed = true,
+        None => {}
+    }
+
+    let mut normalized_group_sort_orders = HashMap::new();
+    for group_id in group_ids {
+        let sort_order = parsed_group_sort_orders
+            .remove(group_id)
+            .unwrap_or_else(|| {
+                *changed = true;
+                fallback_sort_order
+            });
+        normalized_group_sort_orders.insert(group_id.clone(), sort_order);
+    }
+
+    normalized_group_sort_orders
+}
+
 fn filter_known_note_ids(
     mut note_ids: Vec<String>,
     valid_note_ids: &HashSet<String>,
@@ -970,6 +1047,7 @@ fn quick_text_from_value(value: Value, fallback_index: i32, changed: &mut bool) 
             group_ids: Vec::new(),
             group_id: None,
             sort_order: fallback_index,
+            group_sort_orders: HashMap::new(),
         };
     };
 
@@ -995,7 +1073,15 @@ fn quick_text_from_value(value: Value, fallback_index: i32, changed: &mut bool) 
         ),
         group_id: None,
         sort_order: i32_value(map.remove("sort_order"), fallback_index, changed),
+        group_sort_orders: HashMap::new(),
     };
+
+    quick_text.group_sort_orders = normalize_quick_text_group_sort_orders(
+        map.remove("group_sort_orders"),
+        &quick_text.group_ids,
+        quick_text.sort_order,
+        changed,
+    );
 
     sync_legacy_quick_text_group_id(&mut quick_text, changed);
     quick_text

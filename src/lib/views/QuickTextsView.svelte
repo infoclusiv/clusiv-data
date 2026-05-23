@@ -12,7 +12,9 @@
     appState,
     deleteQuickText,
     deleteQuickTextGroup,
+    moveQuickTextInGroup,
     moveQuickTextGroup,
+    removeQuickTextFromGroup,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { getQuickTextGroups, getQuickTexts } from "$lib/utils/categoryUtils";
@@ -27,6 +29,11 @@
   let editingQuickText = $state<QuickText | null>(null);
   let editingQuickTextGroup = $state<QuickTextGroup | null>(null);
   let pendingDeleteQuickTextId = $state<string | null>(null);
+  let pendingRemoveQuickTextFromGroup = $state<{
+    quickTextId: string;
+    groupId: string;
+    groupName: string;
+  } | null>(null);
   let pendingDeleteQuickTextGroupId = $state<string | null>(null);
 
   const quickTexts = $derived(
@@ -76,6 +83,28 @@
     } catch (error) {
       showSnackbar(
         error instanceof Error ? error.message : "No se pudo mover el grupo.",
+        "error",
+      );
+    }
+  }
+
+  async function handleMoveQuickTextInGroup(
+    quickText: QuickText,
+    group: QuickTextGroup,
+    direction: "up" | "down",
+  ): Promise<void> {
+    try {
+      await moveQuickTextInGroup(quickText.id, group.id, direction);
+      showSnackbar(
+        direction === "up"
+          ? "Texto movido hacia arriba."
+          : "Texto movido hacia abajo.",
+        "success",
+        1800,
+      );
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo mover el texto en el grupo.",
         "error",
       );
     }
@@ -131,6 +160,26 @@
       pendingDeleteQuickTextGroupId = null;
     }
   }
+
+  async function handleRemoveQuickTextFromGroup(): Promise<void> {
+    if (!pendingRemoveQuickTextFromGroup) {
+      return;
+    }
+
+    const { quickTextId, groupId, groupName } = pendingRemoveQuickTextFromGroup;
+
+    try {
+      await removeQuickTextFromGroup(quickTextId, groupId);
+      showSnackbar(`Texto quitado de ${groupName}.`, "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error ? error.message : "No se pudo quitar el texto del grupo.",
+        "error",
+      );
+    } finally {
+      pendingRemoveQuickTextFromGroup = null;
+    }
+  }
 </script>
 
 {#if appState.appData}
@@ -168,6 +217,15 @@
           oncopy={(quickText) => void handleCopy(quickText)}
           onedit={(quickText) => openEditDialog(quickText)}
           ondelete={(quickText) => (pendingDeleteQuickTextId = quickText.id)}
+          onremovefromgroup={(quickText, group) => {
+            pendingRemoveQuickTextFromGroup = {
+              quickTextId: quickText.id,
+              groupId: group.id,
+              groupName: group.name,
+            };
+          }}
+          onmovequicktextingroup={(quickText, group, direction) =>
+            void handleMoveQuickTextInGroup(quickText, group, direction)}
           oneditgroup={openEditQuickTextGroup}
           ondeletegroup={(group) => (pendingDeleteQuickTextGroupId = group.id)}
           onmovegroup={(group, direction) => void handleMoveQuickTextGroup(group, direction)}
@@ -225,6 +283,17 @@
     confirmLabel="Sí, borrar"
     oncancel={() => (pendingDeleteQuickTextId = null)}
     onconfirm={() => void handleDeleteQuickText()}
+  />
+
+  <ConfirmDialog
+    open={pendingRemoveQuickTextFromGroup !== null}
+    title="Quitar texto del grupo"
+    message={pendingRemoveQuickTextFromGroup
+      ? `¿Quieres quitar este texto de ${pendingRemoveQuickTextFromGroup.groupName}? El texto seguirá existiendo en sus otros grupos o en Textos sin grupo.`
+      : ""}
+    confirmLabel="Sí, quitar"
+    oncancel={() => (pendingRemoveQuickTextFromGroup = null)}
+    onconfirm={() => void handleRemoveQuickTextFromGroup()}
   />
 
   <ConfirmDialog

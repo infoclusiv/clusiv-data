@@ -11,6 +11,7 @@
     "check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
     "test:flow-layout": "node --experimental-strip-types src/lib/components/flows/flowLayout.test.mjs",
     "test:flow-graph": "node --experimental-strip-types --experimental-specifier-resolution=node src/lib/utils/flowGraphUtils.test.mjs",
+    "test:quick-texts": "node --experimental-strip-types src/lib/utils/quickTexts.test.mjs",
     "test:flows": "npm run test:flow-layout && npm run test:flow-graph",
     "tauri": "tauri"
   },

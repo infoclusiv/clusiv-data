@@ -40,6 +40,7 @@ export interface QuickText {
   // Legacy compatibility field. Prefer group_ids for new logic.
   group_id: string | null;
   sort_order: number;
+  group_sort_orders: Record<string, number>;
 }
 
 export interface QuickTextGroup {

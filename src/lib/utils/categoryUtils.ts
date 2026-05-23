@@ -14,11 +14,26 @@ import type {
   QuickTextGroup,
 } from "$lib/store/types";
 import {
+  getEffectiveQuickTextGroupIds,
+  getQuickTextGroupSortOrder,
+  normalizeQuickTextGroupIds,
+  normalizeQuickTextGroupSortOrders,
+  syncLegacyQuickTextGroupId,
+} from "$lib/utils/quickTextGrouping";
+import {
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
   ROOT_CATEGORY_OPTION,
   SCHEMA_VERSION,
 } from "$lib/utils/constants";
+
+export {
+  getEffectiveQuickTextGroupIds,
+  getQuickTextGroupSortOrder,
+  normalizeQuickTextGroupIds,
+  normalizeQuickTextGroupSortOrders,
+  syncLegacyQuickTextGroupId,
+} from "$lib/utils/quickTextGrouping";
 
 export function buildCategoryRecord(
   categoryId: string,
@@ -243,61 +258,13 @@ export function normalizeQuickTextGroups(value: unknown): QuickTextGroup[] {
     .sort((left, right) => left.sort_order - right.sort_order);
 }
 
-export function normalizeQuickTextGroupIds(value: {
-  group_ids?: unknown;
-  group_id?: unknown;
-}): string[] {
-  const groupIds: string[] = [];
-
-  if (Array.isArray(value.group_ids)) {
-    for (const entry of value.group_ids) {
-      if (typeof entry !== "string") {
-        continue;
-      }
-
-      const trimmedEntry = entry.trim();
-      if (trimmedEntry.length === 0 || groupIds.includes(trimmedEntry)) {
-        continue;
-      }
-
-      groupIds.push(trimmedEntry);
-    }
-  }
-
-  if (typeof value.group_id === "string") {
-    const trimmedGroupId = value.group_id.trim();
-    if (trimmedGroupId.length > 0 && !groupIds.includes(trimmedGroupId)) {
-      groupIds.push(trimmedGroupId);
-    }
-  }
-
-  return groupIds;
-}
-
-export function syncLegacyQuickTextGroupId<T extends {
-  group_ids: string[];
-  group_id: string | null;
-}>(quickText: T): T {
-  quickText.group_id = quickText.group_ids[0] ?? null;
-  return quickText;
-}
-
-export function getEffectiveQuickTextGroupIds(
-  quickText: Pick<QuickText, "group_ids" | "group_id">,
-  validGroupIds?: Set<string>,
-): string[] {
-  const groupIds = normalizeQuickTextGroupIds(quickText);
-  return validGroupIds ? groupIds.filter((groupId) => validGroupIds.has(groupId)) : groupIds;
-}
-
 function normalizeQuickText(value: unknown, fallbackIndex: number): QuickText | null {
   if (!value || typeof value !== "object") {
     return null;
   }
 
   const candidate = value as Partial<QuickText>;
-
-  return syncLegacyQuickTextGroupId({
+  const quickText: QuickText = syncLegacyQuickTextGroupId({
     id: typeof candidate.id === "string" && candidate.id.trim().length > 0
       ? candidate.id
       : `quick-text-${fallbackIndex}`,
@@ -308,7 +275,15 @@ function normalizeQuickText(value: unknown, fallbackIndex: number): QuickText | 
     sort_order: Number.isFinite(Number(candidate.sort_order))
       ? Number(candidate.sort_order)
       : fallbackIndex,
+    group_sort_orders: {},
   });
+
+  quickText.group_sort_orders = normalizeQuickTextGroupSortOrders({
+    ...quickText,
+    group_sort_orders: candidate.group_sort_orders,
+  });
+
+  return quickText;
 }
 
 export function normalizeQuickTexts(value: unknown): QuickText[] {
@@ -547,6 +522,10 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     quickText.group_ids = normalizeQuickTextGroupIds(quickText)
       .filter((groupId) => validQuickTextGroupIds.has(groupId));
     syncLegacyQuickTextGroupId(quickText);
+    quickText.group_sort_orders = normalizeQuickTextGroupSortOrders(
+      quickText,
+      validQuickTextGroupIds,
+    );
   }
 
   normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ =
