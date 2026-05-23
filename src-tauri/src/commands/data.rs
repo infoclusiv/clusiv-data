@@ -16,6 +16,7 @@ use crate::models::{
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
 const FLOWS_KEY: &str = "__SYSTEM_FLOWS__";
 const GLOBAL_FLOW_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__";
+const GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__";
 const QUICK_TEXTS_KEY: &str = "__SYSTEM_QUICK_TEXTS__";
 const QUICK_TEXT_GROUPS_KEY: &str = "__SYSTEM_QUICK_TEXT_GROUPS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
@@ -303,6 +304,14 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             Value::Array(Vec::new())
         }
     };
+    let global_quick_text_linked_note_ids_value =
+        match root.remove(GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS_KEY) {
+            Some(value) => value,
+            None => {
+                changed = true;
+                Value::Array(Vec::new())
+            }
+        };
     let tasks_value = root
         .remove(TASKS_KEY)
         .unwrap_or_else(|| Value::Array(Vec::new()));
@@ -425,6 +434,14 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         &valid_note_ids,
         &mut changed,
     );
+    let global_quick_text_linked_note_ids = filter_known_note_ids(
+        dedupe_string_values(
+            string_array_value(Some(global_quick_text_linked_note_ids_value), &mut changed),
+            &mut changed,
+        ),
+        &valid_note_ids,
+        &mut changed,
+    );
 
     if original_schema != Some(SCHEMA_VERSION as u64) {
         changed = true;
@@ -439,6 +456,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             quick_text_groups,
             flows,
             global_flow_linked_note_ids,
+            global_quick_text_linked_note_ids,
         },
         changed,
     )
@@ -1379,7 +1397,8 @@ mod tests {
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
-            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -1423,7 +1442,8 @@ mod tests {
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
-            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -1490,7 +1510,8 @@ mod tests {
             ],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
-            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -1540,7 +1561,8 @@ mod tests {
                 }
             ],
             "__SYSTEM_FLOWS__": [],
-            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": []
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -1655,7 +1677,8 @@ mod tests {
                     "updated_at": "2026-05-03T00:00:00.000Z"
                 }
             ],
-            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": ["note_1", "missing_note", "note_1"]
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": ["note_1", "missing_note", "note_1"],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
         });
 
         let (data, changed) = normalize_data(raw);
@@ -1669,6 +1692,57 @@ mod tests {
         assert_eq!(data.flows[0].nodes[0].position.x, 120);
         assert_eq!(data.flows[0].nodes[0].position.y, 80);
         assert_eq!(data.global_flow_linked_note_ids, vec!["note_1".to_string()]);
+    }
+
+    #[test]
+    fn normalize_data_filters_global_quick_text_linked_note_ids() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [
+                {
+                    "id": "note_1",
+                    "title": "Nota 1",
+                    "comment": "",
+                    "type": "note",
+                    "done": false,
+                    "category_id": "general"
+                },
+                {
+                    "id": "task_1",
+                    "title": "Tarea 1",
+                    "comment": "",
+                    "type": "task",
+                    "done": false,
+                    "category_id": "general"
+                }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": ["note_1", "task_1", "missing_note", "note_1"]
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(changed);
+        assert_eq!(
+            data.global_quick_text_linked_note_ids,
+            vec!["note_1".to_string()]
+        );
+        assert_eq!(data.tasks.len(), 2);
+        assert_eq!(data.tasks[0].id, "note_1");
+        assert_eq!(data.tasks[1].id, "task_1");
     }
 
     #[test]

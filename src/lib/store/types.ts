@@ -125,6 +125,7 @@ export interface AppData {
   __SYSTEM_QUICK_TEXT_GROUPS__: QuickTextGroup[];
   __SYSTEM_FLOWS__: Flow[];
   __SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__: string[];
+  __SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__: string[];
 }
 
 export interface LogStatus {

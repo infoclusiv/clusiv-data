@@ -68,6 +68,7 @@ export function createDefaultAppData(): AppData {
     __SYSTEM_QUICK_TEXT_GROUPS__: [],
     __SYSTEM_FLOWS__: [],
     __SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__: [],
+    __SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__: [],
   };
 }
 
@@ -470,6 +471,9 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ = normalizeLinkedNoteIds(
     (normalized as Partial<AppData>).__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__,
   );
+  normalized.__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__ = normalizeLinkedNoteIds(
+    (normalized as Partial<AppData>).__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__,
+  );
   const validCategoryIds = new Set(Object.keys(categories));
 
   const generalCategory = categories[GENERAL_CATEGORY_ID];
@@ -530,6 +534,10 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
 
   normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__ =
     normalized.__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__.filter((noteId) =>
+      validNoteIds.has(noteId)
+    );
+  normalized.__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__ =
+    normalized.__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__.filter((noteId) =>
       validNoteIds.has(noteId)
     );
 

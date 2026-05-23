@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Plus } from "lucide-svelte";
 
+  import GlobalFlowLinkedNotes from "$lib/components/flows/GlobalFlowLinkedNotes.svelte";
   import QuickTextDialog from "$lib/components/dialogs/QuickTextDialog.svelte";
   import QuickTextGroupDialog from "$lib/components/dialogs/QuickTextGroupDialog.svelte";
   import QuickTextCreateMenu from "$lib/components/quick-texts/QuickTextCreateMenu.svelte";
@@ -12,12 +13,17 @@
     appState,
     deleteQuickText,
     deleteQuickTextGroup,
+    getItemIndex,
+    linkNoteToGlobalQuickTexts,
     moveQuickTextInGroup,
     moveQuickTextGroup,
+    openItemEditor,
     removeQuickTextFromGroup,
+    unlinkNoteFromGlobalQuickTexts,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { getQuickTextGroups, getQuickTexts } from "$lib/utils/categoryUtils";
+  import { getNoteById } from "$lib/utils/noteUtils";
   import type { QuickText, QuickTextGroup } from "$lib/store/types";
 
   type QuickTextsViewMode = "grouped" | "list";
@@ -42,6 +48,26 @@
   const quickTextGroups = $derived(
     appState.appData ? getQuickTextGroups(appState.appData) : [],
   );
+  const globalQuickTextLinkedNoteIds = $derived(
+    appState.appData?.__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__ ?? [],
+  );
+
+  function openLinkedNote(noteId: string): void {
+    if (!appState.appData) {
+      return;
+    }
+
+    const note = getNoteById(appState.appData, noteId);
+
+    if (!note) {
+      return;
+    }
+
+    openItemEditor({
+      editingItem: note,
+      editingIndex: getItemIndex(note),
+    });
+  }
 
   function openNewQuickText(): void {
     editingQuickText = null;
@@ -239,6 +265,14 @@
           ondelete={(quickText) => (pendingDeleteQuickTextId = quickText.id)}
         />
       {/if}
+
+      <GlobalFlowLinkedNotes
+        appData={appState.appData}
+        linkedNoteIds={globalQuickTextLinkedNoteIds}
+        onlinknote={(noteId) => void linkNoteToGlobalQuickTexts(noteId)}
+        onunlinknote={(noteId) => void unlinkNoteFromGlobalQuickTexts(noteId)}
+        onopennote={(noteId) => openLinkedNote(noteId)}
+      />
     </div>
 
     <QuickTextCreateMenu
