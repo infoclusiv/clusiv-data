@@ -10,13 +10,15 @@ use uuid::Uuid;
 use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
     AppData, Category, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
-    QuickText, QuickTextGroup, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
+    QuickText, QuickTextGroup, DEFAULT_HOME_TEXT, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
+    SCHEMA_VERSION,
 };
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
 const FLOWS_KEY: &str = "__SYSTEM_FLOWS__";
 const GLOBAL_FLOW_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__";
 const GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__";
+const HOME_TEXT_KEY: &str = "__SYSTEM_HOME_TEXT__";
 const QUICK_TEXTS_KEY: &str = "__SYSTEM_QUICK_TEXTS__";
 const QUICK_TEXT_GROUPS_KEY: &str = "__SYSTEM_QUICK_TEXT_GROUPS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
@@ -276,6 +278,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
     let categories_value = root
         .remove(CATEGORIES_KEY)
         .unwrap_or_else(|| Value::Object(Map::new()));
+    let home_text = normalize_home_text(root.remove(HOME_TEXT_KEY), &mut changed);
     let quick_texts_value = match root.remove(QUICK_TEXTS_KEY) {
         Some(value) => value,
         None => {
@@ -450,6 +453,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
     (
         AppData {
             schema_version: SCHEMA_VERSION,
+            home_text,
             categories,
             tasks,
             quick_texts,
@@ -757,6 +761,15 @@ fn default_category_name(category_id: &str) -> String {
     } else {
         "Sin nombre".to_string()
     }
+}
+
+fn normalize_home_text(value: Option<Value>, changed: &mut bool) -> String {
+    if value.is_none() {
+        *changed = true;
+        return DEFAULT_HOME_TEXT.to_string();
+    }
+
+    string_value(value, DEFAULT_HOME_TEXT, changed)
 }
 
 fn string_value(value: Option<Value>, default: &str, changed: &mut bool) -> String {
@@ -1315,6 +1328,7 @@ mod tests {
     fn normalize_data_moves_invalid_parent_and_task_to_general() {
         let raw = json!({
             "__SCHEMA_VERSION__": 1,
+            "__SYSTEM_HOME_TEXT__": "Enfoque",
             "__SYSTEM_CATEGORIES__": {
                 "alpha": {
                     "id": "alpha",
@@ -1349,10 +1363,112 @@ mod tests {
         assert_eq!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
         assert!(!data.tasks[0].id.is_empty());
         assert!(data.tasks[0].images.is_empty());
+        assert_eq!(data.home_text, "Enfoque");
         assert!(data.quick_texts.is_empty());
         assert!(data.flows.is_empty());
         assert!(data.global_flow_linked_note_ids.is_empty());
         assert_eq!(data.schema_version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn normalize_data_defaults_missing_or_invalid_home_text() {
+        let missing_home_text = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (missing_data, missing_changed) = normalize_data(missing_home_text);
+
+        assert!(missing_changed);
+        assert_eq!(missing_data.home_text, DEFAULT_HOME_TEXT);
+
+        let invalid_home_text = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": true,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (invalid_data, invalid_changed) = normalize_data(invalid_home_text);
+
+        assert!(invalid_changed);
+        assert_eq!(invalid_data.home_text, DEFAULT_HOME_TEXT);
+    }
+
+    #[test]
+    fn normalize_data_preserves_blank_home_text() {
+        let blank_home_text = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": "",
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, changed) = normalize_data(blank_home_text);
+
+        assert!(!changed);
+        assert_eq!(data.home_text, "");
+    }
+
+    #[test]
+    fn app_data_serialization_preserves_home_text() {
+        let mut data = AppData::default_data();
+        data.home_text = "Mantente en movimiento.".to_string();
+
+        let serialized = serde_json::to_value(&data).expect("app data should serialize");
+
+        assert_eq!(
+            serialized.get("__SYSTEM_HOME_TEXT__").and_then(|value| value.as_str()),
+            Some("Mantente en movimiento.")
+        );
+
+        let deserialized: AppData =
+            serde_json::from_value(serialized).expect("app data should deserialize");
+
+        assert_eq!(deserialized.home_text, "Mantente en movimiento.");
     }
 
     #[test]

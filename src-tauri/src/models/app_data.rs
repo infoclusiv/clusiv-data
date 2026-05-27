@@ -6,7 +6,8 @@ use super::{Category, Item};
 
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
-pub const SCHEMA_VERSION: u32 = 15;
+pub const DEFAULT_HOME_TEXT: &str = "Sigue avanzando, un paso a la vez.";
+pub const SCHEMA_VERSION: u32 = 16;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct QuickText {
@@ -100,6 +101,8 @@ pub struct Flow {
 pub struct AppData {
     #[serde(rename = "__SCHEMA_VERSION__")]
     pub schema_version: u32,
+    #[serde(rename = "__SYSTEM_HOME_TEXT__", default = "default_home_text")]
+    pub home_text: String,
     #[serde(rename = "__SYSTEM_CATEGORIES__")]
     pub categories: HashMap<String, Category>,
     #[serde(rename = "__SYSTEM_TASKS__")]
@@ -114,6 +117,10 @@ pub struct AppData {
     pub global_flow_linked_note_ids: Vec<String>,
     #[serde(rename = "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__", default)]
     pub global_quick_text_linked_note_ids: Vec<String>,
+}
+
+fn default_home_text() -> String {
+    DEFAULT_HOME_TEXT.to_string()
 }
 
 impl AppData {
@@ -133,6 +140,7 @@ impl AppData {
 
         Self {
             schema_version: SCHEMA_VERSION,
+            home_text: default_home_text(),
             categories,
             tasks: Vec::new(),
             quick_texts: Vec::new(),

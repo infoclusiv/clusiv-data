@@ -16,6 +16,7 @@
     showLogs,
     showQuickTexts,
     showSearch,
+    showWelcome,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
 
@@ -79,7 +80,15 @@
   style={`width: ${appState.sidebarWidth}px`}
 >
   <div class="px-4 pb-2 pt-5">
-    <p class="px-1 text-lg font-semibold tracking-[0.18em] text-brand-700">Clusiv Data</p>
+    <button
+      type="button"
+      class="px-1 text-left text-lg font-semibold tracking-[0.18em] text-brand-700 outline-none transition hover:text-brand-800 focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-brand-300"
+      onclick={() => showWelcome()}
+      title="Ir al inicio"
+      aria-label="Ir al inicio de Clusiv Data"
+    >
+      Clusiv Data
+    </button>
   </div>
 
   <div class="px-3 pb-2">

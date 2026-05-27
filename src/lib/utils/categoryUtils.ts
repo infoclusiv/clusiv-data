@@ -21,6 +21,7 @@ import {
   syncLegacyQuickTextGroupId,
 } from "$lib/utils/quickTextGrouping";
 import {
+  DEFAULT_HOME_TEXT,
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
   ROOT_CATEGORY_OPTION,
@@ -56,6 +57,7 @@ export function buildCategoryRecord(
 export function createDefaultAppData(): AppData {
   return {
     __SCHEMA_VERSION__: SCHEMA_VERSION,
+    __SYSTEM_HOME_TEXT__: DEFAULT_HOME_TEXT,
     __SYSTEM_CATEGORIES__: {
       [GENERAL_CATEGORY_ID]: buildCategoryRecord(
         GENERAL_CATEGORY_ID,
@@ -457,6 +459,10 @@ export function getItemDisplayTitle(item: Pick<Item, "title" | "comment" | "type
 export function normalizeAppData(appData: AppData | null | undefined): AppData {
   const normalized = structuredClone(appData ?? createDefaultAppData());
   normalized.__SCHEMA_VERSION__ = SCHEMA_VERSION;
+  normalized.__SYSTEM_HOME_TEXT__ =
+    typeof normalized.__SYSTEM_HOME_TEXT__ === "string"
+      ? normalized.__SYSTEM_HOME_TEXT__
+      : DEFAULT_HOME_TEXT;
 
   const categories = getCategoryMap(normalized);
   normalized.__SYSTEM_TASKS__ = normalizeItems(getTasks(normalized));

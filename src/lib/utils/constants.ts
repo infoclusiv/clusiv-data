@@ -1,7 +1,8 @@
 export const GENERAL_CATEGORY_ID = "general";
 export const GENERAL_CATEGORY_NAME = "General";
 export const ROOT_CATEGORY_OPTION = "__ROOT_CATEGORY__";
-export const SCHEMA_VERSION = 15;
+export const DEFAULT_HOME_TEXT = "Sigue avanzando, un paso a la vez.";
+export const SCHEMA_VERSION = 16;
 
 export const ICON_KEYS = [
   "Carpeta",

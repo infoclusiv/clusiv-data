@@ -119,6 +119,7 @@ export interface ItemEditorState {
 
 export interface AppData {
   __SCHEMA_VERSION__: number;
+  __SYSTEM_HOME_TEXT__: string;
   __SYSTEM_CATEGORIES__: Record<string, Category>;
   __SYSTEM_TASKS__: Item[];
   __SYSTEM_QUICK_TEXTS__: QuickText[];

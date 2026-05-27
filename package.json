@@ -11,9 +11,10 @@
     "check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
     "test:flow-layout": "node --experimental-strip-types src/lib/components/flows/flowLayout.test.mjs",
     "test:flow-graph": "node --experimental-strip-types --experimental-specifier-resolution=node src/lib/utils/flowGraphUtils.test.mjs",
+    "test:home-text": "node --experimental-strip-types --experimental-loader ./scripts/test-alias-loader.mjs src/lib/utils/homeText.test.mjs",
     "test:linked-notes": "node --experimental-strip-types --experimental-loader ./scripts/test-alias-loader.mjs src/lib/utils/linkedNotes.test.mjs",
     "test:quick-texts": "node --experimental-strip-types src/lib/utils/quickTexts.test.mjs",
-    "test:flows": "npm run test:flow-layout && npm run test:flow-graph",
+    "test:flows": "pnpm run test:flow-layout && pnpm run test:flow-graph",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -49,6 +49,7 @@ import {
 } from "$lib/utils/categoryUtils";
 import { removeQuickTextGroupMembership } from "$lib/utils/quickTextGrouping";
 import {
+  DEFAULT_HOME_TEXT,
   GENERAL_CATEGORY_ID,
   GENERAL_CATEGORY_NAME,
 } from "$lib/utils/constants";
@@ -1556,41 +1557,18 @@ export async function initializeApp(): Promise<void> {
     // Ignore automatic backup failures to preserve first-run UX.
   }
 
-  if (getCategory(data, GENERAL_CATEGORY_ID)) {
-    selectCategory(GENERAL_CATEGORY_ID, { recordHistory: false });
-    logClientEvent({
-      source: "appState",
-      action: "initialize_app_completed",
-      message: "Application initialized with the General category selected.",
-      context: {
-        defaultCategoryId: GENERAL_CATEGORY_ID,
-        ...getAppDataSummary(data),
-      },
-    });
-    return;
-  }
-
-  const firstCategoryId = getFlatCategoryEntries(data)[0]?.[0].id ?? null;
-  if (firstCategoryId) {
-    selectCategory(firstCategoryId, { recordHistory: false });
-    logClientEvent({
-      source: "appState",
-      action: "initialize_app_completed",
-      message: "Application initialized with the first available category selected.",
-      context: {
-        defaultCategoryId: firstCategoryId,
-        ...getAppDataSummary(data),
-      },
-    });
-  } else {
-    showWelcome({ recordHistory: false });
-    logClientEvent({
-      source: "appState",
-      action: "initialize_app_completed",
-      message: "Application initialized without categories and fell back to welcome view.",
-      context: getAppDataSummary(data),
-    });
-  }
+  showWelcome({ recordHistory: false });
+  logClientEvent({
+    source: "appState",
+    action: "initialize_app_completed",
+    message: "Application initialized on the home view.",
+    context: {
+      ...getAppDataSummary(data),
+      currentView: appState.currentView,
+      currentCategoryId: appState.currentCategoryId,
+      navigationHistoryLength: appState.navigationHistory.length,
+    },
+  });
 }
 
 export async function mutateAppData(
@@ -1601,6 +1579,48 @@ export async function mutateAppData(
   const normalized = setAppData(draft);
   await persistData();
   return normalized;
+}
+
+export async function saveHomeText(text: string): Promise<void> {
+  const normalizedText = text;
+
+  logClientEvent({
+    source: "home",
+    action: "save_home_text_started",
+    message: "Saving home text.",
+    context: {
+      hasText: normalizedText.trim().length > 0,
+      textLength: normalizedText.length,
+    },
+  });
+
+  try {
+    await mutateAppData((draft) => {
+      draft.__SYSTEM_HOME_TEXT__ = normalizedText;
+    });
+
+    logClientEvent({
+      source: "home",
+      action: "save_home_text_completed",
+      message: "Home text saved successfully.",
+      context: {
+        hasText: normalizedText.trim().length > 0,
+        textLength: normalizedText.length,
+      },
+    });
+  } catch (error) {
+    logClientError(
+      "home",
+      "save_home_text_failed",
+      "Failed to save home text.",
+      error,
+      {
+        hasText: normalizedText.trim().length > 0,
+        textLength: normalizedText.length,
+      },
+    );
+    throw error;
+  }
 }
 
 export async function saveCategory(
