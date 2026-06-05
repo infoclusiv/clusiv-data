@@ -1034,6 +1034,7 @@ fn link_from_value(value: Value, changed: &mut bool) -> Link {
             title: String::new(),
             url: String::new(),
             images: Vec::new(),
+            comments: String::new(),
         };
     };
 
@@ -1041,6 +1042,7 @@ fn link_from_value(value: Value, changed: &mut bool) -> Link {
         title: string_value(map.remove("title"), "", changed),
         url: string_value(map.remove("url"), "", changed),
         images: item_images_value(map.remove("images"), changed),
+        comments: string_value(map.remove("comments"), "", changed),
     }
 }
 
@@ -1302,6 +1304,7 @@ fn links_from_map(map: &Map<String, Value>, key: &str) -> Vec<Link> {
                             .unwrap_or_default()
                             .to_string(),
                         images: Vec::new(),
+                        comments: String::new(),
                     })
                 })
                 .collect()
@@ -1519,7 +1522,7 @@ mod tests {
 
         let (data, changed) = normalize_data(raw);
 
-        assert!(!changed);
+        assert!(changed);
         assert_eq!(data.tasks[0].id, "note_1");
         assert_eq!(data.tasks[0].images.len(), 1);
         assert_eq!(data.tasks[0].images[0].name, "captura.png");
@@ -1564,11 +1567,12 @@ mod tests {
 
         let (data, changed) = normalize_data(raw);
 
-        assert!(!changed);
+        assert!(changed);
         let link = &data.categories["general"].links[0];
         assert_eq!(link.images.len(), 1);
         assert_eq!(link.images[0].data_url, "data:image/png;base64,abc");
         assert_eq!(link.images[0].name, "test.png");
+        assert_eq!(link.comments, "");
     }
 
     #[test]
@@ -1600,6 +1604,48 @@ mod tests {
         let (data, _changed) = normalize_data(raw);
 
         assert!(data.categories["general"].links[0].images.is_empty());
+        assert_eq!(data.categories["general"].links[0].comments, "");
+    }
+
+    #[test]
+    fn normalize_data_preserves_link_comments_and_defaults_missing_comments() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [
+                        {
+                            "title": "With comments",
+                            "url": "https://example.com/a",
+                            "images": [],
+                            "comments": "Comentario guardado"
+                        },
+                        {
+                            "title": "Without comments",
+                            "url": "https://example.com/b",
+                            "images": []
+                        }
+                    ],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(changed);
+        assert_eq!(data.categories["general"].links[0].comments, "Comentario guardado");
+        assert_eq!(data.categories["general"].links[1].comments, "");
     }
 
     #[test]
@@ -1632,7 +1678,7 @@ mod tests {
 
         let (data, changed) = normalize_data(raw);
 
-        assert!(!changed);
+        assert!(changed);
         assert_eq!(data.quick_texts.len(), 1);
         assert_eq!(data.quick_texts[0].id, "qt_1");
         assert_eq!(data.quick_texts[0].title, "Firma");

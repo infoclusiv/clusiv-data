@@ -347,13 +347,18 @@ function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
   };
 }
 
-function buildSafeLinkLogContext(link: Pick<Link, "url" | "images">): Record<string, unknown> {
+function buildSafeLinkLogContext(
+  link: Pick<Link, "url" | "images" | "comments">,
+): Record<string, unknown> {
   const imageCount = link.images.length;
+  const commentsLength = link.comments.length;
 
   return {
     ...getUrlLogContext(link.url),
     imageCount,
     hasImages: imageCount > 0,
+    commentsLength,
+    hasComments: link.comments.trim().length > 0,
   };
 }
 
@@ -1882,6 +1887,9 @@ export async function updateLink(
   const normalizedUrl = input.url.trim();
   const normalizedTitle = input.title.trim() || normalizedUrl;
   const normalizedImages = normalizeItemImages(input.images ?? existingLink?.images ?? []);
+  const normalizedComments = typeof input.comments === "string"
+    ? input.comments
+    : existingLink?.comments ?? "";
 
   if (!normalizedUrl) {
     throw new Error("La URL es requerida.");
@@ -1902,6 +1910,7 @@ export async function updateLink(
       ...buildSafeLinkLogContext({
         url: normalizedUrl,
         images: normalizedImages,
+        comments: normalizedComments,
       }),
     },
   });
@@ -1924,6 +1933,7 @@ export async function updateLink(
               title: normalizedTitle,
               url: normalizedUrl,
               images: normalizedImages,
+              comments: normalizedComments,
             }
           : link,
       );
@@ -1941,6 +1951,7 @@ export async function updateLink(
         ...buildSafeLinkLogContext({
           url: normalizedUrl,
           images: normalizedImages,
+          comments: normalizedComments,
         }),
       },
     });
@@ -1961,6 +1972,7 @@ export async function updateLink(
         ...buildSafeLinkLogContext({
           url: normalizedUrl,
           images: normalizedImages,
+          comments: normalizedComments,
         }),
       },
     );

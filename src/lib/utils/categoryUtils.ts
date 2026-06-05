@@ -163,6 +163,7 @@ export function normalizeLink(link: LinkFormInput | unknown, _fallbackIndex: num
     title: typeof candidate.title === "string" ? candidate.title : "",
     url: typeof candidate.url === "string" ? candidate.url : "",
     images: normalizeItemImages(candidate.images),
+    comments: typeof candidate.comments === "string" ? candidate.comments : "",
   };
 }
 

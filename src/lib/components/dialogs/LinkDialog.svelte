@@ -27,6 +27,7 @@
 
   let linkTitle = $state("");
   let linkUrl = $state("");
+  let linkComments = $state("");
   let images = $state<ItemImage[]>([]);
   let selectedImageId = $state<string | null>(null);
   let urlError = $state<string | null>(null);
@@ -48,6 +49,7 @@
 
     linkTitle = editingLink?.title ?? "";
     linkUrl = editingLink?.url ?? "";
+    linkComments = editingLink?.comments ?? "";
     images = editingLink ? [...normalizeItemImages(editingLink.images)] : [];
     selectedImageId = null;
     urlError = null;
@@ -179,6 +181,7 @@
     try {
       const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
       const normalizedTitle = linkTitle.trim() || normalizedUrl;
+      const normalizedComments = linkComments;
       const nextImages = getSerializableImages();
 
       if (isEditing && editingLinkIndex !== null) {
@@ -186,6 +189,7 @@
           title: normalizedTitle,
           url: normalizedUrl,
           images: nextImages,
+          comments: normalizedComments,
         });
         showSnackbar("Enlace actualizado.", "success");
       } else {
@@ -193,6 +197,7 @@
           title: normalizedTitle,
           url: normalizedUrl,
           images: nextImages,
+          comments: normalizedComments,
         });
         showSnackbar("Enlace agregado.", "success");
       }
@@ -298,6 +303,15 @@
           </div>
         {/if}
       </section>
+
+      <Input
+        label="Comentarios"
+        bind:value={linkComments}
+        multiline={true}
+        rows={4}
+        placeholder="Agrega notas o contexto sobre este enlace..."
+        disabled={saving}
+      />
     </div>
   {/snippet}
 

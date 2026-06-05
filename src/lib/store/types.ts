@@ -24,12 +24,14 @@ export interface Link {
   title: string;
   url: string;
   images: ItemImage[];
+  comments: string;
 }
 
 export interface LinkFormInput {
   title: string;
   url: string;
   images?: ItemImage[];
+  comments?: string;
 }
 
 export interface QuickText {

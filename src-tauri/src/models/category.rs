@@ -10,6 +10,8 @@ pub struct Link {
     pub url: String,
     #[serde(default)]
     pub images: Vec<ItemImage>,
+    #[serde(default)]
+    pub comments: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
