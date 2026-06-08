@@ -102,8 +102,8 @@
   }
 </script>
 
-<section class="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
-  <div class="flex min-h-0 flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm lg:p-6">
+<section class="flow-node-editor-grid grid min-w-0 grid-cols-1 gap-4">
+  <div class="flex min-h-0 min-w-0 flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm lg:p-6">
     <div class="flex items-start justify-between gap-3">
       <div>
         <p class="section-label">Nodo seleccionado</p>
@@ -111,8 +111,8 @@
       </div>
     </div>
 
-    <div class="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(260px,420px)_minmax(0,1fr)]">
-      <div class="flex max-w-[420px] flex-col gap-1.5">
+    <div class="flow-node-editor-meta mt-5 grid grid-cols-1 gap-4">
+      <div class="flex min-w-0 max-w-[420px] flex-col gap-1.5">
         <label class="section-label" for="flow-node-title">Titulo</label>
         <input
           id="flow-node-title"
@@ -126,7 +126,7 @@
 
       <div class="flex min-w-0 flex-col gap-1.5">
         <span class="section-label">Acciones del flujo</span>
-        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div class="flow-node-editor-actions grid grid-cols-1 gap-2">
           <button
             class="btn-ghost justify-center bg-white"
             type="button"
@@ -191,7 +191,7 @@
       </p>
     {/if}
 
-    <div class="mt-5 flex min-h-0 flex-1 flex-col gap-1.5">
+    <div class="mt-5 flex min-h-0 min-w-0 flex-col gap-1.5">
       <div class="flex items-center justify-between gap-2">
         <label class="section-label" for="flow-node-description">Descripcion</label>
         <button
@@ -207,7 +207,7 @@
       </div>
       <textarea
         id="flow-node-description"
-        class="input-base min-h-[320px] flex-1 resize-none leading-7 xl:min-h-[420px]"
+        class="input-base min-h-[220px] w-full max-w-full resize-y overflow-y-auto leading-7 sm:min-h-[280px] lg:min-h-[320px]"
         placeholder="Describe con detalle que ocurre en este nodo"
         spellcheck={false}
         oninput={(event) =>
@@ -233,10 +233,10 @@
     </div>
   </div>
 
-  <aside class="flex min-h-0 flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm lg:p-6">
-    <div class="flex min-h-0 flex-1 flex-col">
+  <aside class="flex min-h-0 min-w-0 flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm lg:p-6">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <div class="flex items-start justify-between gap-3">
-        <div>
+        <div class="min-w-0">
           <p class="section-label">Notas del nodo</p>
           <p class="mt-2 text-xs text-slate-500">
             Adjunta notas ya creadas relacionadas con este nodo.
@@ -282,8 +282,8 @@
         </div>
       {/if}
 
-      <div class="mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-2">
+      <div class="mt-5 min-h-0 min-w-0 flex-1 overflow-y-auto pr-1">
+        <div class="flow-node-editor-linked-notes grid grid-cols-1 gap-3">
           {#each linkedNotes as note}
             <article class="min-h-40 rounded-[1.1rem] border border-amber-200 bg-amber-50/40 p-3">
               <div class="flex items-start justify-between gap-2">
@@ -335,7 +335,7 @@
       </div>
 
       <textarea
-        class="input-base mt-3 min-h-[120px] resize-none text-sm leading-6"
+        class="input-base mt-3 min-h-[120px] w-full max-w-full resize-y overflow-y-auto text-sm leading-6 sm:min-h-[140px]"
         placeholder="Anade comentarios breves sobre este nodo..."
         spellcheck={false}
         oninput={(event) =>
@@ -344,3 +344,31 @@
     </div>
   </aside>
 </section>
+
+<style>
+  .flow-node-editor-grid {
+    container-type: inline-size;
+  }
+
+  @container (min-width: 760px) {
+    .flow-node-editor-meta {
+      grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .flow-node-editor-actions {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @container (min-width: 1080px) {
+    .flow-node-editor-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+      align-items: start;
+    }
+
+    .flow-node-editor-linked-notes {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
