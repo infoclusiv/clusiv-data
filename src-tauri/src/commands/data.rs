@@ -415,10 +415,18 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
     }
 
     for flow in &mut flows {
-        if !valid_category_ids.contains(&flow.category_id) {
-            flow.category_id = GENERAL_CATEGORY_ID.to_string();
-            changed = true;
+        if let Some(category_id) = flow.category_id.as_ref() {
+            if !valid_category_ids.contains(category_id) {
+                flow.category_id = Some(GENERAL_CATEGORY_ID.to_string());
+                changed = true;
+            }
         }
+
+        flow.linked_note_ids = filter_known_note_ids(
+            dedupe_string_values(std::mem::take(&mut flow.linked_note_ids), &mut changed),
+            &valid_note_ids,
+            &mut changed,
+        );
 
         for node in &mut flow.nodes {
             node.linked_note_ids = filter_known_note_ids(
@@ -931,6 +939,25 @@ fn sync_legacy_quick_text_group_id(quick_text: &mut QuickText, changed: &mut boo
     }
 }
 
+fn flow_category_id_value(value: Option<Value>, changed: &mut bool) -> Option<String> {
+    match value {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) => {
+            if value.trim().is_empty() {
+                *changed = true;
+                Some(GENERAL_CATEGORY_ID.to_string())
+            } else {
+                Some(value)
+            }
+        }
+        Some(_) => {
+            *changed = true;
+            Some(GENERAL_CATEGORY_ID.to_string())
+        }
+        None => Some(GENERAL_CATEGORY_ID.to_string()),
+    }
+}
+
 fn normalize_quick_text_group_sort_orders(
     group_sort_orders_value: Option<Value>,
     group_ids: &[String],
@@ -1190,8 +1217,10 @@ fn flow_from_value(value: Value, changed: &mut bool) -> Flow {
 
     Flow {
         id: string_value(map.remove("id"), "", changed),
-        category_id: string_value(map.remove("category_id"), GENERAL_CATEGORY_ID, changed),
+        category_id: flow_category_id_value(map.remove("category_id"), changed),
         title: string_value(map.remove("title"), "", changed),
+        comments: string_value(map.remove("comments"), "", changed),
+        linked_note_ids: string_array_value(map.remove("linked_note_ids"), changed),
         nodes: flow_nodes_value(map.remove("nodes"), changed),
         edges: flow_edges_value(map.remove("edges"), changed),
         created_at: string_value(map.remove("created_at"), "", changed),
@@ -1242,6 +1271,7 @@ fn flow_node_from_value(value: Value, changed: &mut bool) -> FlowNode {
         r#type: string_value(map.remove("type"), "process", changed),
         title: string_value(map.remove("title"), "", changed),
         description: string_value(map.remove("description"), "", changed),
+        comments: string_value(map.remove("comments"), "", changed),
         linked_note_ids: string_array_value(map.remove("linked_note_ids"), changed),
         position: flow_position_from_value(map.remove("position"), changed),
     }
@@ -1822,6 +1852,8 @@ mod tests {
                     "id": "flow_1",
                     "category_id": "general",
                     "title": "Flujo 1",
+                    "comments": "Comentario del flujo",
+                    "linked_note_ids": ["note_1", "missing_note", "note_1"],
                     "description": "",
                     "status": "draft",
                     "nodes": [
@@ -1830,6 +1862,7 @@ mod tests {
                             "type": "process",
                             "title": "Paso 1",
                             "description": "",
+                            "comments": "Comentario del nodo",
                             "linked_note_ids": ["note_1", "note_1", "missing_note"],
                             "position": { "x": 120, "y": 80 }
                         }
@@ -1848,12 +1881,123 @@ mod tests {
         assert!(changed);
         assert_eq!(data.flows.len(), 1);
         assert_eq!(data.flows[0].id, "flow_1");
-        assert_eq!(data.flows[0].category_id, "general");
+        assert_eq!(data.flows[0].category_id, Some("general".to_string()));
+        assert_eq!(data.flows[0].comments, "Comentario del flujo");
+        assert_eq!(data.flows[0].linked_note_ids, vec!["note_1".to_string()]);
         assert_eq!(data.flows[0].nodes.len(), 1);
+        assert_eq!(data.flows[0].nodes[0].comments, "Comentario del nodo");
         assert_eq!(data.flows[0].nodes[0].linked_note_ids, vec!["note_1".to_string()]);
         assert_eq!(data.flows[0].nodes[0].position.x, 120);
         assert_eq!(data.flows[0].nodes[0].position.y, 80);
         assert_eq!(data.global_flow_linked_note_ids, vec!["note_1".to_string()]);
+    }
+
+    #[test]
+    fn app_data_serialization_preserves_flow_comments_and_linked_notes() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": DEFAULT_HOME_TEXT,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [
+                {
+                    "id": "note_1",
+                    "title": "Nota enlazada",
+                    "comment": "",
+                    "type": "note",
+                    "done": false,
+                    "category_id": "general"
+                }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [
+                {
+                    "id": "flow_roundtrip",
+                    "category_id": "general",
+                    "title": "Flujo con contexto",
+                    "comments": "Comentario persistente",
+                    "linked_note_ids": ["note_1"],
+                    "nodes": [
+                        {
+                            "id": "node_roundtrip",
+                            "type": "process",
+                            "title": "Paso",
+                            "description": "",
+                            "comments": "Comentario del nodo persistente",
+                            "linked_note_ids": ["note_1"],
+                            "position": { "x": 10, "y": 20 }
+                        }
+                    ],
+                    "edges": [],
+                    "created_at": "2026-01-01T00:00:00.000Z",
+                    "updated_at": "2026-01-01T00:00:00.000Z"
+                }
+            ],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, _) = normalize_data(raw);
+        let serialized = serde_json::to_value(&data).expect("app data should serialize");
+        let flow = &serialized["__SYSTEM_FLOWS__"][0];
+        let node = &flow["nodes"][0];
+
+        assert_eq!(flow["comments"].as_str(), Some("Comentario persistente"));
+        assert_eq!(flow["linked_note_ids"], json!(["note_1"]));
+        assert_eq!(flow["category_id"].as_str(), Some("general"));
+        assert_eq!(node["comments"].as_str(), Some("Comentario del nodo persistente"));
+        assert_eq!(node["linked_note_ids"], json!(["note_1"]));
+    }
+
+    #[test]
+    fn normalize_data_preserves_null_flow_category_id() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": DEFAULT_HOME_TEXT,
+            "__SYSTEM_CATEGORIES__": {
+                "general": {
+                    "id": "general",
+                    "name": "General",
+                    "parent_id": null,
+                    "icon": "Carpeta",
+                    "links": [],
+                    "notes": ""
+                }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [
+                {
+                    "id": "flow_unlinked",
+                    "category_id": null,
+                    "title": "Flujo sin categoria",
+                    "comments": "",
+                    "linked_note_ids": [],
+                    "nodes": [],
+                    "edges": [],
+                    "created_at": "2026-01-01T00:00:00.000Z",
+                    "updated_at": "2026-01-01T00:00:00.000Z"
+                }
+            ],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, changed) = normalize_data(raw);
+
+        assert!(!changed);
+        assert_eq!(data.flows.len(), 1);
+        assert_eq!(data.flows[0].category_id, None);
     }
 
     #[test]

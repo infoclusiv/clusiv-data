@@ -375,12 +375,16 @@ export function normalizeFlow(value: unknown, fallbackId: string): Flow | null {
         edge !== null && validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
       )
     : [];
+  const rawCategoryId = (candidate as { category_id?: unknown }).category_id;
+  const normalizedCategoryId = rawCategoryId === null
+    ? null
+    : typeof rawCategoryId === "string" && rawCategoryId.trim().length > 0
+      ? rawCategoryId
+      : GENERAL_CATEGORY_ID;
 
   return {
     id: flowId,
-    category_id: typeof candidate.category_id === "string" && candidate.category_id.trim().length > 0
-      ? candidate.category_id
-      : GENERAL_CATEGORY_ID,
+    category_id: normalizedCategoryId,
     title: typeof candidate.title === "string" ? candidate.title : "",
     comments: typeof candidate.comments === "string" ? candidate.comments : "",
     linked_note_ids: normalizeLinkedNoteIds(candidate.linked_note_ids),
@@ -549,7 +553,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     );
 
   for (const flow of normalized.__SYSTEM_FLOWS__) {
-    if (!flow.category_id || !validCategoryIds.has(flow.category_id)) {
+    if (flow.category_id !== null && !validCategoryIds.has(flow.category_id)) {
       flow.category_id = GENERAL_CATEGORY_ID;
     }
 
@@ -778,6 +782,33 @@ export function getFlowsForCategory(appData: AppData, categoryId: string): Flow[
   return getFlows(appData)
     .filter((flow) => flow.category_id === categoryId)
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+}
+
+export function getFlowCategoryDisplayLabel(
+  appData: AppData | null,
+  categoryId: Flow["category_id"],
+  labels: {
+    unlinked?: string;
+    missing?: string;
+  } = {},
+): string {
+  const unlinkedLabel = labels.unlinked ?? "Sin categoria";
+  const missingLabel = labels.missing ?? "Categoria no disponible";
+
+  if (categoryId === null) {
+    return unlinkedLabel;
+  }
+
+  if (!appData) {
+    return missingLabel;
+  }
+
+  const category = getCategory(appData, categoryId);
+  if (!category) {
+    return missingLabel;
+  }
+
+  return getCategoryBreadcrumb(appData, category.id);
 }
 
 export function getFlowById(appData: AppData, flowId: string | null): Flow | null {

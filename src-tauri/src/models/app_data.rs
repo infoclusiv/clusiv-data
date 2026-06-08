@@ -62,6 +62,8 @@ pub struct FlowNode {
     #[serde(default)]
     pub description: String,
     #[serde(default)]
+    pub comments: String,
+    #[serde(default)]
     pub linked_note_ids: Vec<String>,
     #[serde(default)]
     pub position: FlowPosition,
@@ -84,9 +86,13 @@ pub struct Flow {
     #[serde(default)]
     pub id: String,
     #[serde(default)]
-    pub category_id: String,
+    pub category_id: Option<String>,
     #[serde(default)]
     pub title: String,
+    #[serde(default)]
+    pub comments: String,
+    #[serde(default)]
+    pub linked_note_ids: Vec<String>,
     #[serde(default)]
     pub nodes: Vec<FlowNode>,
     #[serde(default)]

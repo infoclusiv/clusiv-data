@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { Filter, GitBranch, Search, SlidersHorizontal } from "lucide-svelte";
+  import { Filter, GitBranch, Plus, Search, SlidersHorizontal } from "lucide-svelte";
 
   import FlowCard from "$lib/components/flows/FlowCard.svelte";
+  import FlowCreateDialog from "$lib/components/dialogs/FlowCreateDialog.svelte";
   import GlobalFlowLinkedNotes from "$lib/components/flows/GlobalFlowLinkedNotes.svelte";
   import {
     appState,
@@ -12,24 +13,19 @@
     unlinkNoteFromGlobalFlows,
   } from "$lib/store/appState.svelte";
   import type { Flow } from "$lib/store/types";
-  import { GENERAL_CATEGORY_NAME } from "$lib/utils/constants";
-  import { getCategory, getCategoryBreadcrumb, getFlows } from "$lib/utils/categoryUtils";
+  import { getFlowCategoryDisplayLabel, getFlows } from "$lib/utils/categoryUtils";
   import { getNoteById } from "$lib/utils/noteUtils";
 
+  const UNLINKED_FLOW_LABEL = "Sin categoria";
+  const MISSING_FLOW_CATEGORY_LABEL = "Categoria no disponible";
   let search = $state("");
+  let showFlowCreateDialog = $state(false);
 
   function getFlowCategoryLabel(flow: Flow): string {
-    if (!appState.appData) {
-      return GENERAL_CATEGORY_NAME;
-    }
-
-    const category = getCategory(appState.appData, flow.category_id);
-
-    if (!category) {
-      return GENERAL_CATEGORY_NAME;
-    }
-
-    return getCategoryBreadcrumb(appState.appData, category.id);
+    return getFlowCategoryDisplayLabel(appState.appData, flow.category_id, {
+      unlinked: UNLINKED_FLOW_LABEL,
+      missing: MISSING_FLOW_CATEGORY_LABEL,
+    });
   }
 
   const flows = $derived.by(() => {
@@ -133,7 +129,7 @@
 
       {#if flows.length === 0}
         <div class="card border-dashed p-10 text-center text-sm text-slate-500">
-          Aun no hay flujos guardados. Crea un flujo desde la pestana Flujos dentro de una categoria.
+          Aun no hay flujos guardados. Usa el boton + para crear un flujo con o sin categoria.
         </div>
       {:else if filteredFlows.length === 0}
         <div class="card border-dashed p-10 text-center text-sm text-slate-500">
@@ -159,5 +155,20 @@
         onopennote={(noteId) => openLinkedNote(noteId)}
       />
     </div>
+
+    <button
+      class="fab"
+      onclick={() => (showFlowCreateDialog = true)}
+      title="Crear flujo"
+      aria-label="Crear flujo"
+    >
+      <Plus size={22} />
+    </button>
   </div>
+
+  <FlowCreateDialog
+    open={showFlowCreateDialog}
+    onclose={() => (showFlowCreateDialog = false)}
+    oncreated={(flowId) => openFlowEditor(flowId)}
+  />
 {/if}

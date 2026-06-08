@@ -574,6 +574,15 @@ function normalizeFlowDraft(flowId: string, input: CreateFlowInput | UpdateFlowI
   ) as Flow;
 }
 
+function resolveNextFlowCategoryId(
+  input: UpdateFlowInput,
+  currentCategoryId: Flow["category_id"],
+): Flow["category_id"] {
+  return Object.prototype.hasOwnProperty.call(input, "categoryId")
+    ? (input.categoryId ?? null)
+    : currentCategoryId;
+}
+
 function canUseLocalStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -2154,6 +2163,7 @@ export async function updateFlow(flowId: string, input: UpdateFlowInput): Promis
   }
 
   const nextTimestamp = new Date().toISOString();
+  const nextCategoryId = resolveNextFlowCategoryId(input, currentFlow.category_id);
 
   logClientEvent({
     source: "flows",
@@ -2161,7 +2171,7 @@ export async function updateFlow(flowId: string, input: UpdateFlowInput): Promis
     message: "Updating flow.",
     context: {
       flowId,
-      categoryId: input.categoryId ?? currentFlow.category_id,
+      categoryId: nextCategoryId,
       title: input.title ?? currentFlow.title,
     },
   });
@@ -2177,7 +2187,7 @@ export async function updateFlow(flowId: string, input: UpdateFlowInput): Promis
       const normalizedFlow = normalizeFlow(
         {
           ...previousFlow,
-          category_id: input.categoryId ?? previousFlow.category_id,
+          category_id: resolveNextFlowCategoryId(input, previousFlow.category_id),
           title: input.title ?? previousFlow.title,
           comments: input.comments ?? previousFlow.comments,
           linked_note_ids: input.linked_note_ids ?? previousFlow.linked_note_ids,
@@ -2213,7 +2223,7 @@ export async function updateFlow(flowId: string, input: UpdateFlowInput): Promis
       error,
       {
         flowId,
-        categoryId: input.categoryId ?? currentFlow.category_id,
+        categoryId: nextCategoryId,
         title: input.title ?? currentFlow.title,
       },
     );

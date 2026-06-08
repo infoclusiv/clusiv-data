@@ -101,7 +101,7 @@ export interface FlowEdge {
 
 export interface Flow {
   id: string;
-  category_id: string;
+  category_id: string | null;
   title: string;
   comments: string;
   linked_note_ids: string[];
@@ -218,7 +218,7 @@ export interface FlowEdgeInput {
 }
 
 export interface CreateFlowInput {
-  categoryId: string;
+  categoryId: string | null;
   title?: string;
   comments?: string;
   linked_note_ids?: string[];
@@ -227,7 +227,7 @@ export interface CreateFlowInput {
 }
 
 export interface UpdateFlowInput {
-  categoryId?: string;
+  categoryId?: string | null;
   title?: string;
   comments?: string;
   linked_note_ids?: string[];

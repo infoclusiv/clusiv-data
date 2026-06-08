@@ -21,7 +21,7 @@
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import type { Flow, FlowNode } from "$lib/store/types";
-  import { getCategory, getFlowById } from "$lib/utils/categoryUtils";
+  import { getFlowById, getFlowCategoryDisplayLabel } from "$lib/utils/categoryUtils";
   import {
     buildTwoPathNodesAndEdges,
     canOpenTwoPaths,
@@ -43,9 +43,14 @@
     appState.appData ? getFlowById(appState.appData, appState.currentFlowId) : null,
   );
 
+  const UNLINKED_FLOW_LABEL = "Sin categoria";
+  const MISSING_FLOW_CATEGORY_LABEL = "Categoria no disponible";
   const categoryName = $derived(
     appState.appData && flow
-      ? getCategory(appState.appData, flow.category_id)?.name ?? "General"
+      ? getFlowCategoryDisplayLabel(appState.appData, flow.category_id, {
+        unlinked: UNLINKED_FLOW_LABEL,
+        missing: MISSING_FLOW_CATEGORY_LABEL,
+      })
       : "General",
   );
 
