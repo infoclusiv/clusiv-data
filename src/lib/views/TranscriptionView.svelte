@@ -25,6 +25,8 @@
   let result = $state<Result | null>(null);
   let errorMessage = $state("");
   let showSettings = $state(false);
+  let detecting = $state(false);
+  let detectionMessage = $state("");
 
   const fileName = $derived(audioPath.split(/[\\/]/).pop() ?? "");
 
@@ -57,6 +59,29 @@
     }
   }
 
+  async function detectWhisperX(notify = true): Promise<void> {
+    if (detecting || running) return;
+    detecting = true;
+    try {
+      const found = await invoke<string | null>("detect_whisperx");
+      if (found) {
+        executablePath = found;
+        localStorage.setItem("clusiv-data:whisperx-executable", found);
+        detectionMessage = "Se encontró un ejecutable de WhisperX. Ya puedes probar la transcripción.";
+        errorMessage = "";
+        if (notify) showSnackbar("Instalación local de WhisperX localizada.", "success");
+      } else {
+        detectionMessage = "No se encontró automáticamente. Selecciona whisperx.exe en Scripts del entorno Conda donde lo instalaste.";
+        if (notify) showSnackbar("No se encontró WhisperX automáticamente.", "error");
+      }
+    } catch (error) {
+      detectionMessage = String(error);
+      if (notify) showSnackbar("No se pudo detectar la instalación.", "error");
+    } finally {
+      detecting = false;
+    }
+  }
+
   async function chooseWhisperX(): Promise<void> {
     try {
       const chosen = await open({
@@ -66,6 +91,7 @@
       });
       if (typeof chosen === "string") {
         executablePath = chosen;
+        detectionMessage = "Ejecutable seleccionado manualmente.";
         localStorage.setItem("clusiv-data:whisperx-executable", chosen);
       }
     } catch (error) {
@@ -124,6 +150,7 @@
 
   onMount(() => {
     executablePath = localStorage.getItem("clusiv-data:whisperx-executable") ?? "";
+    if (!executablePath) void detectWhisperX(false);
     const unlisten = getCurrentWebview().onDragDropEvent((event) => {
       if (event.payload.type === "enter" || event.payload.type === "over") {
         dragging = true;
@@ -158,11 +185,18 @@
     {#if showSettings}
       <section class="card space-y-3 p-5">
         <h2 class="font-semibold text-slate-800">Instalación local de WhisperX</h2>
-        <p class="text-sm text-slate-500">Si WhisperX está disponible en el PATH de Windows, no necesitas configurar nada. De lo contrario, selecciona el archivo whisperx.exe de tu entorno Python.</p>
+        <p class="text-sm text-slate-500">Busca automáticamente WhisperX en el PATH y en tus entornos de Miniconda, Anaconda o Python. También puedes seleccionar whisperx.exe (o python.exe) del entorno que ya utilizas.</p>
         <div class="flex gap-2">
           <input class="input-base min-w-0 flex-1" readonly value={executablePath} placeholder="Usar whisperx desde el PATH" aria-label="Ruta de WhisperX" />
-          <button class="btn-ghost border border-slate-200 bg-white" onclick={chooseWhisperX}>Examinar</button>
-          <button class="btn-ghost border border-slate-200 bg-white" onclick={() => { executablePath = ""; localStorage.removeItem("clusiv-data:whisperx-executable"); }}>Restablecer</button>
+          <button class="btn-ghost border border-slate-200 bg-white" onclick={chooseWhisperX} disabled={running}>Examinar</button>
+          <button class="btn-ghost border border-slate-200 bg-white" onclick={() => { executablePath = ""; detectionMessage = ""; localStorage.removeItem("clusiv-data:whisperx-executable"); }} disabled={running}>Restablecer</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button class="btn-ghost border border-brand-200 bg-emerald-50 text-brand-800" onclick={() => detectWhisperX()} disabled={detecting || running}>
+            {#if detecting}<LoaderCircle size={16} class="animate-spin" />{:else}<Settings2 size={16} />{/if}
+            Detectar instalación
+          </button>
+          {#if detectionMessage}<p class="text-sm text-slate-600" role="status">{detectionMessage}</p>{/if}
         </div>
       </section>
     {/if}
