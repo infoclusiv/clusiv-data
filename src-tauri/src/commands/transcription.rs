@@ -1,4 +1,5 @@
 use std::{
+    env,
     fs::{self, File},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -41,17 +42,131 @@ fn has_allowed_extension(path: &Path, allowed: &[&str]) -> bool {
         .is_some_and(|ext| allowed.iter().any(|allowed_ext| ext.eq_ignore_ascii_case(allowed_ext)))
 }
 
-fn executable_command(configured: Option<String>) -> Result<String, String> {
-    match configured.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) {
-        None => Ok("whisperx".to_owned()),
-        Some(value) => {
-            let path = Path::new(&value);
-            if !path.is_file() || !has_allowed_extension(path, &["exe"]) {
-                return Err("Selecciona el ejecutable whisperx.exe de tu instalación (no un archivo .bat).".into());
+// A Python/Conda environment is not automatically added to the PATH of a
+// desktop application. Discover existing installations without installing or
+// downloading anything.
+fn supported_executable(path: &Path) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    let name = path.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+    name.eq_ignore_ascii_case("whisperx.exe") || name.eq_ignore_ascii_case("python.exe")
+}
+
+fn environment_entry(environment: &Path) -> Option<PathBuf> {
+    let cli = environment.join("Scripts").join("whisperx.exe");
+    if cli.is_file() {
+        return Some(cli);
+    }
+
+    // Some installations have the Python package but no console-script entry.
+    let python = environment.join("python.exe");
+    let main_module = environment.join("Lib").join("site-packages").join("whisperx").join("__main__.py");
+    if python.is_file() && main_module.is_file() {
+        return Some(python);
+    }
+    None
+}
+
+fn discover_whisperx() -> Option<PathBuf> {
+    if let Some(path) = env::var_os("PATH") {
+        for directory in env::split_paths(&path) {
+            let executable = directory.join("whisperx.exe");
+            if executable.is_file() {
+                return Some(executable);
             }
-            Ok(value)
         }
     }
+
+    for key in ["CONDA_PREFIX", "VIRTUAL_ENV"] {
+        if let Some(prefix) = env::var_os(key) {
+            if let Some(executable) = environment_entry(&PathBuf::from(prefix)) {
+                return Some(executable);
+            }
+        }
+    }
+
+    let mut roots = Vec::new();
+    if let Some(user_profile) = env::var_os("USERPROFILE") {
+        let home = PathBuf::from(user_profile);
+        for base in ["miniconda3", "anaconda3", "miniforge3", "mambaforge", ".conda"] {
+            roots.push(home.join(base));
+        }
+    }
+    if let Some(program_data) = env::var_os("ProgramData") {
+        let base = PathBuf::from(program_data);
+        for name in ["miniconda3", "anaconda3"] {
+            roots.push(base.join(name));
+        }
+    }
+    for base in roots {
+        if let Some(executable) = environment_entry(&base) {
+            return Some(executable);
+        }
+        let mut environments: Vec<PathBuf> = fs::read_dir(base.join("envs"))
+            .into_iter()
+            .flat_map(|entries| entries.filter_map(Result::ok))
+            .map(|entry| entry.path())
+            .filter(|path| path.is_dir())
+            .collect();
+        // Prefer dedicated whisperx environments over arbitrary Python environments.
+        environments.sort_by_key(|path| {
+            !path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default()
+                .to_lowercase()
+                .contains("whisper")
+        });
+        for candidate in environments {
+            if let Some(executable) = environment_entry(&candidate) {
+                return Some(executable);
+            }
+        }
+    }
+    None
+}
+
+fn executable_command(configured: Option<String>) -> Result<PathBuf, String> {
+    if let Some(value) = configured.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty()) {
+        let path = PathBuf::from(value);
+        if !supported_executable(&path) {
+            return Err("Selecciona whisperx.exe o python.exe del entorno donde instalaste WhisperX. No selecciones archivos .bat.".into());
+        }
+        return Ok(path);
+    }
+    discover_whisperx().ok_or_else(|| {
+        "No se encontró WhisperX automáticamente. Abre Configuración y pulsa 'Detectar instalación' o selecciona whisperx.exe dentro de Scripts del entorno Conda donde ya funciona.".into()
+    })
+}
+
+fn prepare_python_environment(command: &mut Command, executable: &Path) {
+    let Some(parent) = executable.parent() else { return };
+    let is_scripts = parent.file_name().and_then(|s| s.to_str())
+        .is_some_and(|name| name.eq_ignore_ascii_case("Scripts"));
+    let environment = if is_scripts { parent.parent().unwrap_or(parent) } else { parent };
+    let mut paths = Vec::new();
+    if is_scripts {
+        paths.push(parent.to_path_buf());
+    } else {
+        paths.push(environment.join("Scripts"));
+    }
+    paths.push(environment.to_path_buf());
+    let conda_libraries = environment.join("Library").join("bin");
+    if conda_libraries.is_dir() {
+        paths.push(conda_libraries);
+        command.env("CONDA_PREFIX", environment);
+    }
+    if let Some(previous) = env::var_os("PATH") {
+        paths.extend(env::split_paths(&previous));
+    }
+    if let Ok(joined) = env::join_paths(paths) {
+        command.env("PATH", joined);
+    }
+}
+
+#[tauri::command]
+pub fn detect_whisperx() -> Option<String> {
+    discover_whisperx().map(|path| path.to_string_lossy().into_owned())
 }
 
 fn last_log_excerpt(path: &Path) -> String {
@@ -95,6 +210,12 @@ fn transcribe_blocking(
 
     // Never invoke cmd.exe, PowerShell or a shell. Every argument is passed separately.
     let mut command = Command::new(&executable);
+    prepare_python_environment(&mut command, &executable);
+    if executable.file_name().and_then(|s| s.to_str())
+        .is_some_and(|name| name.eq_ignore_ascii_case("python.exe"))
+    {
+        command.arg("-m").arg("whisperx");
+    }
     command
         .arg(&audio)
         .arg("--output_dir")
@@ -108,7 +229,7 @@ fn transcribe_blocking(
     }
 
     let status = command.status().map_err(|e| format!(
-        "No se pudo iniciar WhisperX ({e}). Comprueba que whisperx.exe esté en el PATH de Windows o selecciónalo en Configuración."
+        "No se pudo iniciar WhisperX ({e}). Usa Configuración para seleccionar whisperx.exe o python.exe del entorno donde WhisperX funciona."
     ))?;
     if !status.success() {
         let details = last_log_excerpt(&stderr_path);
