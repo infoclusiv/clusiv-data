@@ -47,6 +47,7 @@ pub fn run() {
             commands::logs::export_logs,
             commands::logs::open_log_directory,
             commands::shell::open_url,
+            commands::transcription::detect_whisperx,
             commands::transcription::transcribe_audio,
             commands::transcription::export_transcription_file,
             commands::transcription::open_transcription_directory,
