@@ -177,7 +177,7 @@
       </div>
 
       <button
-        class={\`flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition \${dragging ? "border-brand-600 bg-emerald-50" : "border-brand-200 bg-white/55 hover:border-brand-500 hover:bg-emerald-50/50"}\`}
+        class={`flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition ${dragging ? "border-brand-600 bg-emerald-50" : "border-brand-200 bg-white/55 hover:border-brand-500 hover:bg-emerald-50/50"}`}
         onclick={chooseAudio}
         disabled={running}
         aria-label="Seleccionar archivo de audio"
