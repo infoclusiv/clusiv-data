@@ -14,6 +14,7 @@
   import WelcomeView from "$lib/views/WelcomeView.svelte";
   import QuickTextsView from "./lib/views/QuickTextsView.svelte";
   import SearchView from "./lib/views/SearchView.svelte";
+  import TranscriptionView from "$lib/views/TranscriptionView.svelte";
 
   let ready = $state(false);
 
@@ -47,6 +48,8 @@
           <QuickTextsView />
         {:else if appState.currentView === "flows"}
           <FlowsView />
+        {:else if appState.currentView === "transcription"}
+          <TranscriptionView />
         {:else if appState.currentView === "search"}
           <SearchView />
         {:else if appState.currentView === "item-editor"}

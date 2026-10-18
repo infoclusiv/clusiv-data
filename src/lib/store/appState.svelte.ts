@@ -1497,6 +1497,17 @@ export function showQuickTexts(options: NavigationOptions = {}): void {
   });
 }
 
+export function showTranscription(options: NavigationOptions = {}): void {
+  navigate({
+    view: "transcription",
+    categoryId: appState.currentCategoryId,
+    boardMode: appState.currentBoardMode,
+    boardFilterId: null,
+    categorySection: appState.currentCategorySection,
+    flowId: null,
+  }, options);
+}
+
 export function showSearch(options: NavigationOptions = {}): void {
   navigate(
     {

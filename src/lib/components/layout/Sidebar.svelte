@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Bug, Clipboard, Download, FolderArchive, GitBranch, ListChecks, Search } from "lucide-svelte";
+  import { Bug, Clipboard, Download, FolderArchive, GitBranch, ListChecks, Mic, Search } from "lucide-svelte";
 
   import NavRail from "$lib/components/layout/NavRail.svelte";
   import {
@@ -16,6 +16,7 @@
     showLogs,
     showQuickTexts,
     showSearch,
+  showTranscription,
     showWelcome,
   } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
@@ -118,6 +119,16 @@
     >
       <Clipboard size={16} />
       Textos Rápidos
+    </button>
+  </div>
+
+  <div class="px-3 pb-2">
+    <button
+      class={`btn-ghost w-full justify-start ${appState.currentView === "transcription" ? "bg-white text-brand-800 shadow-sm ring-1 ring-brand-100" : "bg-white/65"}`}
+      onclick={() => showTranscription()}
+    >
+      <Mic size={16} />
+      Transcribir audio
     </button>
   </div>
 

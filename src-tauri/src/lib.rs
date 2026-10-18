@@ -34,6 +34,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::data::load_data,
             commands::data::save_data,
@@ -46,6 +47,10 @@ pub fn run() {
             commands::logs::export_logs,
             commands::logs::open_log_directory,
             commands::shell::open_url,
+            commands::transcription::detect_whisperx,
+            commands::transcription::transcribe_audio,
+            commands::transcription::export_transcription_file,
+            commands::transcription::open_transcription_directory,
         ])
         .run(tauri::generate_context!());
 

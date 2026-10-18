@@ -6,6 +6,7 @@ export type AppView =
   | "board"
   | "logs"
   | "backups"
+  | "transcription"
   | "quick-texts"
   | "search"
   | "flows"
