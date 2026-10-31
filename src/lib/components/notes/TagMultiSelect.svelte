@@ -14,33 +14,50 @@
   let opened = $state(false);
   let query = $state("");
   let draft = $state<string[]>([]);
+  let feedback = $state("");
+
   // Include newly-created, not-yet-saved tags so they can be unchecked again.
   const matches = $derived(normalizeNoteTags([...options, ...selected, ...draft])
     .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }))
     .filter((tag) => tag.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   const newTag = $derived(query.trim().replace(/\s+/g, " ").slice(0, 48));
-  const canCreate = $derived(allowCreate && newTag.length > 0 &&
-    ![...options, ...draft].some((tag) => tag.toLocaleLowerCase() === newTag.toLocaleLowerCase()));
+  const canCreate = $derived(allowCreate && newTag.length > 0 && draft.length < 30 &&
+    ![...options, ...selected, ...draft].some((tag) => tag.toLocaleLowerCase() === newTag.toLocaleLowerCase()));
 
   function toggleOpen(): void {
-    if (!opened) { draft = [...selected]; query = ""; }
+    if (!opened) {
+      draft = normalizeNoteTags(selected);
+      query = "";
+      feedback = "";
+    }
     opened = !opened;
   }
 
+  /** Editing notes is instant; filters retain their Apply/Cancel behavior. */
+  function changeDraft(value: string[]): void {
+    const next = normalizeNoteTags(value);
+    draft = next;
+    if (allowCreate) onchange([...next]);
+  }
+
   function toggle(tag: string): void {
-    draft = draft.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())
+    feedback = "";
+    changeDraft(draft.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())
       ? draft.filter((value) => value.toLocaleLowerCase() !== tag.toLocaleLowerCase())
-      : normalizeNoteTags([...draft, tag]);
+      : [...draft, tag]);
   }
 
   function createTag(): void {
     if (!canCreate) return;
-    draft = normalizeNoteTags([...draft, newTag]);
+    const tag = newTag;
+    changeDraft([...draft, tag]);
     query = "";
+    feedback = `«${tag}» añadida a la nota. Pulsa Guardar para conservarla.`;
   }
 
   function apply(): void {
-    onchange(normalizeNoteTags(draft));
+    if (!allowCreate) onchange(normalizeNoteTags(draft));
+    feedback = "";
     opened = false;
   }
 
@@ -100,9 +117,12 @@
           <p class="px-2 py-3 text-xs text-slate-500">No hay etiquetas coincidentes.</p>
         {/if}
         {#if canCreate}
-          <button type="button" class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-brand-700 hover:bg-brand-50" onclick={createTag}>
-            <Plus size={14} /> Crear "{newTag}"
+          <button type="button" class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-medium text-brand-700 hover:bg-brand-50" onclick={createTag}>
+            <Plus size={14} /> Crear y añadir "{newTag}"
           </button>
+        {/if}
+        {#if allowCreate && draft.length >= 30}
+          <p class="px-2 py-2 text-xs text-amber-700">Máximo 30 etiquetas por nota.</p>
         {/if}
       </div>
       {#if draft.length > 0}
@@ -112,12 +132,17 @@
           {/each}
         </div>
       {/if}
+      {#if feedback}
+        <p class="mt-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs text-emerald-800" role="status">{feedback}</p>
+      {/if}
       <div class="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
         <span class="text-xs text-slate-500">{draft.length} seleccionadas</span>
         <div class="flex gap-2">
-          <button type="button" class="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100" onclick={() => (opened = false)}>Cancelar</button>
+          {#if !allowCreate}
+            <button type="button" class="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100" onclick={() => (opened = false)}>Cancelar</button>
+          {/if}
           <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800" onclick={apply}>
-            <Check size={13} /> Aplicar
+            <Check size={13} /> {allowCreate ? "Listo" : "Aplicar"}
           </button>
         </div>
       </div>
