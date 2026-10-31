@@ -26,6 +26,8 @@ pub struct Item {
     pub comment: String,
     #[serde(default)]
     pub images: Vec<ItemImage>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     #[serde(rename = "type", default)]
     pub item_type: ItemType,
     #[serde(default)]

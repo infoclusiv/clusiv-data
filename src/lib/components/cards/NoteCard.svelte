@@ -1,17 +1,19 @@
 <script lang="ts">
-  import { Image as ImageIcon, MessageSquare, StickyNote, Trash2 } from "lucide-svelte";
+  import { Image as ImageIcon, MessageSquare, StickyNote, Tag, Trash2 } from "lucide-svelte";
 
   import type { Item } from "$lib/store/types";
   import { getItemDisplayTitle } from "$lib/utils/categoryUtils";
+  import { getNoteTagColor } from "$lib/utils/noteTags";
 
   interface Props {
     item: Item;
     onedit: () => void;
     ondelete: () => void;
+    onaddtag?: () => void;
     categoryLabel?: string | null;
   }
 
-  let { item, onedit, ondelete, categoryLabel = null }: Props = $props();
+  let { item, onedit, ondelete, onaddtag, categoryLabel = null }: Props = $props();
 
   const explicitTitle = $derived(item.title.trim());
   const hasComment = $derived(item.comment.trim().length > 0);
@@ -60,6 +62,14 @@
     <p class="line-clamp-5 text-sm leading-relaxed text-slate-600">{item.comment}</p>
   {/if}
 
+  {#if (item.tags ?? []).length > 0}
+    <div class="flex flex-wrap gap-1.5" aria-label="Etiquetas de la nota">
+      {#each item.tags as tag (tag)}
+        <span class={`inline-flex max-w-full items-center gap-1 truncate rounded-full px-2.5 py-1 text-[11px] font-medium ${getNoteTagColor(tag)}`}><Tag size={11} class="shrink-0" /> <span class="truncate">{tag}</span></span>
+      {/each}
+    </div>
+  {/if}
+
   <div class="mt-auto flex items-center justify-end gap-2 pt-1">
     {#if hasImages || hasComment}
       <div class="mr-auto flex items-center gap-2">
@@ -76,6 +86,9 @@
       </div>
     {/if}
 
+    {#if onaddtag}
+      <button type="button" class="inline-flex items-center gap-1 rounded-full border border-brand-100 bg-white/75 px-2.5 py-1.5 text-[11px] font-medium text-brand-800 hover:bg-brand-50" onclick={(event) => { event.stopPropagation(); onaddtag?.(); }} title="Añadir o editar etiquetas"><Tag size={12} /> Etiqueta</button>
+    {/if}
     <button
       class="rounded-xl p-2 text-red-500 transition hover:bg-red-100"
       onclick={(event) => {

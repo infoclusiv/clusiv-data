@@ -715,6 +715,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
             title: String::new(),
             comment: String::new(),
             images: Vec::new(),
+            tags: Vec::new(),
             item_type: ItemType::Task,
             done: false,
             category_id: GENERAL_CATEGORY_ID.to_string(),
@@ -725,6 +726,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
     let title = string_value(map.remove("title"), "", changed);
     let comment = string_value(map.remove("comment"), "", changed);
     let images = item_images_value(map.remove("images"), changed);
+    let tags = normalize_item_tags(map.remove("tags"), changed);
     let item_type = item_type_value(map.remove("type"), changed);
     let done = bool_value(map.remove("done"), false, changed);
     let category_id = string_value(map.remove("category_id"), GENERAL_CATEGORY_ID, changed);
@@ -739,6 +741,7 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
         title,
         comment,
         images,
+        tags: if matches!(item_type, ItemType::Note) { tags } else { Vec::new() },
         item_type,
         done,
         category_id,
@@ -874,6 +877,19 @@ fn string_array_value(value: Option<Value>, changed: &mut bool) -> Vec<String> {
         }
         None => Vec::new(),
     }
+}
+
+fn normalize_item_tags(value: Option<Value>, changed: &mut bool) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut result = Vec::new();
+    for entry in string_array_value(value, changed) {
+        let tag = entry.split_whitespace().collect::<Vec<_>>().join(" ");
+        let tag: String = tag.chars().take(48).collect();
+        if tag.is_empty() || !seen.insert(tag.to_lowercase()) { *changed = true; continue; }
+        result.push(tag);
+        if result.len() == 30 { break; }
+    }
+    result
 }
 
 fn dedupe_string_values(values: Vec<String>, changed: &mut bool) -> Vec<String> {

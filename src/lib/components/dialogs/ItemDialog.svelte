@@ -3,6 +3,8 @@
 
   import Button from "$lib/components/ui/Button.svelte";
   import Input from "$lib/components/ui/Input.svelte";
+  import TagMultiSelect from "$lib/components/notes/TagMultiSelect.svelte";
+  import { getAvailableNoteTags, getNoteTagColor } from "$lib/utils/noteTags";
   import Modal from "$lib/components/ui/Modal.svelte";
   import Select from "$lib/components/ui/Select.svelte";
   import { appState, saveItem } from "$lib/store/appState.svelte";
@@ -40,6 +42,8 @@
   let itemType = $state<ItemType>("task");
   let categoryId = $state(GENERAL_CATEGORY_ID);
   let images = $state<ItemImage[]>([]);
+  let tags = $state<string[]>([]);
+  const tagOptions = $derived(appState.appData ? getAvailableNoteTags(appState.appData.__SYSTEM_TASKS__) : []);
   let selectedImageId = $state<string | null>(null);
   let titleError = $state<string | null>(null);
   let saving = $state(false);
@@ -73,6 +77,7 @@
       itemType = editingItem.type;
       categoryId = getItemCategoryId(editingItem);
       images = [...normalizeItemImages(editingItem.images)];
+      tags = [...(editingItem.tags ?? [])];
       return;
     }
 
@@ -81,6 +86,7 @@
     itemType = initialType;
     categoryId = initialCategoryId ?? GENERAL_CATEGORY_ID;
     images = [];
+    tags = [];
   });
 
   $effect(() => {
@@ -222,6 +228,7 @@
           title: trimmedTitle,
           comment: comment.trim(),
           images: nextImages,
+          tags: itemType === "note" ? tags : [],
           type: itemType,
           categoryId,
         },
@@ -298,6 +305,11 @@
       />
 
       {#if itemType === "note"}
+        <div class="rounded-[1.5rem] border border-slate-200/80 bg-white p-4">
+          <p class="section-label mb-3">Etiquetas</p>
+          <TagMultiSelect selected={tags} options={tagOptions} onchange={(next) => (tags = next)} allowCreate={true} />
+          {#if tags.length}<div class="mt-3 flex flex-wrap gap-1.5">{#each tags as tag (tag)}<span class={`rounded-full px-2.5 py-1 text-xs ${getNoteTagColor(tag)}`}>{tag}</span>{/each}</div>{/if}
+        </div>
         <div class="flex flex-col gap-3 rounded-[1.5rem] border border-slate-200/80 bg-paper-50/70 p-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>

@@ -206,6 +206,7 @@
               <NoteCard
                 {item}
                 onedit={() => openEditDialog(item)}
+                onaddtag={() => openEditDialog(item)}
                 ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
               />
             {/each}

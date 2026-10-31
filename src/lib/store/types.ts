@@ -75,6 +75,7 @@ export interface Item {
   title: string;
   comment: string;
   images: ItemImage[];
+  tags: string[];
   type: ItemType;
   done: boolean;
   category_id: string;
@@ -184,6 +185,7 @@ export interface ItemFormInput {
   type: ItemType;
   categoryId: string;
   images?: ItemImage[];
+  tags?: string[];
 }
 
 export interface QuickTextFormInput {

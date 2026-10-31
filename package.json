@@ -15,6 +15,7 @@
     "test:link-comments": "node --experimental-strip-types --experimental-loader ./scripts/test-alias-loader.mjs src/lib/utils/linkComments.test.mjs",
     "test:linked-notes": "node --experimental-strip-types --experimental-loader ./scripts/test-alias-loader.mjs src/lib/utils/linkedNotes.test.mjs",
     "test:quick-texts": "node --experimental-strip-types src/lib/utils/quickTexts.test.mjs",
+    "test:note-tags": "node --experimental-strip-types src/lib/utils/noteTags.test.mjs",
     "test:flows": "pnpm run test:flow-layout && pnpm run test:flow-graph",
     "tauri": "tauri"
   },

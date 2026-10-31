@@ -1,3 +1,5 @@
+import { normalizeNoteTags } from "$lib/utils/noteTags";
+
 import type {
   AppData,
   Category,
@@ -203,6 +205,7 @@ function normalizeItem(value: unknown, fallbackId: string): Item | null {
     title: typeof candidate.title === "string" ? candidate.title : "",
     comment: typeof candidate.comment === "string" ? candidate.comment : "",
     images: normalizeItemImages(candidate.images),
+    tags: candidate.type === "note" ? normalizeNoteTags(candidate.tags) : [],
     type: candidate.type === "note" ? "note" : "task",
     done: Boolean(candidate.done),
     category_id: typeof candidate.category_id === "string" && candidate.category_id.trim().length > 0
@@ -517,6 +520,7 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     item.title ||= "";
     item.comment ||= "";
     item.images = normalizeItemImages(item.images);
+    item.tags = item.type === "note" ? normalizeNoteTags(item.tags) : [];
     item.type ||= "task";
     item.done ||= false;
     if (!item.category_id || !validCategoryIds.has(item.category_id)) {

@@ -9,6 +9,9 @@
     Pencil,
     Rocket,
     StickyNote,
+    Tag,
+    Search,
+    X,
     Trash2,
     Upload,
   } from "lucide-svelte";
@@ -16,6 +19,8 @@
   import CategorySectionTabs from "$lib/components/category/CategorySectionTabs.svelte";
   import LinkCard from "$lib/components/cards/LinkCard.svelte";
   import NoteCard from "$lib/components/cards/NoteCard.svelte";
+  import TagMultiSelect from "$lib/components/notes/TagMultiSelect.svelte";
+  import { filterNotesByTags, getAvailableNoteTags, getNoteTagColor } from "$lib/utils/noteTags";
   import SubcategoryCard from "$lib/components/cards/SubcategoryCard.svelte";
   import TaskCard from "$lib/components/cards/TaskCard.svelte";
   import FlowSection from "$lib/components/flows/FlowsSection.svelte";
@@ -56,6 +61,9 @@
   } from "$lib/utils/categoryUtils";
   import { getIcon } from "$lib/utils/getIconComponent";
 
+  let selectedNoteTags = $state<string[]>([]);
+  let noteSearchQuery = $state("");
+  let previousFilterCategoryId: string | null = null;
   let showLinkDialog = $state(false);
   let showBulkDialog = $state(false);
   let pendingDeleteIndex = $state<number | null>(null);
@@ -87,6 +95,17 @@
       ? getNotesForCategory(appState.appData, category.id)
       : [],
   );
+
+  const availableNoteTags = $derived(getAvailableNoteTags(notes));
+  const filteredNotes = $derived(filterNotesByTags(notes, selectedNoteTags, noteSearchQuery));
+  const activeCategoryId = $derived(category?.id ?? null);
+  $effect(() => {
+    if (previousFilterCategoryId !== activeCategoryId) {
+      previousFilterCategoryId = activeCategoryId;
+      selectedNoteTags = [];
+      noteSearchQuery = "";
+    }
+  });
 
   const tasks = $derived(
     appState.appData && category
@@ -742,12 +761,33 @@
           </section>
         {:else if appState.currentCategorySection === "notes"}
           <section>
+            {#if notes.length > 0}
+              <div class="mb-5 rounded-2xl border border-brand-100 bg-brand-50/55 p-4">
+                <div class="flex flex-wrap items-center gap-3">
+                  <div class="flex items-center gap-2 text-sm font-semibold text-slate-800"><Tag size={16} class="text-brand-700" /> Filtrar por etiquetas</div>
+                  <TagMultiSelect selected={selectedNoteTags} options={availableNoteTags} onchange={(tags) => (selectedNoteTags = tags)} />
+                  <label class="flex min-w-[190px] flex-1 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-slate-500 shadow-sm">
+                    <Search size={15} class="shrink-0" />
+                    <input bind:value={noteSearchQuery} class="w-full min-w-0 bg-transparent text-sm text-slate-800 outline-none" placeholder="Buscar notas o etiquetas..." aria-label="Buscar notas o etiquetas" />
+                  </label>
+                  <button type="button" class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-brand-800 hover:bg-slate-50" onclick={() => { selectedNoteTags = []; noteSearchQuery = ""; }}><X size={14} /> Limpiar filtros</button>
+                </div>
+                {#if selectedNoteTags.length > 0}
+                  <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <span>{selectedNoteTags.length} etiquetas seleccionadas:</span>
+                    {#each selectedNoteTags as tag (tag)}
+                      <button type="button" class={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${getNoteTagColor(tag)}`} title={`Quitar filtro ${tag}`} onclick={() => (selectedNoteTags = selectedNoteTags.filter((value) => value !== tag))}>{tag} <X size={11} /></button>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
             <div class="mb-4 flex items-center gap-3">
               <StickyNote size={18} class="text-amber-700" />
               <div>
                 <p class="section-label">Notas</p>
                 <p class="mt-1 text-sm text-slate-500">
-                  {notes.length === 0 ? "No hay notas en esta categoría." : `${notes.length} notas disponibles.`}
+                  {notes.length === 0 ? "No hay notas en esta categoría." : `${filteredNotes.length} notas encontradas de ${notes.length}.`}
                 </p>
               </div>
             </div>
@@ -756,12 +796,15 @@
               <div class="card border-dashed p-8 text-center text-sm text-slate-500">
                 No hay notas en esta categoría.
               </div>
+            {:else if filteredNotes.length === 0}
+              <div class="card border-dashed p-8 text-center text-sm text-slate-500">No hay notas que coincidan con los filtros.</div>
             {:else}
               <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {#each notes as item}
+                {#each filteredNotes as item}
                   <NoteCard
                     {item}
                     onedit={() => openEditDialog(item)}
+                    onaddtag={() => openEditDialog(item)}
                     ondelete={() => (pendingDeleteIndex = getItemIndex(item))}
                   />
                 {/each}

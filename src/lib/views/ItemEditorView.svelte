@@ -2,6 +2,8 @@
   import { ImagePlus, Trash2, Upload } from "lucide-svelte";
 
   import Input from "$lib/components/ui/Input.svelte";
+  import TagMultiSelect from "$lib/components/notes/TagMultiSelect.svelte";
+  import { getAvailableNoteTags, getNoteTagColor } from "$lib/utils/noteTags";
   import Modal from "$lib/components/ui/Modal.svelte";
   import Select from "$lib/components/ui/Select.svelte";
   import { appState, closeItemEditor, saveItem } from "$lib/store/appState.svelte";
@@ -19,6 +21,8 @@
   let itemType = $state<ItemType>("task");
   let categoryId = $state(GENERAL_CATEGORY_ID);
   let images = $state<ItemImage[]>([]);
+  let tags = $state<string[]>([]);
+  const tagOptions = $derived(appState.appData ? getAvailableNoteTags(appState.appData.__SYSTEM_TASKS__) : []);
   let selectedImageId = $state<string | null>(null);
   let titleError = $state<string | null>(null);
   let saving = $state(false);
@@ -56,6 +60,7 @@
       itemType = editorState.editingItem.type;
       categoryId = getItemCategoryId(editorState.editingItem);
       images = [...normalizeItemImages(editorState.editingItem.images)];
+      tags = [...(editorState.editingItem.tags ?? [])];
       return;
     }
 
@@ -64,6 +69,7 @@
     itemType = editorState.initialType;
     categoryId = editorState.initialCategoryId ?? GENERAL_CATEGORY_ID;
     images = [];
+    tags = [];
   });
 
   $effect(() => {
@@ -213,6 +219,7 @@
           title: trimmedTitle,
           comment: comment.trim(),
           images: nextImages,
+          tags: itemType === "note" ? tags : [],
           type: itemType,
           categoryId,
         },
@@ -304,6 +311,16 @@
             <section class="rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft backdrop-blur-sm">
               <Select label="Categoría" bind:value={categoryId} options={categoryOptions} />
             </section>
+            {#if itemType === "note"}
+              <section class="rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-5 shadow-soft">
+                <p class="section-label mb-3">Etiquetas</p>
+                <TagMultiSelect selected={tags} options={tagOptions} onchange={(next) => (tags = next)} allowCreate={true} />
+                {#if tags.length}
+                  <div class="mt-3 flex flex-wrap gap-1.5">{#each tags as tag (tag)}<span class={`rounded-full px-2.5 py-1 text-xs ${getNoteTagColor(tag)}`}>{tag}</span>{/each}</div>
+                {/if}
+                <p class="mt-2 text-xs text-slate-500">Puedes asignar varias etiquetas o crear una nueva.</p>
+              </section>
+            {/if}
           </div>
         </div>
 

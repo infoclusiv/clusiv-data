@@ -48,6 +48,7 @@ import {
   syncLegacyQuickTextGroupId,
 } from "$lib/utils/categoryUtils";
 import { removeQuickTextGroupMembership } from "$lib/utils/quickTextGrouping";
+import { normalizeNoteTags } from "$lib/utils/noteTags";
 import {
   DEFAULT_HOME_TEXT,
   GENERAL_CATEGORY_ID,
@@ -344,6 +345,7 @@ function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
     type: input.type,
     categoryId: input.categoryId,
     images: input.type === "note" ? normalizeItemImages(input.images) : [],
+    tags: input.type === "note" ? normalizeNoteTags(input.tags) : [],
   };
 }
 
@@ -3082,6 +3084,7 @@ export async function saveItem(
   const normalizedInput = normalizeItemFormInput(input);
   let resolvedIndex = editingIndex ?? -1;
   const images = normalizedInput.images ?? [];
+  const tags = normalizedInput.tags ?? [];
 
   logClientEvent({
     source: "items",
@@ -3109,6 +3112,7 @@ export async function saveItem(
           title: normalizedInput.title,
           comment: normalizedInput.comment,
           images,
+          tags,
           type: normalizedInput.type,
           category_id: normalizedInput.categoryId,
         };
@@ -3120,6 +3124,7 @@ export async function saveItem(
         title: normalizedInput.title,
         comment: normalizedInput.comment,
         images,
+        tags,
         type: normalizedInput.type,
         done: false,
         category_id: normalizedInput.categoryId,
