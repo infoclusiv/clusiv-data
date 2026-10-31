@@ -14,8 +14,10 @@
   let opened = $state(false);
   let query = $state("");
   let draft = $state<string[]>([]);
-  const matches = $derived(options.filter((tag) =>
-    tag.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
+  // Include newly-created, not-yet-saved tags so they can be unchecked again.
+  const matches = $derived(normalizeNoteTags([...options, ...selected, ...draft])
+    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }))
+    .filter((tag) => tag.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   const newTag = $derived(query.trim().replace(/\s+/g, " ").slice(0, 48));
   const canCreate = $derived(allowCreate && newTag.length > 0 &&
     ![...options, ...draft].some((tag) => tag.toLocaleLowerCase() === newTag.toLocaleLowerCase()));
