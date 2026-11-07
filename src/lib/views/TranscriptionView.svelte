@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { invoke } from "@tauri-apps/api/core";
   import { open, save } from "@tauri-apps/plugin-dialog";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
-  import { AudioLines, CheckCircle2, Download, FileAudio, FileText, FolderOpen, LoaderCircle, Mic, Settings2, UploadCloud, X } from "lucide-svelte";
+  import { AudioLines, CheckCircle2, Download, FileAudio, FileText, FolderOpen, LoaderCircle, Link2, Mic, Settings2, UploadCloud, X } from "lucide-svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
 
   type OutputFile = { kind: string; name: string; sourcePath: string };
@@ -17,6 +18,9 @@
 
   const AUDIO_EXTENSIONS = ["mp3", "wav", "m4a", "mp4", "flac", "ogg"];
   let audioPath = $state("");
+  let sourceMode = $state<"file" | "x">("file");
+  let xUrl = $state("");
+  let stage = $state<"downloading" | "transcribing" | "">("");
   let executablePath = $state("");
   let language = $state("auto");
   let running = $state(false);
@@ -100,22 +104,30 @@
   }
 
   async function transcribe(): Promise<void> {
-    if (!audioPath || running) return;
+    if (running || (sourceMode === "file" ? !audioPath : !xUrl.trim())) return;
     running = true;
     errorMessage = "";
     result = null;
+    stage = sourceMode === "x" ? "downloading" : "transcribing";
     try {
-      result = await invoke<Result>("transcribe_audio", {
-        audioPath,
-        executablePath: executablePath || null,
-        language,
-      });
+      result = sourceMode === "x"
+        ? await invoke<Result>("transcribe_x_audio", {
+            url: xUrl.trim(),
+            executablePath: executablePath || null,
+            language,
+          })
+        : await invoke<Result>("transcribe_audio", {
+            audioPath,
+            executablePath: executablePath || null,
+            language,
+          });
       showSnackbar("Transcripción completada y guardada localmente.", "success");
     } catch (error) {
       errorMessage = String(error);
       showSnackbar("No se pudo completar la transcripción.", "error");
     } finally {
       running = false;
+      stage = "";
     }
   }
 
@@ -142,7 +154,7 @@
 
   async function openFolder(): Promise<void> {
     try {
-      await invoke("open_transcription_directory");
+      await invoke("open_transcription_directory", { outputDir: result?.outputDir ?? null });
     } catch (error) {
       showSnackbar(String(error), "error");
     }
@@ -163,7 +175,15 @@
         else showSnackbar("Arrastra un archivo de audio compatible.", "error");
       }
     });
-    return () => { void unlisten.then(fn => fn()); };
+    const unlistenStage = listen<string>("x-transcription-stage", event => {
+      if (running && sourceMode === "x" && (event.payload === "downloading" || event.payload === "transcribing")) {
+        stage = event.payload;
+      }
+    });
+    return () => {
+      void unlisten.then(fn => fn());
+      void unlistenStage.then(fn => fn());
+    };
   });
 </script>
 
@@ -202,6 +222,11 @@
     {/if}
 
     <section class="card p-6">
+      <div class="mb-5 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Origen del audio">
+        <button type="button" class={`rounded-lg px-4 py-2 text-sm font-medium transition ${sourceMode === "file" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`} aria-pressed={sourceMode === "file"} disabled={running} onclick={() => { sourceMode = "file"; errorMessage = ""; result = null; }}>Archivo local</button>
+        <button type="button" class={`rounded-lg px-4 py-2 text-sm font-medium transition ${sourceMode === "x" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`} aria-pressed={sourceMode === "x"} disabled={running} onclick={() => { sourceMode = "x"; errorMessage = ""; result = null; }}>Enlace de X</button>
+      </div>
+      {#if sourceMode === "file"}
       <div class="mb-5 flex items-center gap-3">
         <div class="rounded-2xl bg-emerald-50 p-3 text-brand-700"><FileAudio size={22} /></div>
         <div>
@@ -232,6 +257,19 @@
         </div>
       {/if}
 
+      {:else}
+        <div class="mb-5 flex items-center gap-3">
+          <div class="rounded-2xl bg-emerald-50 p-3 text-brand-700"><Link2 size={22}/></div>
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900">Transcribir desde X</h2>
+            <p class="text-sm text-slate-500">Pega el enlace de una publicación que contenga video.</p>
+          </div>
+        </div>
+        <label for="x-post-url" class="mb-2 block text-sm font-medium text-slate-700">Enlace de la publicación</label>
+        <input id="x-post-url" class="input-base" type="url" bind:value={xUrl} disabled={running} placeholder="https://x.com/usuario/status/123456789" spellcheck="false" autocomplete="off" />
+        <p class="mt-2 text-xs text-slate-500">El MP3 se descargará y transcribirá automáticamente. Se guardará junto a los resultados.</p>
+      {/if}
+
       <div class="mt-5 flex flex-wrap items-end justify-between gap-4">
         <label class="block text-sm font-medium text-slate-700">
           Idioma del audio
@@ -241,13 +279,13 @@
             <option value="en">Inglés</option>
           </select>
         </label>
-        <button class="btn-primary" disabled={!audioPath || running} onclick={transcribe}>
-          {#if running}<LoaderCircle size={17} class="animate-spin" /> Transcribiendo...{:else}<Mic size={17} /> Iniciar transcripción{/if}
+        <button class="btn-primary" disabled={running || (sourceMode === "file" ? !audioPath : !xUrl.trim())} onclick={transcribe}>
+          {#if running}<LoaderCircle size={17} class="animate-spin" /> {stage === "downloading" ? "Descargando audio..." : "Transcribiendo..."}{:else}<Mic size={17} /> Iniciar transcripción{/if}
         </button>
       </div>
       {#if running}
         <div class="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-brand-800" role="status">
-          WhisperX está procesando el audio en tu computadora. Los archivos se guardarán al finalizar. Los audios largos pueden tardar varios minutos.
+          {stage === "downloading" ? "Descargando y convirtiendo el video de X a MP3. Al finalizar comenzará la transcripción automáticamente." : "WhisperX está procesando el audio en tu computadora. Los archivos se guardarán al finalizar. Los audios largos pueden tardar varios minutos."}
         </div>
       {/if}
       {#if errorMessage}
@@ -270,7 +308,7 @@
         <div class="mt-5 flex flex-wrap gap-2">
           {#each result.files as file}
             <button class="btn-ghost border border-slate-200 bg-white" disabled={exporting} onclick={() => exportFile(file)}>
-              <Download size={16} /> Descargar {file.kind.toUpperCase()}
+              <Download size={16} /> Guardar {file.kind.toUpperCase()}
             </button>
           {/each}
         </div>
