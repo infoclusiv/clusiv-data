@@ -316,7 +316,7 @@
   <div class="space-y-4">
     <label class="block text-sm font-semibold text-slate-700">Nombre del concepto<input class="input-base mt-2" bind:value={draftTitle} maxlength="90" placeholder="Ej. Estrategias"/></label>
     <p class="text-sm font-semibold text-slate-700">Color del concepto</p>
-    <div class="flex flex-wrap gap-3">{#each CONCEPT_COLORS as color}<button class="flex h-10 w-10 items-center justify-center rounded-full border-2 shadow-sm" style:background={palette[color].pale} style:border-color={draftColor === color ? palette[color].stroke : "#e2e8f0"} aria-label={"Color " + color} title={color} onclick={() => (draftColor = color)}>{#if draftColor === color}<Check size={19} style:color={palette[color].stroke}/>{/if}</button>{/each}</div>
+    <div class="flex flex-wrap gap-3">{#each CONCEPT_COLORS as color}<button class="flex h-10 w-10 items-center justify-center rounded-full border-2 shadow-sm" style:background={palette[color].pale} style:border-color={draftColor === color ? palette[color].stroke : "#e2e8f0"} aria-label={"Color " + color} title={color} onclick={() => (draftColor = color)}>{#if draftColor === color}<span style:color={palette[color].stroke}><Check size={19}/></span>{/if}</button>{/each}</div>
     <div class="flex justify-end gap-2 pt-3"><button class="btn-ghost" onclick={() => (showCreate = false)}>Cancelar</button><button class="btn-primary" disabled={isSaving || !draftTitle.trim()} onclick={() => void saveConcept()}>Guardar concepto</button></div>
   </div>
 </Modal>
