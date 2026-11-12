@@ -1571,6 +1571,7 @@ mod tests {
                 }
             },
             "__SYSTEM_TASKS__": [],
+            "__SYSTEM_CONCEPT_NODES__": [],
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
@@ -2072,6 +2073,7 @@ mod tests {
                 }
             },
             "__SYSTEM_TASKS__": [],
+            "__SYSTEM_CONCEPT_NODES__": [],
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [
