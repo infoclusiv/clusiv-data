@@ -301,7 +301,7 @@
             {#each layout as position (position.node.id)}
               {@const shade = palette[position.color]}
               <button class="concept-map-node absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-[1.5rem] border-2 px-5 py-3 text-left transition-transform hover:scale-[1.045] focus:outline-none focus:ring-4 focus:ring-brand-100" style:left={position.x + "px"} style:top={position.y + "px"} style:background={shade.pale} style:border-color={shade.stroke} style:box-shadow={"0 8px 25px " + shade.glow} style:opacity={visibleNodes.some((node) => node.id === position.node.id) ? 1 : .24} onclick={() => chooseNode(position.node.id)} title={"Abrir " + position.node.title}>
-                <Layers size={position.depth === 1 ? 24 : 19} style:color={shade.stroke} class="shrink-0"/>
+                <span class="shrink-0" style:color={shade.stroke}><Layers size={position.depth === 1 ? 24 : 19}/></span>
                 <span class="min-w-0"><span class:font-bold={position.depth === 1} class="block max-w-[190px] text-sm font-semibold leading-tight text-slate-900">{position.node.title}</span><span class="mt-1 block text-xs text-slate-500">{position.node.linked_note_ids.length} {position.node.linked_note_ids.length === 1 ? "nota" : "notas"}</span></span>
               </button>
             {/each}
