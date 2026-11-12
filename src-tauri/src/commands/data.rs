@@ -2194,6 +2194,81 @@ mod tests {
     }
 
     #[test]
+    fn concept_map_round_trip_preserves_note_references_without_duplicates() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": DEFAULT_HOME_TEXT,
+            "__SYSTEM_CATEGORIES__": {
+                "general": { "id": "general", "name": "General", "parent_id": null, "icon": "Carpeta", "links": [], "notes": "" },
+                "research": { "id": "research", "name": "Investigacion", "parent_id": "general", "icon": "Ideas", "links": [], "notes": "" }
+            },
+            "__SYSTEM_TASKS__": [
+                { "id": "note_a", "title": "Apunte", "comment": "Texto", "type": "note", "done": false, "category_id": "general", "tags": [], "images": [] },
+                { "id": "task_b", "title": "Pendiente", "comment": "", "type": "task", "done": false, "category_id": "general", "tags": [], "images": [] }
+            ],
+            "__SYSTEM_CONCEPT_NODES__": [
+                { "id": "c1", "category_id": "research", "parent_id": null, "title": "Concepto", "color": "teal", "icon": "Layers", "linked_note_ids": ["note_a", "note_a", "task_b", "missing"] },
+                { "id": "c2", "category_id": "research", "parent_id": "c1", "title": "Subconcepto", "color": "amber", "icon": "Layers", "linked_note_ids": ["note_a"] }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, _) = normalize_data(raw);
+        assert_eq!(data.concept_nodes.len(), 2);
+        assert_eq!(data.concept_nodes[0].linked_note_ids, vec!["note_a".to_string()]);
+        assert_eq!(data.concept_nodes[1].linked_note_ids, vec!["note_a".to_string()]);
+        assert_eq!(data.concept_nodes[1].parent_id.as_deref(), Some("c1"));
+        assert_eq!(data.tasks.len(), 2);
+        assert_eq!(data.tasks[0].category_id, "general");
+
+        let stored = serde_json::to_value(&data).expect("serialize updated concept schema");
+        assert!(stored.get("__SYSTEM_CONCEPT_NODES__").is_some());
+        let (restored, _) = normalize_data(stored);
+        assert_eq!(restored.concept_nodes, data.concept_nodes);
+        assert_eq!(restored.tasks.len(), data.tasks.len());
+    }
+
+    #[test]
+    fn concept_map_breaks_cycles_and_ignores_missing_categories() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": DEFAULT_HOME_TEXT,
+            "__SYSTEM_CATEGORIES__": {
+                "general": { "id": "general", "name": "General", "parent_id": null, "icon": "Carpeta", "links": [], "notes": "" }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_CONCEPT_NODES__": [
+                { "id": "a", "category_id": "general", "parent_id": "b", "title": "A", "color": "emerald", "icon": "Layers", "linked_note_ids": [] },
+                { "id": "b", "category_id": "general", "parent_id": "a", "title": "B", "color": "emerald", "icon": "Layers", "linked_note_ids": [] },
+                { "id": "lost", "category_id": "not-a-category", "parent_id": null, "title": "Lost", "color": "emerald", "icon": "Layers", "linked_note_ids": [] }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+        let (data, changed) = normalize_data(raw);
+        assert!(changed);
+        assert_eq!(data.concept_nodes.len(), 2);
+        assert!(data.concept_nodes.iter().any(|node| node.parent_id.is_none()));
+        let mut by_id = HashMap::new();
+        for node in &data.concept_nodes { by_id.insert(node.id.clone(), node.parent_id.clone()); }
+        for node in &data.concept_nodes {
+            let mut seen = HashSet::from([node.id.clone()]);
+            let mut cursor = node.parent_id.clone();
+            while let Some(id) = cursor {
+                assert!(seen.insert(id.clone()), "cycle should have been normalized");
+                cursor = by_id.get(&id).cloned().flatten();
+            }
+        }
+    }
+
+    #[test]
     fn migrate_legacy_data_defaults_link_images_to_empty() {
         let raw = json!({
             "General": {
