@@ -37,6 +37,7 @@ jobs:
           pnpm run test:linked-notes
           pnpm run test:quick-texts
           pnpm run test:note-tags
+          pnpm run test:concepts
 
   backend:
     name: Tauri Rust tests
