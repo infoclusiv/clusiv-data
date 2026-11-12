@@ -9,12 +9,13 @@ use uuid::Uuid;
 
 use crate::logging::{AppLoggerState, LogLevel};
 use crate::models::{
-    AppData, Category, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
+    AppData, Category, ConceptNode, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
     QuickText, QuickTextGroup, DEFAULT_HOME_TEXT, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
     SCHEMA_VERSION,
 };
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
+const CONCEPT_NODES_KEY: &str = "__SYSTEM_CONCEPT_NODES__";
 const FLOWS_KEY: &str = "__SYSTEM_FLOWS__";
 const GLOBAL_FLOW_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__";
 const GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__";
@@ -293,6 +294,13 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             Value::Array(Vec::new())
         }
     };
+    let concept_nodes_value = match root.remove(CONCEPT_NODES_KEY) {
+        Some(value) => value,
+        None => {
+            changed = true;
+            Value::Array(Vec::new())
+        }
+    };
     let flows_value = match root.remove(FLOWS_KEY) {
         Some(value) => value,
         None => {
@@ -321,6 +329,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
 
     let mut categories = parse_categories(categories_value, &mut changed);
     let mut flows = parse_flows(flows_value, &mut changed);
+    let concept_nodes = parse_concept_nodes(concept_nodes_value, &mut changed);
     let quick_text_groups = parse_quick_text_groups(quick_text_groups_value, &mut changed);
     let mut quick_texts = parse_quick_texts(quick_texts_value, &mut changed);
 
@@ -373,6 +382,46 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         }
     }
 
+    let mut concept_nodes = concept_nodes;
+    let valid_concept_ids: HashSet<String> = concept_nodes.iter().map(|node| node.id.clone()).collect();
+    let concept_categories: HashMap<String, String> = concept_nodes.iter()
+        .map(|node| (node.id.clone(), node.category_id.clone()))
+        .collect();
+    let mut seen_concept_ids = HashSet::new();
+    concept_nodes.retain(|node| {
+        let keep = valid_category_ids.contains(&node.category_id)
+            && !node.id.trim().is_empty()
+            && !node.title.trim().is_empty()
+            && seen_concept_ids.insert(node.id.clone());
+        if !keep { changed = true; }
+        keep
+    });
+    for node in &mut concept_nodes {
+        if let Some(parent_id) = &node.parent_id {
+            if parent_id == &node.id
+                || !valid_concept_ids.contains(parent_id)
+                || concept_categories.get(parent_id) != Some(&node.category_id) {
+                node.parent_id = None;
+                changed = true;
+            }
+        }
+    }
+    // A malformed cycle cannot produce a usable concept map; break it deterministically.
+    let parent_map: HashMap<String, Option<String>> = concept_nodes.iter()
+        .map(|node| (node.id.clone(), node.parent_id.clone())).collect();
+    for node in &mut concept_nodes {
+        let mut visited = HashSet::from([node.id.clone()]);
+        let mut cursor = node.parent_id.clone();
+        while let Some(parent_id) = cursor {
+            if !visited.insert(parent_id.clone()) {
+                node.parent_id = None;
+                changed = true;
+                break;
+            }
+            cursor = parent_map.get(&parent_id).cloned().flatten();
+        }
+    }
+
     let valid_note_ids: HashSet<String> = tasks
         .iter()
         .filter(|item| matches!(item.item_type, ItemType::Note))
@@ -412,6 +461,16 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             quick_text.group_sort_orders = normalized_group_sort_orders;
             changed = true;
         }
+    }
+
+    for node in &mut concept_nodes {
+        node.linked_note_ids = filter_known_note_ids(
+            dedupe_string_values(std::mem::take(&mut node.linked_note_ids), &mut changed),
+            &valid_note_ids,
+            &mut changed,
+        );
+        if node.color.is_empty() { node.color = "emerald".to_string(); changed = true; }
+        if node.icon.is_empty() { node.icon = "Layers".to_string(); changed = true; }
     }
 
     for flow in &mut flows {
@@ -467,6 +526,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             quick_texts,
             quick_text_groups,
             flows,
+            concept_nodes,
             global_flow_linked_note_ids,
             global_quick_text_linked_note_ids,
         },
@@ -1215,6 +1275,28 @@ fn quick_text_group_from_value(
             updated_at
         },
     }
+}
+
+fn parse_concept_nodes(value: Value, changed: &mut bool) -> Vec<ConceptNode> {
+    let Value::Array(values) = value else {
+        *changed = true;
+        return Vec::new();
+    };
+    values.into_iter().filter_map(|value| {
+        let Value::Object(mut map) = value else {
+            *changed = true;
+            return None;
+        };
+        Some(ConceptNode {
+            id: string_value(map.remove("id"), "", changed),
+            category_id: string_value(map.remove("category_id"), "", changed),
+            parent_id: flow_category_id_value(map.remove("parent_id"), changed),
+            title: string_value(map.remove("title"), "", changed),
+            color: string_value(map.remove("color"), "emerald", changed),
+            icon: string_value(map.remove("icon"), "Layers", changed),
+            linked_note_ids: string_array_value(map.remove("linked_note_ids"), changed),
+        })
+    }).collect()
 }
 
 fn flow_from_value(value: Value, changed: &mut bool) -> Flow {
