@@ -3,7 +3,7 @@ pub mod category;
 pub mod item;
 
 pub use app_data::{
-    AppData, Flow, FlowEdge, FlowNode, FlowPosition, QuickText, QuickTextGroup,
+    AppData, ConceptNode, Flow, FlowEdge, FlowNode, FlowPosition, QuickText, QuickTextGroup,
     DEFAULT_HOME_TEXT, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME, SCHEMA_VERSION,
 };
 pub use category::{Category, Link};
