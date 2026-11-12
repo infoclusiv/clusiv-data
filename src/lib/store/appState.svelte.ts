@@ -7,6 +7,7 @@ import type {
   BoardMode,
   CategorySection,
   CategoryFormInput,
+  ConceptNode,
   CreateFlowInput,
   Flow,
   FlowEdge,
@@ -61,7 +62,7 @@ export const appState = $state({
   currentView: "welcome" as AppView,
   currentBoardMode: "gallery" as BoardMode,
   currentBoardFilterId: null as string | null,
-  currentCategorySection: "overview" as CategorySection,
+  currentCategorySection: "concept-map" as CategorySection,
   currentFlowId: null as string | null,
   itemEditor: null as ItemEditorState | null,
   searchQuery: "",
@@ -115,7 +116,7 @@ interface OpenItemEditorOptions {
   recordHistory?: boolean;
 }
 
-const DEFAULT_CATEGORY_SECTION: CategorySection = "overview";
+const DEFAULT_CATEGORY_SECTION: CategorySection = "concept-map";
 
 function countLinks(appData: AppData): number {
   return Object.values(appData.__SYSTEM_CATEGORIES__).reduce(
@@ -3075,6 +3076,54 @@ export async function deleteQuickText(quickTextId: string): Promise<void> {
 
 export function getItemIndex(item: Item): number {
   return requireAppData().__SYSTEM_TASKS__.findIndex((entry) => entry.id === item.id);
+}
+
+export async function createConceptNode(input: {
+  categoryId: string; parentId?: string | null; title: string; color?: string;
+}): Promise<string> {
+  const id = `concept-${crypto.randomUUID()}`;
+  await mutateAppData((draft) => {
+    if (!draft.__SYSTEM_CATEGORIES__[input.categoryId]) throw new Error("Categoría no encontrada.");
+    if (!input.title.trim()) throw new Error("El nombre es obligatorio.");
+    if (input.parentId && !draft.__SYSTEM_CONCEPT_NODES__.some(
+      (node) => node.id === input.parentId && node.category_id === input.categoryId,
+    )) throw new Error("El concepto padre no existe.");
+    draft.__SYSTEM_CONCEPT_NODES__.push({
+      id, category_id: input.categoryId, parent_id: input.parentId ?? null,
+      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [],
+    });
+  });
+  return id;
+}
+
+export async function updateConceptNode(id: string, changes: Pick<ConceptNode, "title" | "color">): Promise<void> {
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    if (!changes.title.trim()) throw new Error("El nombre es obligatorio.");
+    node.title = changes.title.trim();
+    node.color = changes.color;
+  });
+}
+
+export async function deleteConceptNode(id: string): Promise<void> {
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    for (const child of draft.__SYSTEM_CONCEPT_NODES__) {
+      if (child.parent_id === id) child.parent_id = node.parent_id;
+    }
+    draft.__SYSTEM_CONCEPT_NODES__ = draft.__SYSTEM_CONCEPT_NODES__.filter((entry) => entry.id !== id);
+  });
+}
+
+export async function updateConceptNotes(id: string, noteIds: string[]): Promise<void> {
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    const valid = new Set(draft.__SYSTEM_TASKS__.filter((item) => item.type === "note").map((item) => item.id));
+    node.linked_note_ids = [...new Set(noteIds.filter((noteId) => valid.has(noteId)))];
+  });
 }
 
 export async function saveItem(
