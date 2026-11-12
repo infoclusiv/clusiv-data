@@ -383,10 +383,6 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
     }
 
     let mut concept_nodes = concept_nodes;
-    let valid_concept_ids: HashSet<String> = concept_nodes.iter().map(|node| node.id.clone()).collect();
-    let concept_categories: HashMap<String, String> = concept_nodes.iter()
-        .map(|node| (node.id.clone(), node.category_id.clone()))
-        .collect();
     let mut seen_concept_ids = HashSet::new();
     concept_nodes.retain(|node| {
         let keep = valid_category_ids.contains(&node.category_id)
@@ -396,6 +392,10 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         if !keep { changed = true; }
         keep
     });
+    let valid_concept_ids: HashSet<String> = concept_nodes.iter().map(|node| node.id.clone()).collect();
+    let concept_categories: HashMap<String, String> = concept_nodes.iter()
+        .map(|node| (node.id.clone(), node.category_id.clone()))
+        .collect();
     for node in &mut concept_nodes {
         if let Some(parent_id) = &node.parent_id {
             if parent_id == &node.id
