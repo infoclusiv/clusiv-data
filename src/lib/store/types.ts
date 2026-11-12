@@ -16,6 +16,7 @@ export type BoardMode = "gallery" | "detail";
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 export type CategorySection =
   | "overview"
+  | "concept-map"
   | "tasks"
   | "notes"
   | "links"
@@ -81,6 +82,16 @@ export interface Item {
   category_id: string;
 }
 
+export interface ConceptNode {
+  id: string;
+  category_id: string;
+  parent_id: string | null;
+  title: string;
+  color: string;
+  icon: string;
+  linked_note_ids: string[];
+}
+
 export interface FlowNode {
   id: string;
   type: FlowNodeType;
@@ -129,6 +140,7 @@ export interface AppData {
   __SYSTEM_QUICK_TEXTS__: QuickText[];
   __SYSTEM_QUICK_TEXT_GROUPS__: QuickTextGroup[];
   __SYSTEM_FLOWS__: Flow[];
+  __SYSTEM_CONCEPT_NODES__: ConceptNode[];
   __SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__: string[];
   __SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__: string[];
 }
