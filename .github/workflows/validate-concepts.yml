@@ -59,3 +59,32 @@ jobs:
       - name: Run backend tests
         working-directory: src-tauri
         run: cargo test
+
+  windows:
+    name: Windows Svelte and Tauri validation
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Check Svelte and TypeScript
+        run: pnpm check
+      - name: Build frontend
+        run: pnpm build
+      - name: Check Tauri on Windows
+        working-directory: src-tauri
+        run: cargo check
+      - name: Test Tauri on Windows
+        working-directory: src-tauri
+        run: cargo test
