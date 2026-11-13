@@ -9,9 +9,10 @@
   interface Props {
     activeSection: CategorySection;
     onselect: (section: CategorySection) => void;
+    allowConceptMap?: boolean;
   }
 
-  let { activeSection, onselect }: Props = $props();
+  let { activeSection, onselect, allowConceptMap = true }: Props = $props();
 
   const tabs: TabOption[] = [
     { id: "concept-map", label: "Mapa de conceptos" },
@@ -26,7 +27,7 @@
 
 <div class="border-b border-slate-200/70 px-8 py-4">
   <div class="flex flex-wrap gap-2">
-    {#each tabs as tab}
+    {#each tabs.filter((tab) => allowConceptMap || tab.id !== "concept-map") as tab}
       <button
         class={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
           activeSection === tab.id
