@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { conceptBounds, fitConceptCamera, zoomConceptCamera, isMapZoomShortcut, isMapPanShortcut } from "./conceptMapViewport.ts";
+import { conceptBounds, fitConceptCamera, zoomConceptCamera, preserveConceptCameraOnResize, isMapZoomShortcut, isMapPanShortcut } from "./conceptMapViewport.ts";
 
 const equal = (x, y, epsilon = 1e-8) => assert.ok(Math.abs(x - y) < epsilon, `${x} !== ${y}`);
 
@@ -50,4 +50,18 @@ const equal = (x, y, epsilon = 1e-8) => assert.ok(Math.abs(x - y) < epsilon, `${
   const camera = fitConceptCamera(bounds, 600, 300);
   assert.ok(bounds.right * camera.scale + camera.x <= 577);
   console.log("PASS fit-to-map honors resized node width");
+}
+
+{
+  const before = {x: -1230, y: 289, scale: 2.4};
+  const previousCenter = {
+    x: (1200 / 2 - before.x) / before.scale,
+    y: (700 / 2 - before.y) / before.scale,
+  };
+  const after = preserveConceptCameraOnResize(before,1200,700,800,950);
+  assert.equal(after.scale,2.4,"resize cannot reset zoom");
+  equal((800 / 2 - after.x) / after.scale, previousCenter.x);
+  equal((950 / 2 - after.y) / after.scale, previousCenter.y);
+  assert.deepEqual(preserveConceptCameraOnResize(before,0,700,800,950),before);
+  console.log("PASS viewport resizing preserves exact zoom and world-space focal point");
 }
