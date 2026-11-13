@@ -12,15 +12,20 @@ export interface ConceptNodeVisual {
   paddingXPx: number;
   paddingYPx: number;
   weight: number;
+  borderPx: number;
+  shadowPx: number;
 }
 
 const LEVELS: readonly ConceptNodeVisual[] = [
-  { titlePx: 18, notePx: 12, iconPx: 25, minWidthPx: 178, maxWidthPx: 285, paddingXPx: 21, paddingYPx: 14, weight: 700 },
-  { titlePx: 16, notePx: 11.5, iconPx: 22, minWidthPx: 160, maxWidthPx: 260, paddingXPx: 19, paddingYPx: 12, weight: 650 },
-  { titlePx: 14.5, notePx: 11, iconPx: 19, minWidthPx: 144, maxWidthPx: 238, paddingXPx: 17, paddingYPx: 11, weight: 600 },
-  { titlePx: 13.5, notePx: 10.5, iconPx: 18, minWidthPx: 132, maxWidthPx: 222, paddingXPx: 15, paddingYPx: 10, weight: 600 },
-  { titlePx: 12.5, notePx: 10, iconPx: 16, minWidthPx: 122, maxWidthPx: 205, paddingXPx: 13, paddingYPx: 9, weight: 600 },
-  { titlePx: 12, notePx: 10, iconPx: 15, minWidthPx: 118, maxWidthPx: 196, paddingXPx: 12, paddingYPx: 9, weight: 600 },
+  // Direct branches: clearly primary, with bold type and larger surfaces.
+  { titlePx: 22, notePx: 12.5, iconPx: 29, minWidthPx: 205, maxWidthPx: 315, paddingXPx: 24, paddingYPx: 17, weight: 800, borderPx: 3, shadowPx: 28 },
+  // Second-level concepts: recognizable but visibly subordinate.
+  { titlePx: 18, notePx: 11.5, iconPx: 23, minWidthPx: 166, maxWidthPx: 264, paddingXPx: 18, paddingYPx: 13, weight: 700, borderPx: 2.4, shadowPx: 21 },
+  // Third-level ideas: compact, medium weight.
+  { titlePx: 15, notePx: 10.5, iconPx: 19, minWidthPx: 140, maxWidthPx: 230, paddingXPx: 15, paddingYPx: 11, weight: 600, borderPx: 1.8, shadowPx: 15 },
+  { titlePx: 13, notePx: 10, iconPx: 17, minWidthPx: 125, maxWidthPx: 205, paddingXPx: 12, paddingYPx: 9, weight: 500, borderPx: 1.5, shadowPx: 12 },
+  { titlePx: 12, notePx: 10, iconPx: 15, minWidthPx: 116, maxWidthPx: 190, paddingXPx: 11, paddingYPx: 8, weight: 500, borderPx: 1.3, shadowPx: 10 },
+  { titlePx: 12, notePx: 10, iconPx: 15, minWidthPx: 116, maxWidthPx: 190, paddingXPx: 11, paddingYPx: 8, weight: 500, borderPx: 1.3, shadowPx: 10 },
 ];
 
 export function conceptNodeVisual(depth: number): ConceptNodeVisual {
