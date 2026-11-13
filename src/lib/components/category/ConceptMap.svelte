@@ -297,6 +297,11 @@
     resizeDrag = null;
     linkDrag = null;
     linkHoverTargetId = null;
+    noteDrag = null;
+    noteLinkDrag = null;
+    noteHoverTargetId = null;
+    notePositionOverlay = {};
+    quickMenuId = null;
   }
 
   // Rebind the listeners when the map view mounts again after opening a note.
@@ -321,6 +326,11 @@
     resizeDrag = null;
     linkDrag = null;
     linkHoverTargetId = null;
+    noteDrag = null;
+    noteLinkDrag = null;
+    noteHoverTargetId = null;
+    notePositionOverlay = {};
+    quickMenuId = null;
     nodeDrag = null;
     panDrag = null;
     spaceHeld = false;
@@ -404,6 +414,114 @@
     }
   }
 
+  function startNoteDrag(event: PointerEvent, conceptId: string, noteId: string, key: string): void {
+    if (event.button !== 0 || spaceHeld || savingLink) return;
+    const note = shownNotes.find((entry) => entry.key === key);
+    if (!note) return;
+    suppressNoteClick = false;
+    noteDrag = {
+      key, conceptId, noteId, pointerId: event.pointerId,
+      startX: event.clientX, startY: event.clientY,
+      origin: { x: note.x, y: note.y }, moved: false,
+    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  function startNoteLink(event: PointerEvent, conceptId: string, noteId: string, key: string): void {
+    if (event.button !== 0 || spaceHeld || savingLink) return;
+    const note = shownNotes.find((entry) => entry.key === key);
+    if (!note) return;
+    event.preventDefault();
+    noteHoverTargetId = null;
+    noteLinkDrag = {
+      noteId, sourceConceptId: conceptId, pointerId: event.pointerId,
+      x: note.x, y: note.y, currentX: note.x, currentY: note.y,
+    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  function findNoteDropTarget(event: PointerEvent, sourceConceptId: string): string | null {
+    const underlying = document.elementFromPoint(event.clientX, event.clientY);
+    if (!(underlying instanceof Element)) return null;
+    const target = underlying.closest<HTMLElement>("[data-concept-node]")?.dataset.conceptNode;
+    return target && target !== sourceConceptId && nodes.some((node) => node.id === target) ? target : null;
+  }
+
+  async function commitNotePosition(conceptId: string, noteId: string, key: string, position: MapPoint): Promise<void> {
+    const previous = positionWrites.get("note:" + key) ?? Promise.resolve();
+    const current = previous.catch(() => {}).then(async () => {
+      try {
+        await updateConceptNotePosition(conceptId, noteId, position);
+      } catch (error) {
+        showSnackbar(error instanceof Error ? error.message : "No se pudo guardar la posición de la nota.", "error");
+      } finally {
+        const optimistic = notePositionOverlay[key];
+        if (optimistic && optimistic.x === position.x && optimistic.y === position.y) {
+          const copy = { ...notePositionOverlay };
+          delete copy[key];
+          notePositionOverlay = copy;
+        }
+      }
+    });
+    positionWrites.set("note:" + key, current);
+    await current;
+    if (positionWrites.get("note:" + key) === current) positionWrites.delete("note:" + key);
+  }
+
+  async function commitNoteLink(sourceId: string, noteId: string, targetId: string, position: MapPoint): Promise<void> {
+    savingLink = true;
+    try {
+      await moveConceptNote(noteId, sourceId, targetId, position);
+      showSnackbar("Nota conectada al nuevo concepto.", "success");
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : "No se pudo reconectar la nota.", "error");
+    } finally { savingLink = false; }
+  }
+
+  function openNoteEditor(noteId: string | null, conceptId: string): void {
+    editingNoteId = noteId;
+    noteTargetConceptId = conceptId;
+    noteEditorOpen = true;
+    quickMenuId = null;
+  }
+
+  async function saveNoteFromMap(input: ConceptNoteInput): Promise<void> {
+    const conceptId = noteTargetConceptId;
+    if (!conceptId) throw new Error("Selecciona un concepto para guardar la nota.");
+    if (editingNoteId) {
+      await updateConceptNote(editingNoteId, input);
+      showSnackbar("Nota actualizada.", "success");
+    } else {
+      await createNoteOnConcept(conceptId, input);
+      showSnackbar("Nota creada y conectada al concepto.", "success");
+      await tick();
+      fitContent();
+    }
+  }
+
+  function openExistingNotePicker(conceptId: string): void {
+    noteTargetConceptId = conceptId;
+    pickerSearch = "";
+    showNotePicker = true;
+    quickMenuId = null;
+  }
+
+  async function attachExistingNote(noteId: string): Promise<void> {
+    const targetId = noteTargetConceptId;
+    if (!targetId) return;
+    const target = nodes.find((node) => node.id === targetId);
+    if (!target || target.linked_note_ids.includes(noteId)) return;
+    try {
+      await updateConceptNotes(targetId, [...target.linked_note_ids, noteId]);
+      showNotePicker = false;
+      await tick();
+      fitContent();
+      showSnackbar("Nota existente vinculada.", "success");
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : "No se pudo vincular la nota.", "error");
+    }
+  }
+
   function viewportPointerDown(event: PointerEvent): void {
     if ((!spaceHeld || event.button !== 0) && event.button !== 1) return;
     event.preventDefault();
@@ -416,6 +534,29 @@
   }
 
   function viewportPointerMove(event: PointerEvent): void {
+    if (noteLinkDrag?.pointerId === event.pointerId) {
+      const rect = mapViewport?.getBoundingClientRect();
+      if (!rect) return;
+      noteHoverTargetId = findNoteDropTarget(event, noteLinkDrag.sourceConceptId);
+      noteLinkDrag = {
+        ...noteLinkDrag,
+        currentX: (event.clientX - rect.left - camera.x) / camera.scale,
+        currentY: (event.clientY - rect.top - camera.y) / camera.scale,
+      };
+      return;
+    }
+    if (noteDrag?.pointerId === event.pointerId) {
+      const dx = event.clientX - noteDrag.startX;
+      const dy = event.clientY - noteDrag.startY;
+      if (Math.hypot(dx, dy) > 4) noteDrag.moved = true;
+      if (!noteDrag.moved) return;
+      isDragging = true;
+      notePositionOverlay = { ...notePositionOverlay, [noteDrag.key]: {
+        x: noteDrag.origin.x + dx / camera.scale,
+        y: noteDrag.origin.y + dy / camera.scale,
+      }};
+      return;
+    }
     if (linkDrag?.pointerId === event.pointerId) {
       const rect = mapViewport?.getBoundingClientRect();
       if (!rect) return;
@@ -512,6 +653,25 @@
   }
 
   function viewportPointerUp(event: PointerEvent): void {
+    if (noteLinkDrag?.pointerId === event.pointerId) {
+      const drag = noteLinkDrag;
+      const destination = findNoteDropTarget(event, drag.sourceConceptId);
+      noteLinkDrag = null;
+      noteHoverTargetId = null;
+      if (destination) void commitNoteLink(drag.sourceConceptId, drag.noteId, destination, { x: drag.x, y: drag.y });
+      return;
+    }
+    if (noteDrag?.pointerId === event.pointerId) {
+      const drag = noteDrag;
+      noteDrag = null;
+      isDragging = false;
+      if (drag.moved) {
+        suppressNoteClick = true;
+        const next = notePositionOverlay[drag.key];
+        if (next) void commitNotePosition(drag.conceptId, drag.noteId, drag.key, next);
+      }
+      return;
+    }
     if (linkDrag?.pointerId === event.pointerId) {
       const sourceId = linkDrag.conceptId;
       // Recompute the drop target in case the mouse was moved and released
@@ -550,6 +710,18 @@
   }
 
   function viewportPointerCancel(event: PointerEvent): void {
+    if (noteLinkDrag?.pointerId === event.pointerId) {
+      noteLinkDrag = null; noteHoverTargetId = null; return;
+    }
+    if (noteDrag?.pointerId === event.pointerId) {
+      const copy = { ...notePositionOverlay };
+      delete copy[noteDrag.key];
+      notePositionOverlay = copy;
+      noteDrag = null;
+      isDragging = false;
+      suppressNoteClick = true;
+      return;
+    }
     if (linkDrag?.pointerId === event.pointerId) {
       linkDrag = null;
       linkHoverTargetId = null;
@@ -696,7 +868,7 @@
     catch (error) { showSnackbar(error instanceof Error ? error.message : "No se pudo desvincular.", "error"); }
   }
   function editNote(note: Item): void {
-    openItemEditor({ editingItem: note, editingIndex: getItemIndex(note) });
+    if (selected) openNoteEditor(note.id, selected.id);
   }
 </script>
 
