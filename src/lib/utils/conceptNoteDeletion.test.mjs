@@ -53,3 +53,20 @@ assert.throws(() => deleteNoteEverywhere(draft, "note-target"), /ya no existe/);
 assert.throws(() => deleteNoteEverywhere(draft, "task-keep"), /ya no existe/);
 assert.deepEqual(draft, retained, "missing or non-note IDs cannot mutate the dataset");
 console.log("PASS permanent note removal clears all concept, map, flow and global references");
+
+const parentDraft=makeFixture();
+parentDraft.__SYSTEM_CONCEPT_NODES__=[
+  {id:"parent",category_id:"trading",parent_id:null,primary_note_id:"note-target",title:"Fuentes",
+    linked_note_ids:["note-keep"],note_positions:{"note-keep":{x:222,y:444}}},
+  {id:"child",category_id:"trading",parent_id:"parent",primary_note_id:"note-keep",title:"Análisis",
+    linked_note_ids:[],note_positions:{}},
+];
+deleteNoteEverywhere(parentDraft,"note-target");
+assert.equal(parentDraft.__SYSTEM_CONCEPT_NODES__.length,1,
+  "deleting the node-backed note must not regenerate an empty node");
+assert.equal(parentDraft.__SYSTEM_CONCEPT_NODES__[0].id,"child");
+assert.equal(parentDraft.__SYSTEM_CONCEPT_NODES__[0].parent_id,null,
+  "child notes move one level up rather than disappearing");
+assert.equal(parentDraft.__SYSTEM_TASKS__.length,2);
+assert.equal(parentDraft.__SYSTEM_TASKS__[0].id,"note-keep");
+console.log("PASS primary-note deletion removes visual node and keeps descendants");
