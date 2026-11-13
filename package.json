@@ -21,6 +21,7 @@
     "test:concept-hierarchy": "node --experimental-strip-types src/lib/utils/conceptNodeVisual.test.mjs",
     "test:concept-keyboard": "node --experimental-strip-types src/lib/utils/conceptMapKeyboard.test.mjs",
     "test:concept-reparent": "node --experimental-strip-types src/lib/utils/conceptReparent.test.mjs",
+    "test:transcription-x": "node src/lib/utils/transcriptionXPresence.test.mjs",
     "test:flows": "pnpm run test:flow-layout && pnpm run test:flow-graph",
     "tauri": "tauri"
   },
