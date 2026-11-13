@@ -1,9 +1,10 @@
 <script lang="ts">
   import { ArrowLeft, Check, ChevronDown, ChevronRight, CirclePlus, Edit3, FileText, Filter, Layers, Link2, Minus, MoreHorizontal, Plus, Search, Target, Trash2, X, ZoomIn, ZoomOut } from "lucide-svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
-  import { appState, createConceptNode, deleteConceptNode, goBack, getItemIndex, openItemEditor, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry } from "$lib/store/appState.svelte";
+  import { appState, createConceptNode, deleteConceptNode, goBack, getItemIndex, openItemEditor, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
+  import { canReparentConcept } from "$lib/utils/conceptReparent";
   import { conceptNodeVisual, conceptNodeWidth, conceptNodeHeight, resizeConceptGeometry } from "$lib/utils/conceptNodeVisual";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { isTauri } from "@tauri-apps/api/core";
@@ -46,6 +47,14 @@
     origin: MapPoint; width: number; moved: boolean;
   };
   let resizeDrag = $state<ResizeDrag | null>(null);
+  const CATEGORY_ROOT_TARGET = "__category_root__";
+  type LinkDrag = {
+    conceptId: string; pointerId: number; startX: number; startY: number;
+    currentX: number; currentY: number;
+  };
+  let linkDrag = $state<LinkDrag | null>(null);
+  let linkHoverTargetId = $state<string | null>(null);
+  let savingLink = $state(false);
   let suppressNodeClick = false;
   type NodeDrag = {
     id: string; pointerId: number; startX: number; startY: number;
@@ -243,6 +252,8 @@
     dragPositions = {};
     resizeDraftWidths = {};
     resizeDrag = null;
+    linkDrag = null;
+    linkHoverTargetId = null;
   }
 
   // Rebind the listeners when the map view mounts again after opening a note.
@@ -265,6 +276,8 @@
     dragPositions = {};
     resizeDraftWidths = {};
     resizeDrag = null;
+    linkDrag = null;
+    linkHoverTargetId = null;
     nodeDrag = null;
     panDrag = null;
     spaceHeld = false;
@@ -298,6 +311,56 @@
     (event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId);
   }
 
+  /** Drag an existing relationship to another concept or the category root. */
+  function linkPointerDown(event: PointerEvent, conceptId: string): void {
+    if (event.button !== 0 || spaceHeld || savingLink) return;
+    const origin = layoutById.get(conceptId);
+    if (!origin) return;
+    event.preventDefault();
+    event.stopPropagation();
+    linkHoverTargetId = null;
+    linkDrag = {
+      conceptId, pointerId: event.pointerId,
+      startX: origin.x, startY: origin.y,
+      currentX: origin.x, currentY: origin.y,
+    };
+    (event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId);
+  }
+
+  function findLinkDropTarget(event: PointerEvent, sourceId: string): string | null {
+    // Pointer capture is active on the drag handle. Hit-test the real screen
+    // position instead of event.target, which always remains the handle.
+    const underlying = document.elementFromPoint(event.clientX, event.clientY);
+    if (!(underlying instanceof Element)) return null;
+    const concept = underlying.closest<HTMLElement>("[data-concept-node]");
+    const possibleId = concept?.dataset.conceptNode;
+    if (possibleId && canReparentConcept(nodes, sourceId, possibleId)) {
+      return possibleId;
+    }
+    const root = underlying.closest<HTMLElement>("[data-map-root]");
+    if (root && canReparentConcept(nodes, sourceId, null)) {
+      return CATEGORY_ROOT_TARGET;
+    }
+    return null;
+  }
+
+  async function commitLinkDrop(sourceId: string, targetId: string): Promise<void> {
+    savingLink = true;
+    try {
+      const newParentId = targetId === CATEGORY_ROOT_TARGET ? null : targetId;
+      // The hierarchy can change all automatic radial sectors. Freeze the
+      // existing layout while changing the parent for a seamless connection.
+      await reparentConceptNode(sourceId, newParentId, layout.map(({ node, x, y }) => ({
+        id: node.id, x, y,
+      })));
+      showSnackbar("Jerarquía del mapa actualizada.", "success");
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : "No se pudo cambiar la conexión.", "error");
+    } finally {
+      savingLink = false;
+    }
+  }
+
   function viewportPointerDown(event: PointerEvent): void {
     if ((!spaceHeld || event.button !== 0) && event.button !== 1) return;
     event.preventDefault();
@@ -310,6 +373,15 @@
   }
 
   function viewportPointerMove(event: PointerEvent): void {
+    if (linkDrag?.pointerId === event.pointerId) {
+      const rect = mapViewport?.getBoundingClientRect();
+      if (!rect) return;
+      const worldX = (event.clientX - rect.left - camera.x) / camera.scale;
+      const worldY = (event.clientY - rect.top - camera.y) / camera.scale;
+      linkHoverTargetId = findLinkDropTarget(event, linkDrag.conceptId);
+      linkDrag = { ...linkDrag, currentX: worldX, currentY: worldY };
+      return;
+    }
     if (resizeDrag?.pointerId === event.pointerId) {
       const dx = event.clientX - resizeDrag.startX;
       const dy = event.clientY - resizeDrag.startY;
@@ -397,6 +469,16 @@
   }
 
   function viewportPointerUp(event: PointerEvent): void {
+    if (linkDrag?.pointerId === event.pointerId) {
+      const sourceId = linkDrag.conceptId;
+      // Recompute the drop target in case the mouse was moved and released
+      // without an intervening pointermove event.
+      const destination = findLinkDropTarget(event, sourceId);
+      linkDrag = null;
+      linkHoverTargetId = null;
+      if (destination) void commitLinkDrop(sourceId, destination);
+      return;
+    }
     if (resizeDrag?.pointerId === event.pointerId) {
       const current = resizeDrag;
       resizeDrag = null;
@@ -425,6 +507,11 @@
   }
 
   function viewportPointerCancel(event: PointerEvent): void {
+    if (linkDrag?.pointerId === event.pointerId) {
+      linkDrag = null;
+      linkHoverTargetId = null;
+      return;
+    }
     if (resizeDrag?.pointerId === event.pointerId) {
       const widths = { ...resizeDraftWidths };
       const positions = { ...dragPositions };
@@ -713,10 +800,28 @@
               />
               <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
             {/each}
+            {#if linkDrag}
+              <path
+                class="concept-link-preview-halo"
+                d={`M ${linkDrag.startX} ${linkDrag.startY} C ${(linkDrag.startX + linkDrag.currentX) / 2} ${linkDrag.startY}, ${(linkDrag.startX + linkDrag.currentX) / 2} ${linkDrag.currentY}, ${linkDrag.currentX} ${linkDrag.currentY}`}
+                stroke="#10b981" stroke-opacity=".18" stroke-width="11"
+                stroke-linecap="round" fill="none"
+              />
+              <path
+                class="concept-link-preview"
+                d={`M ${linkDrag.startX} ${linkDrag.startY} C ${(linkDrag.startX + linkDrag.currentX) / 2} ${linkDrag.startY}, ${(linkDrag.startX + linkDrag.currentX) / 2} ${linkDrag.currentY}, ${linkDrag.currentX} ${linkDrag.currentY}`}
+                stroke="#059669" stroke-width="3.25"
+                stroke-linecap="round" stroke-dasharray="8 6" fill="none"
+              />
+              <circle cx={linkDrag.currentX} cy={linkDrag.currentY} r="5.5" fill="#059669" stroke="#ffffff" stroke-width="2"/>
+            {/if}
           </svg>
-          <div class="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-4 rounded-[2rem] border-[3px] border-brand-500 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-100 px-8 py-6 shadow-xl" style:left="650px" style:top="440px" style:width="390px" style:min-height="126px">
+          <div data-map-root="true" class:concept-link-target={linkHoverTargetId === CATEGORY_ROOT_TARGET} class="concept-category-root absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-4 rounded-[2rem] border-[3px] border-brand-500 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-100 px-8 py-6 shadow-xl" style:left="650px" style:top="440px" style:width="390px" style:min-height="126px">
             <Target size={38} class="shrink-0 text-brand-800"/>
             <span class="min-w-0 flex-1 break-words text-[34px] font-extrabold leading-tight tracking-tight text-brand-900">{categoryName}</span>
+            {#if linkHoverTargetId === CATEGORY_ROOT_TARGET}
+              <span class="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white shadow-md">Mover al nivel principal</span>
+            {/if}
           </div>
           {#each layout as position (position.node.id)}
             {@const shade = palette[position.color]}
@@ -724,7 +829,10 @@
             {@const boxWidth = resizeDraftWidths[position.node.id] ??
               conceptNodeWidth(position.node.title, position.depth, position.node.width)}
             <div
+              data-concept-node={position.node.id}
               class="concept-node-shell group absolute -translate-x-1/2 -translate-y-1/2"
+              class:concept-link-target={linkHoverTargetId === position.node.id}
+              class:concept-link-source={linkDrag?.conceptId === position.node.id}
               class:node-resizing={resizeDrag?.id === position.node.id}
               style:left={position.x + "px"}
               style:top={position.y + "px"}
@@ -762,6 +870,14 @@
                 onclick={(event) => { event.stopPropagation(); showNew(position.node.id); }}
               ><Plus size={15}/></button>
               <button
+                class="concept-link-handle absolute -left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-brand-200 bg-white/90 text-brand-700 shadow-sm"
+                title={"Arrastrar conexión para reorganizar " + position.node.title}
+                aria-label={"Reorganizar conexión de " + position.node.title}
+                disabled={savingLink}
+                onpointerdown={(event) => linkPointerDown(event, position.node.id)}
+                onclick={(event) => { event.preventDefault(); event.stopPropagation(); }}
+              ><Link2 size={15}/></button>
+              <button
                 class="concept-resize-handle absolute -bottom-2.5 -right-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-md border border-brand-200 bg-white/90 text-brand-600 shadow-sm"
                 title={"Arrastrar para cambiar el ancho de " + position.node.title}
                 aria-label={"Cambiar el ancho de " + position.node.title}
@@ -773,7 +889,7 @@
         </div>
       {/if}
       <div class="pointer-events-none absolute bottom-3 left-4 rounded-full border border-slate-200/70 bg-white/75 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm backdrop-blur-sm">
-        Arrastra conceptos · Espacio + arrastrar para desplazarte · Ctrl + rueda para zoom
+        Arrastra conceptos · arrastra el conector lateral para cambiar jerarquía · Espacio para mover el mapa · Ctrl + rueda para zoom
       </div>
     </div>
   {/if}
@@ -797,9 +913,22 @@
   .concept-node-shell { z-index: 2; transition: width 170ms cubic-bezier(.22,1,.36,1); will-change: left, top; }
   .concept-node-shell.node-resizing { transition: none; z-index: 5; }
   .concept-map-node { cursor: grab; touch-action: none; user-select: none; min-height: 56px; }
-  .concept-add-child, .concept-resize-handle { opacity: .32; transition: opacity 150ms ease, transform 150ms cubic-bezier(.22,1,.36,1), box-shadow 150ms ease; }
-  .concept-node-shell:hover .concept-add-child, .concept-add-child:focus-visible, .concept-node-shell:hover .concept-resize-handle, .concept-resize-handle:focus-visible { opacity: 1; }
+  .concept-add-child, .concept-resize-handle, .concept-link-handle { opacity: .32; transition: opacity 150ms ease, transform 150ms cubic-bezier(.22,1,.36,1), box-shadow 150ms ease; }
+  .concept-node-shell:hover .concept-add-child, .concept-add-child:focus-visible,
+  .concept-node-shell:hover .concept-resize-handle, .concept-resize-handle:focus-visible,
+  .concept-node-shell:hover .concept-link-handle, .concept-link-handle:focus-visible { opacity: 1; }
   .concept-add-child:hover { transform: scale(1.1); box-shadow: 0 5px 18px rgba(15,75,55,.16); }
+  .concept-link-handle { cursor: crosshair; touch-action: none; }
+  .concept-link-handle:hover { transform: translateY(-50%) scale(1.08); }
+  .concept-link-target .concept-map-node, .concept-category-root.concept-link-target {
+    outline: 4px solid rgba(16,185,129,.45);
+    outline-offset: 5px;
+    box-shadow: 0 0 0 9px rgba(16,185,129,.10), 0 12px 30px rgba(16,185,129,.20) !important;
+    transition: outline-color 150ms ease, box-shadow 150ms ease;
+  }
+  .concept-link-source .concept-map-node { opacity: .84; }
+  .concept-link-preview { animation: concept-flow 1.4s linear infinite; }
+  @keyframes concept-flow { to { stroke-dashoffset: -28; } }
   .concept-resize-handle { cursor: nwse-resize; touch-action: none; }
   .concept-resize-handle:hover { transform: scale(1.08); }
   .concept-map-node:hover { filter: brightness(1.02); }
