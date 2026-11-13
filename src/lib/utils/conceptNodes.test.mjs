@@ -103,3 +103,36 @@ test("invalid parents and cyclic concept links cannot break the tree", () => {
     }
   }
 });
+
+test("existing map notes remain visible with saved positions and new attachments after migration", () => {
+  const data = fixture();
+  data.__SYSTEM_TASKS__[0].links = [{id:"l1",title:"Fuente",url:"https://example.com/"}];
+  data.__SYSTEM_TASKS__[0].documents = [{
+    id:"d1",name:"fuente.pdf",mime_type:"application/pdf",data_url:"data:application/pdf;base64,SGVsbG8="
+  }];
+  data.__SYSTEM_CONCEPT_NODES__ = [{
+    id:"fuentes",category_id:"research",parent_id:null,title:"Fuentes de datos",
+    icon:"Layers",color:"teal",linked_note_ids:["note_1"],
+    note_positions:{note_1:{x:-1500,y:2200},missing:{x:400,y:900}},
+  }];
+  const migrated = normalizeAppData(JSON.parse(JSON.stringify(data)));
+  assert.deepEqual(migrated.__SYSTEM_CONCEPT_NODES__[0].linked_note_ids,["note_1"]);
+  assert.deepEqual(migrated.__SYSTEM_CONCEPT_NODES__[0].note_positions,{note_1:{x:-1500,y:2200}});
+  assert.equal(migrated.__SYSTEM_TASKS__[0].links.length,1);
+  assert.equal(migrated.__SYSTEM_TASKS__[0].documents.length,1);
+  assert.equal(migrated.__SYSTEM_TASKS__[0].images.length,0);
+  assert.equal(migrated.__SYSTEM_TASKS__[0].comment,"Texto");
+  assert.deepEqual(normalizeAppData(migrated).__SYSTEM_TASKS__[0],migrated.__SYSTEM_TASKS__[0]);
+});
+
+test("old notes and maps without attachment or placement fields receive safe defaults", () => {
+  const data=fixture();
+  data.__SYSTEM_CONCEPT_NODES__=[{
+    id:"old",category_id:"research",parent_id:null,title:"Old",color:"emerald",
+    icon:"Layers",linked_note_ids:["note_1"],
+  }];
+  const migrated=normalizeAppData(data);
+  assert.deepEqual(migrated.__SYSTEM_TASKS__[0].links,[]);
+  assert.deepEqual(migrated.__SYSTEM_TASKS__[0].documents,[]);
+  assert.deepEqual(migrated.__SYSTEM_CONCEPT_NODES__[0].note_positions,{});
+});
