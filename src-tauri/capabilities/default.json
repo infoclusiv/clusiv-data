@@ -9,8 +9,6 @@
     "core:default",
     "shell:allow-open",
     "dialog:allow-open",
-    "dialog:allow-save",
-    "core:window:allow-set-focus",
-    "core:webview:allow-set-webview-focus"
+    "dialog:allow-save"
   ]
 }
