@@ -4,6 +4,10 @@
   import { appState, createConceptNode, deleteConceptNode, goBack, getItemIndex, openItemEditor, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
+  import { conceptNodeVisual } from "$lib/utils/conceptNodeVisual";
+  import { getCurrentWebview } from "@tauri-apps/api/webview";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { isTauri } from "@tauri-apps/api/core";
   import { conceptBounds, fitConceptCamera, zoomConceptCamera } from "$lib/utils/conceptMapViewport";
   import { tick } from "svelte";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
@@ -30,6 +34,8 @@
   let camera = $state<MapCamera>({ x: 0, y: 0, scale: 1 });
   let mapViewport = $state<HTMLDivElement | null>(null);
   let spaceHeld = $state(false);
+  let pointerOverMap = $state(false);
+  let focusRequestRunning = false;
   let altLeftHeld = $state(false);
   let isPanning = $state(false);
   let isDragging = $state(false);
@@ -124,14 +130,60 @@
     zoomByFactor(Math.exp(-Math.max(-240, Math.min(240, event.deltaY)) * .0016), anchor);
   }
 
+  /**
+   * Focusing the DOM element is sufficient when the Tauri window is active.
+   * On Windows the native WebView can be unfocused until a click; when the
+   * pointer first enters the map, explicitly activate the native window and
+   * webview so Space can be recognized before clicking.
+   */
+  async function activateMapOnHover(): Promise<void> {
+    pointerOverMap = true;
+    if (!mapViewport || selectedId || showCreate || showDelete || focusRequestRunning) return;
+    const viewport = mapViewport;
+    if (!isTauri()) {
+      viewport.focus({ preventScroll: true });
+      return;
+    }
+    focusRequestRunning = true;
+    try {
+      const currentWindow = getCurrentWindow();
+      if (!(await currentWindow.isFocused())) {
+        if (!pointerOverMap || mapViewport !== viewport) return;
+        await currentWindow.setFocus();
+      }
+      if (!pointerOverMap || mapViewport !== viewport) return;
+      await getCurrentWebview().setFocus();
+      if (pointerOverMap && mapViewport === viewport) {
+        viewport.focus({ preventScroll: true });
+      }
+    } catch (error) {
+      // Windows may deny focus if another foreground app is active.
+      // Keep a local HTML focus attempt rather than stealing focus repeatedly.
+      if (pointerOverMap && mapViewport === viewport) {
+        viewport.focus({ preventScroll: true });
+      }
+      console.debug("Unable to focus the map webview on hover:", error);
+    } finally {
+      focusRequestRunning = false;
+    }
+  }
+
+  function leaveMap(): void {
+    pointerOverMap = false;
+    if (!panDrag) spaceHeld = false;
+    altLeftHeld = false;
+  }
+
   function keyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     const editable = target?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? "");
-    if (event.code === "AltLeft" && !editable && !selectedId && !showCreate) {
+    const mapFocused = document.activeElement === mapViewport;
+    if ((!pointerOverMap && !mapFocused) || selectedId || showCreate || showDelete) return;
+    if (event.code === "AltLeft" && !editable) {
       altLeftHeld = true;
       return;
     }
-    if (event.code === "Space" && !editable && !selectedId && !showCreate && !showDelete) {
+    if (event.code === "Space" && !editable && !event.altKey && !event.ctrlKey && !event.metaKey) {
       event.preventDefault();
       spaceHeld = true;
     }
@@ -149,6 +201,7 @@
     isDragging = false;
     spaceHeld = false;
     altLeftHeld = false;
+    pointerOverMap = false;
     dragPositions = {};
   }
 
@@ -174,6 +227,7 @@
     panDrag = null;
     spaceHeld = false;
     altLeftHeld = false;
+    pointerOverMap = false;
     requestAnimationFrame(() => fitContent());
   });
 
@@ -499,9 +553,14 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       bind:this={mapViewport}
+      role="region"
+      tabindex="0"
+      aria-label="Lienzo interactivo del mapa de conceptos"
       class="concept-map-background relative min-h-0 flex-1 overflow-hidden select-none"
       class:space-mode={spaceHeld}
       class:panning={isPanning}
+      onpointerenter={() => void activateMapOnHover()}
+      onpointerleave={leaveMap}
       onpointerdown={viewportPointerDown}
       onpointermove={viewportPointerMove}
       onpointerup={viewportPointerUp}
@@ -536,8 +595,12 @@
           <div class="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-[2rem] border-[2px] border-brand-400 bg-gradient-to-br from-emerald-50 to-teal-100 px-7 py-5 shadow-lg" style:left="650px" style:top="440px"><Target size={32} class="text-brand-700"/><span class="max-w-52 truncate text-2xl font-bold text-brand-800">{categoryName}</span></div>
           {#each layout as position (position.node.id)}
             {@const shade = palette[position.color]}
+            {@const visual = conceptNodeVisual(position.depth)}
             <button
-              class="concept-map-node absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-[1.5rem] border-2 px-5 py-3 text-left hover:brightness-[1.02] focus:outline-none focus:ring-4 focus:ring-brand-100"
+              class="concept-map-node absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-[1.5rem] border-2 text-left hover:brightness-[1.02] focus:outline-none focus:ring-4 focus:ring-brand-100"
+              style:padding={visual.paddingYPx + "px " + visual.paddingXPx + "px"}
+              style:min-width={visual.minWidthPx + "px"}
+              style:max-width={visual.maxWidthPx + "px"}
               class:node-moving={isDragging && nodeDrag?.id === position.node.id}
               style:left={position.x + "px"}
               style:top={position.y + "px"}
@@ -550,8 +613,11 @@
               title={"Arrastrar para mover · clic para abrir " + position.node.title}
               aria-label={"Abrir o mover " + position.node.title}
             >
-              <span class="shrink-0" style:color={shade.stroke}><Layers size={position.depth === 1 ? 24 : 19}/></span>
-              <span class="min-w-0"><span class:font-bold={position.depth === 1} class="block max-w-[190px] text-sm font-semibold leading-tight text-slate-900">{position.node.title}</span><span class="mt-1 block text-xs text-slate-500">{position.node.linked_note_ids.length} {position.node.linked_note_ids.length === 1 ? "nota" : "notas"}</span></span>
+              <span class="shrink-0" style:color={shade.stroke}><Layers size={visual.iconPx}/></span>
+              <span class="min-w-0">
+                <span class="block max-w-[195px] leading-tight text-slate-900" style:font-size={visual.titlePx + "px"} style:font-weight={visual.weight}>{position.node.title}</span>
+                <span class="mt-1 block text-slate-500" style:font-size={visual.notePx + "px"}>{position.node.linked_note_ids.length} {position.node.linked_note_ids.length === 1 ? "nota" : "notas"}</span>
+              </span>
             </button>
           {/each}
         </div>
