@@ -4,7 +4,7 @@
   import { appState, createConceptNode, deleteConceptNode, goBack, getItemIndex, openItemEditor, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
-  import { conceptNodeVisual, conceptNodeWidth, resizeConceptGeometry } from "$lib/utils/conceptNodeVisual";
+  import { conceptNodeVisual, conceptNodeWidth, conceptNodeHeight, resizeConceptGeometry } from "$lib/utils/conceptNodeVisual";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { isTauri } from "@tauri-apps/api/core";
@@ -120,7 +120,8 @@
       y: position.y,
       width: resizeDraftWidths[position.node.id] ??
         conceptNodeWidth(position.node.title, position.depth, position.node.width),
-      height: 165,
+      height: conceptNodeHeight(position.node.title, position.depth, resizeDraftWidths[position.node.id] ??
+        conceptNodeWidth(position.node.title, position.depth, position.node.width)),
     })), { centerWidth: 420, centerHeight: 170 });
     camera = fitConceptCamera(bounds, mapViewport.clientWidth, mapViewport.clientHeight);
   }
@@ -258,7 +259,6 @@
     if (!current) return;
     event.preventDefault();
     event.stopPropagation();
-    suppressNodeClick = true;
     resizeDrag = {
       id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
       origin: { x: current.x, y: current.y }, width, moved: false,
@@ -402,7 +402,6 @@
       dragPositions = positions;
       resizeDrag = null;
       isDragging = false;
-      suppressNodeClick = true;
       return;
     }
     if (panDrag?.pointerId === event.pointerId) { panDrag = null; isPanning = false; }
