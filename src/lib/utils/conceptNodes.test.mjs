@@ -65,6 +65,22 @@ test("manually dragged positions survive normalization and old nodes remain auto
   assert.equal(normalized.__SYSTEM_CONCEPT_NODES__[1].position, null);
 });
 
+test("resized node widths survive serialization and clamp invalid values", () => {
+  const data = fixture();
+  data.__SYSTEM_CONCEPT_NODES__ = [
+    { id: "wide", category_id: "general", parent_id: null, title: "Concepto", color: "sky", icon: "Layers", linked_note_ids: [], position: { x: 225, y: 190 }, width: 405 },
+    { id: "old", category_id: "general", parent_id: "wide", title: "Viejo", color: "amber", icon: "Layers", linked_note_ids: [] },
+    { id: "too-wide", category_id: "general", parent_id: null, title: "Grande", color: "teal", icon: "Layers", linked_note_ids: [], width: 900 },
+    { id: "invalid-width", category_id: "general", parent_id: null, title: "Invalido", color: "lime", icon: "Layers", linked_note_ids: [], width: "auto" },
+  ];
+  const restored = normalizeAppData(JSON.parse(JSON.stringify(data)));
+  assert.equal(restored.__SYSTEM_CONCEPT_NODES__[0].width, 405);
+  assert.deepEqual(restored.__SYSTEM_CONCEPT_NODES__[0].position, { x: 225, y: 190 });
+  assert.equal(restored.__SYSTEM_CONCEPT_NODES__[1].width, null);
+  assert.equal(restored.__SYSTEM_CONCEPT_NODES__[2].width, 520);
+  assert.equal(restored.__SYSTEM_CONCEPT_NODES__[3].width, null);
+});
+
 test("invalid parents and cyclic concept links cannot break the tree", () => {
   const data = fixture();
   data.__SYSTEM_CONCEPT_NODES__ = [
