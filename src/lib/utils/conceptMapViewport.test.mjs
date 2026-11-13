@@ -43,3 +43,11 @@ const equal = (x, y, epsilon = 1e-8) => assert.ok(Math.abs(x - y) < epsilon, `${
   assert.equal(isMapPanShortcut({code:"ControlLeft",altKey:false,metaKey:false}),false);
   console.log("PASS Ctrl+wheel zoom and immediate Space pan without Windows Alt+Space");
 }
+
+{
+  const bounds = conceptBounds([{ x: 1050, y: 440, width: 520, height: 160 }]);
+  assert.ok(bounds.right > 1050 + 260, "fit must include manually enlarged nodes");
+  const camera = fitConceptCamera(bounds, 600, 300);
+  assert.ok(bounds.right * camera.scale + camera.x <= 577);
+  console.log("PASS fit-to-map honors resized node width");
+}
