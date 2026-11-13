@@ -18,6 +18,7 @@
     "test:note-tags": "node --experimental-strip-types src/lib/utils/noteTags.test.mjs",
     "test:concepts": "node --experimental-strip-types --experimental-loader ./scripts/test-alias-loader.mjs src/lib/utils/conceptNodes.test.mjs",
     "test:concept-viewport": "node --experimental-strip-types src/lib/utils/conceptMapViewport.test.mjs",
+    "test:concept-hierarchy": "node --experimental-strip-types src/lib/utils/conceptNodeVisual.test.mjs",
     "test:flows": "pnpm run test:flow-layout && pnpm run test:flow-graph",
     "tauri": "tauri"
   },
