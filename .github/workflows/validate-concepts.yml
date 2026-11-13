@@ -39,6 +39,7 @@ jobs:
           pnpm run test:note-tags
           pnpm run test:concepts
           pnpm run test:concept-viewport
+          pnpm run test:concept-hierarchy
 
   backend:
     name: Tauri Rust tests
