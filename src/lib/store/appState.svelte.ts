@@ -3103,7 +3103,7 @@ export async function createConceptNode(input: {
     )) throw new Error("El concepto padre no existe.");
     draft.__SYSTEM_CONCEPT_NODES__.push({
       id, category_id: input.categoryId, parent_id: input.parentId ?? null,
-      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], position: null,
+      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], position: null, width: null,
     });
   });
   return id;
@@ -3143,6 +3143,30 @@ export async function updateConceptPosition(
     node.position = {
       x: Math.round(position.x),
       y: Math.round(position.y),
+    };
+  });
+}
+
+/**
+ * A corner resize changes width and center together to keep the left edge in
+ * place. Save both fields atomically so a restart cannot split the geometry.
+ */
+export async function updateConceptGeometry(
+  id: string,
+  input: { width: number; position: { x: number; y: number } },
+): Promise<void> {
+  if (!Number.isFinite(input.width) || !Number.isFinite(input.position.x)
+    || !Number.isFinite(input.position.y)) {
+    throw new Error("Geometría inválida.");
+  }
+  const width = Math.round(Math.max(120, Math.min(520, input.width)));
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    node.width = width;
+    node.position = {
+      x: Math.round(input.position.x),
+      y: Math.round(input.position.y),
     };
   });
 }
