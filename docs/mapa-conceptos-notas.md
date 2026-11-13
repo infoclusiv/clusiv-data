@@ -1,3 +1,43 @@
+## Mapa compuesto únicamente por notas (esquema 20)
+
+A partir de esta versión, cada **elemento de la jerarquía visual** del mapa
+es una nota editable con el mismo editor de título, texto, enlaces, documentos
+e imágenes. No existe una pantalla separada de detalles de concepto.
+
+Internamente se conserva `ConceptNode` solo como el registro de geometría,
+color, padre y líneas de conexión. El nuevo campo `primary_note_id`
+apunta a un registro ordinario de tipo `note` en `__SYSTEM_TASKS__`.
+
+La migración de los mapas anteriores es **automática, estable e idempotente**:
+- Para cada elemento antiguo se genera una nota primaria con su mismo título.
+- Se mantienen los IDs de la estructura, jerarquías, posiciones, anchuras y colores.
+- Se conservan todas las notas previamente vinculadas como tarjetas
+  individuales, con sus adjuntos y posiciones personalizadas.
+- La migración no copia ni duplica las notas antiguas en los siguientes guardados.
+- Al eliminar una nota primaria, desaparece su nodo y los hijos pasan al nivel
+  inmediatamente superior, sin borrar su contenido.
+- Los elementos nuevos guardan nota y estructura conjuntamente.
+
+El botón `+` superior crea una nota de primer nivel; el botón `+` de una
+nota permite crear una nota hija o relacionar una nota existente. Al hacer
+clic en un nodo se abre el editor de esa nota; el modo de arrastre y la
+reorganización de conexiones siguen disponibles.
+
+**Zoom y enfoque:** `fitContent()` ahora se ejecuta al entrar al mapa
+por primera vez o al pulsar **Centrar**. Mover, editar o crear una nota no
+recalcula el zoom. Si la ventana cambia de tamaño, se conserva el mismo
+punto central del mundo y la misma escala, en lugar de hacer zoom al mapa
+completo. Se mantiene `Ctrl + rueda` y `Espacio + arrastrar`.
+
+### Precauciones
+
+- Antes de ejecutar una versión que migre los datos, conservar una copia
+  completa de `data.json` y de los respaldos existentes.
+- Abrir y comprobar varias notas antiguas tras actualizar. Los campos nuevos
+  tienen valores predeterminados seguros.
+- El almacenamiento de documentos pequeños continúa usando Data URLs dentro
+  del archivo de datos; no cambia en esta actualización.
+
 # Tarjetas de notas dentro del mapa de conceptos
 
 Esta actualización muestra las **notas ya vinculadas a conceptos** directamente
