@@ -13,8 +13,9 @@
     conceptTitle: string;
     onclose: () => void;
     onsave: (input: ConceptNoteInput) => Promise<void>;
+    ondelete: (noteId: string) => Promise<void>;
   }
-  let { open, note, conceptTitle, onclose, onsave }: Props = $props();
+  let { open, note, conceptTitle, onclose, onsave, ondelete }: Props = $props();
   let title = $state("");
   let body = $state("");
   let links = $state<NoteLink[]>([]);
@@ -23,6 +24,7 @@
   let linkTitle = $state("");
   let linkUrl = $state("");
   let saving = $state(false);
+  let showDeleteConfirmation = $state(false);
   let uploading = $state(false);
   let docInput = $state<HTMLInputElement | null>(null);
   let imageInput = $state<HTMLInputElement | null>(null);
@@ -32,8 +34,10 @@
     const key = open ? (note?.id ?? "new") + ":" + conceptTitle : "";
     if (!open) {
       previousKey = "";
+      showDeleteConfirmation = false;
     } else if (key !== previousKey) {
       previousKey = key;
+      showDeleteConfirmation = false;
       title = note?.title ?? "";
       body = note?.comment ?? "";
       links = [...(note?.links ?? [])];
@@ -134,6 +138,21 @@
     }
   }
 
+  async function confirmDeletion(): Promise<void> {
+    const noteId = note?.id;
+    if (!noteId || saving || uploading || !showDeleteConfirmation) return;
+    saving = true;
+    try {
+      await ondelete(noteId);
+      showDeleteConfirmation = false;
+      onclose();
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : "No se pudo eliminar la nota.", "error");
+    } finally {
+      saving = false;
+    }
+  }
+
   async function submit(): Promise<void> {
     if (saving || uploading || !(title.trim() || body.trim())) return;
     saving = true;
@@ -214,10 +233,41 @@
       </div>
     </section>
   </div>
+  <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+    <div>
+      {#if note}
+        <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500"
+          disabled={saving || uploading}
+          aria-label={"Eliminar nota " + (note.title || "Sin título")}
+          onclick={() => (showDeleteConfirmation = true)}
+        ><Trash2 size={16}/> Eliminar nota</button>
+      {/if}
+    </div>
+    <div class="flex items-center gap-3">
+      <button class="btn-ghost border border-slate-200" disabled={saving} onclick={onclose}>Cancelar</button>
+      <button class="btn-primary" disabled={saving || uploading || !(title.trim() || body.trim())} onclick={() => void submit()}>
+        {#if saving}<LoaderCircle size={16} class="animate-spin"/>{/if} Guardar nota
+      </button>
+    </div>
+  </div>
+</Modal>
+<Modal
+  open={showDeleteConfirmation && open && note !== null}
+  title="¿Eliminar esta nota definitivamente?"
+  onclose={() => { if (!saving) showDeleteConfirmation = false; }}
+  widthClass="max-w-lg"
+>
+  <div class="space-y-3 text-sm leading-relaxed text-slate-600">
+    <p>Se eliminará <strong class="font-semibold text-slate-900">{note?.title || "Nota sin título"}</strong> de Clusiv-Data.</p>
+    <p>También se eliminarán sus imágenes, documentos, enlaces y todas las conexiones en mapas de conceptos y flujos. Los demás conceptos y notas se conservarán.</p>
+    <p class="font-medium text-rose-700">Esta acción no se puede deshacer desde el editor.</p>
+  </div>
   <div class="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4">
-    <button class="btn-ghost border border-slate-200" disabled={saving} onclick={onclose}>Cancelar</button>
-    <button class="btn-primary" disabled={saving || uploading || !(title.trim() || body.trim())} onclick={() => void submit()}>
-      {#if saving}<LoaderCircle size={16} class="animate-spin"/>{/if} Guardar nota
-    </button>
+    <button class="btn-ghost border border-slate-200" disabled={saving}
+      onclick={() => showDeleteConfirmation = false}>Conservar nota</button>
+    <button class="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={saving || uploading || !note}
+      onclick={() => void confirmDeletion()}
+    >{#if saving}<LoaderCircle size={16} class="animate-spin"/>{:else}<Trash2 size={16}/>{/if} Sí, eliminar nota</button>
   </div>
 </Modal>
