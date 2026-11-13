@@ -93,7 +93,11 @@
     uploading = true;
     try {
       for (const file of incoming) {
-        const data_url = await toDataUrl(file);
+        const rawUrl = await toDataUrl(file);
+        // Browser file types may be empty for .md or .csv on Windows.
+        const data_url = rawUrl.startsWith("data:;base64,")
+          ? rawUrl.replace("data:;base64,", "data:application/octet-stream;base64,")
+          : rawUrl;
         if (type === "image") {
           images = [...images, { id: crypto.randomUUID(), name: file.name || "Imagen", data_url }];
         } else {
