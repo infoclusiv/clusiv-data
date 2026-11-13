@@ -2215,7 +2215,7 @@ mod tests {
             ],
             "__SYSTEM_CONCEPT_NODES__": [
                 { "id": "c1", "category_id": "research", "parent_id": null, "title": "Concepto", "color": "teal", "icon": "Layers", "linked_note_ids": ["note_a", "note_a", "task_b", "missing"] },
-                { "id": "c2", "category_id": "research", "parent_id": "c1", "title": "Subconcepto", "color": "amber", "icon": "Layers", "linked_note_ids": ["note_a"] }
+                { "id": "c2", "category_id": "research", "parent_id": "c1", "title": "Subconcepto", "color": "amber", "icon": "Layers", "linked_note_ids": ["note_a"], "position": { "x": -325, "y": 1480 } }
             ],
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
@@ -2229,6 +2229,7 @@ mod tests {
         assert_eq!(data.concept_nodes[0].linked_note_ids, vec!["note_a".to_string()]);
         assert_eq!(data.concept_nodes[1].linked_note_ids, vec!["note_a".to_string()]);
         assert_eq!(data.concept_nodes[1].parent_id.as_deref(), Some("c1"));
+        assert_eq!(data.concept_nodes[1].position.as_ref().map(|pos| (pos.x, pos.y)), Some((-325, 1480)));
         assert_eq!(data.tasks.len(), 2);
         assert_eq!(data.tasks[0].category_id, "general");
 
