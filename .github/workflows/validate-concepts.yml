@@ -44,6 +44,7 @@ jobs:
           pnpm run test:concept-reparent
           pnpm run test:transcription-x
           pnpm run test:concept-notes
+          pnpm run test:concept-note-links
 
   backend:
     name: Tauri Rust tests
