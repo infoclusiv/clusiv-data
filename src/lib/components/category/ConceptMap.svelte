@@ -1015,6 +1015,25 @@
               />
               <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
             {/each}
+            {#each shownNotes as notePosition (notePosition.key)}
+              {@const parent = layoutById.get(notePosition.conceptId)}
+              {#if parent}
+                <path
+                  d={`M ${parent.x} ${parent.y} C ${(parent.x + notePosition.x) / 2} ${parent.y}, ${(parent.x + notePosition.x) / 2} ${notePosition.y}, ${notePosition.x} ${notePosition.y}`}
+                  stroke={palette[notePosition.color]?.stroke ?? "#0d9a72"} stroke-width="2.1"
+                  stroke-linecap="round" fill="none" opacity=".8"
+                />
+                <circle cx={notePosition.x} cy={notePosition.y} r="3.4" fill={palette[notePosition.color]?.stroke ?? "#0d9a72"}/>
+              {/if}
+            {/each}
+            {#if noteLinkDrag}
+              <path
+                d={`M ${noteLinkDrag.x} ${noteLinkDrag.y} C ${(noteLinkDrag.x + noteLinkDrag.currentX) / 2} ${noteLinkDrag.y}, ${(noteLinkDrag.x + noteLinkDrag.currentX) / 2} ${noteLinkDrag.currentY}, ${noteLinkDrag.currentX} ${noteLinkDrag.currentY}`}
+                stroke="#059669" stroke-width="3" stroke-dasharray="8 6" fill="none"
+                class="concept-link-preview"
+              />
+              <circle cx={noteLinkDrag.currentX} cy={noteLinkDrag.currentY} r="5" fill="#059669" stroke="white" stroke-width="2"/>
+            {/if}
             {#if linkDrag}
               <path
                 class="concept-link-preview-halo"
@@ -1046,7 +1065,8 @@
             <div
               data-concept-node={position.node.id}
               class="concept-node-shell group absolute -translate-x-1/2 -translate-y-1/2"
-              class:concept-link-target={linkHoverTargetId === position.node.id}
+              class:concept-link-target={linkHoverTargetId === position.node.id || noteHoverTargetId === position.node.id}
+              class:menu-open={quickMenuId === position.node.id}
               class:concept-link-source={linkDrag?.conceptId === position.node.id}
               class:node-resizing={resizeDrag?.id === position.node.id}
               style:left={position.x + "px"}
@@ -1074,16 +1094,26 @@
                     style:font-size={visual.titlePx + "px"}
                     style:font-weight={visual.weight}
                   >{position.node.title}</span>
-                  <span class="mt-1 block text-slate-500" style:font-size={visual.notePx + "px"}>{position.node.linked_note_ids.length} {position.node.linked_note_ids.length === 1 ? "nota" : "notas"}</span>
                 </span>
               </button>
               <button
                 class="concept-add-child absolute -right-3 -top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-brand-200 bg-white/90 text-brand-700 shadow-sm"
-                title={"Añadir subconcepto a " + position.node.title}
-                aria-label={"Añadir subconcepto a " + position.node.title}
+                title={"Añadir concepto o nota a " + position.node.title}
+                aria-label={"Añadir concepto o nota a " + position.node.title}
                 onpointerdown={(event) => event.stopPropagation()}
-                onclick={(event) => { event.stopPropagation(); showNew(position.node.id); }}
+                onclick={(event) => { event.stopPropagation(); quickMenuId = quickMenuId === position.node.id ? null : position.node.id; }}
               ><Plus size={15}/></button>
+              {#if quickMenuId === position.node.id}
+                <div class="concept-node-quick-menu absolute -right-3 top-10 z-30 w-[205px] space-y-1 rounded-2xl border border-brand-100 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
+                  onpointerdown={(event) => event.stopPropagation()} role="group" aria-label="Añadir al concepto">
+                  <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
+                    onclick={() => { quickMenuId = null; showNew(position.node.id); }}><Layers size={16} class="text-brand-700"/> Nuevo subconcepto</button>
+                  <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
+                    onclick={() => openNoteEditor(null, position.node.id)}><FileText size={16} class="text-brand-700"/> Nueva nota</button>
+                  <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
+                    onclick={() => openExistingNotePicker(position.node.id)}><Link2 size={16} class="text-brand-700"/> Relacionar nota existente</button>
+                </div>
+              {/if}
               <button
                 class="concept-link-handle absolute -left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-brand-200 bg-white/90 text-brand-700 shadow-sm"
                 title={"Arrastrar conexión para reorganizar " + position.node.title}
@@ -1101,14 +1131,66 @@
               ><svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M12 3L3 12M12 8L8 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
             </div>
           {/each}
+          {#each shownNotes as placement (placement.key)}
+            {@const note = noteById.get(placement.noteId)}
+            {#if note}
+              <ConceptNoteCard
+                {note}
+                conceptId={placement.conceptId}
+                color={placement.color}
+                x={placement.x} y={placement.y}
+                dragging={noteDrag?.key === placement.key && isDragging}
+                highlighted={false}
+                dimmed={Boolean(search.trim()) && !note.title.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()) &&
+                  !note.comment.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()) &&
+                  !visibleNodes.some((node) => node.id === placement.conceptId)}
+                onopen={() => { if (suppressNoteClick) { suppressNoteClick = false; return; } openNoteEditor(note.id, placement.conceptId); }}
+                ondrag={(event) => startNoteDrag(event, placement.conceptId, note.id, placement.key)}
+                onlink={(event) => startNoteLink(event, placement.conceptId, note.id, placement.key)}
+              />
+            {/if}
+          {/each}
         </div>
       {/if}
       <div class="pointer-events-none absolute bottom-3 left-4 rounded-full border border-slate-200/70 bg-white/75 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm backdrop-blur-sm">
-        Arrastra conceptos · arrastra el conector lateral para cambiar jerarquía · Espacio para mover el mapa · Ctrl + rueda para zoom
+        Arrastra conceptos o notas · conecta la línea a otro concepto · Espacio para moverte · Ctrl + rueda para zoom
       </div>
     </div>
   {/if}
 </div>
+
+<ConceptNoteEditor
+  open={noteEditorOpen}
+  note={editingNote}
+  conceptTitle={nodes.find((node) => node.id === noteTargetConceptId)?.title ?? categoryName}
+  onclose={() => { noteEditorOpen = false; editingNoteId = null; }}
+  onsave={saveNoteFromMap}
+/>
+<Modal open={showNotePicker} title="Relacionar una nota existente" onclose={() => showNotePicker = false} widthClass="max-w-2xl">
+  <div class="space-y-3">
+    <p class="text-sm text-slate-500">Selecciona una nota ya guardada para mostrarla en el mapa. No se duplicará.</p>
+    <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
+      <Search size={17} class="text-slate-400"/>
+      <input class="min-w-0 flex-1 text-sm outline-none" bind:value={pickerSearch} placeholder="Buscar notas..." />
+    </label>
+    <div class="max-h-[45vh] space-y-2 overflow-y-auto">
+      {#each linkedNoteCandidates as candidate (candidate.id)}
+        <button class="flex w-full items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-brand-300 hover:bg-emerald-50/40"
+          disabled={nodes.find((node) => node.id === noteTargetConceptId)?.linked_note_ids.includes(candidate.id)}
+          onclick={() => void attachExistingNote(candidate.id)}
+        >
+          <FileText size={18} class="mt-0.5 shrink-0 text-brand-700"/>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-bold text-slate-800">{candidate.title || "Nota sin título"}</span>
+            <span class="mt-1 block truncate text-xs text-slate-500">{candidate.comment || "Sin contenido"}</span>
+          </span>
+        </button>
+      {:else}
+        <p class="py-8 text-center text-sm text-slate-500">No hay notas disponibles.</p>
+      {/each}
+    </div>
+  </div>
+</Modal>
 
 <Modal open={showCreate} title={editingConcept ? "Editar concepto" : newParentId ? "Nuevo subconcepto" : "Nuevo concepto"} onclose={() => (showCreate = false)}>
   <div class="space-y-4">
@@ -1127,6 +1209,8 @@
   .concept-map-background { background: radial-gradient(circle at 15% 18%,rgba(252,230,191,.28),transparent 31%),radial-gradient(circle at 77% 75%,rgba(157,224,199,.22),transparent 37%),#fbfaf6; }
   .concept-node-shell { z-index: 2; transition: width 170ms cubic-bezier(.22,1,.36,1); will-change: left, top; }
   .concept-node-shell.node-resizing { transition: none; z-index: 5; }
+  .concept-node-shell.menu-open { z-index: 12; }
+  .concept-node-quick-menu { user-select: none; }
   .concept-map-node { cursor: grab; touch-action: none; user-select: none; min-height: 56px; }
   .concept-add-child, .concept-resize-handle, .concept-link-handle { opacity: .32; transition: opacity 150ms ease, transform 150ms cubic-bezier(.22,1,.36,1), box-shadow 150ms ease; }
   .concept-node-shell:hover .concept-add-child, .concept-add-child:focus-visible,
