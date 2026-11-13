@@ -17,6 +17,7 @@
   } from "lucide-svelte";
 
   import CategorySectionTabs from "$lib/components/category/CategorySectionTabs.svelte";
+  import ConceptMap from "$lib/components/category/ConceptMap.svelte";
   import LinkCard from "$lib/components/cards/LinkCard.svelte";
   import NoteCard from "$lib/components/cards/NoteCard.svelte";
   import TagMultiSelect from "$lib/components/notes/TagMultiSelect.svelte";
@@ -416,6 +417,9 @@
 {#if category && appState.appData}
   {@const CategoryIcon = getCategoryIcon(category)}
 
+  {#if appState.currentCategorySection === "concept-map" && category.parent_id === null}
+    <ConceptMap categoryId={category.id} categoryName={category.name} />
+  {:else}
   <div class="relative flex h-full flex-1">
     <div class="page-panel relative flex h-full flex-1 flex-col overflow-hidden">
       <div class="border-b border-slate-200/70 px-8 py-7">
@@ -472,6 +476,7 @@
 
       <CategorySectionTabs
         activeSection={appState.currentCategorySection}
+        allowConceptMap={category.parent_id === null}
         onselect={setCategorySection}
       />
 
@@ -860,6 +865,7 @@
       actions={fabActions}
     />
   </div>
+  {/if}
 
   <LinkDialog
     open={showLinkDialog}

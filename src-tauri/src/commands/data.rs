@@ -8,13 +8,15 @@ use tauri::{command, State};
 use uuid::Uuid;
 
 use crate::logging::{AppLoggerState, LogLevel};
+use crate::models::item::{NoteLink, NoteDocument};
 use crate::models::{
-    AppData, Category, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
+    AppData, Category, ConceptNode, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
     QuickText, QuickTextGroup, DEFAULT_HOME_TEXT, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
     SCHEMA_VERSION,
 };
 
 const CATEGORIES_KEY: &str = "__SYSTEM_CATEGORIES__";
+const CONCEPT_NODES_KEY: &str = "__SYSTEM_CONCEPT_NODES__";
 const FLOWS_KEY: &str = "__SYSTEM_FLOWS__";
 const GLOBAL_FLOW_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__";
 const GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS_KEY: &str = "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__";
@@ -23,6 +25,21 @@ const QUICK_TEXTS_KEY: &str = "__SYSTEM_QUICK_TEXTS__";
 const QUICK_TEXT_GROUPS_KEY: &str = "__SYSTEM_QUICK_TEXT_GROUPS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
 const TASKS_KEY: &str = "__SYSTEM_TASKS__";
+
+/// Export a user-selected attachment from the note editor. File contents
+/// are never fetched from a URL; the UI sends only local, size-limited bytes.
+#[tauri::command]
+pub fn export_note_attachment(destination_path: String, bytes: Vec<u8>) -> Result<(), String> {
+    if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
+        return Err("El adjunto debe ocupar entre 1 byte y 8 MB.".to_owned());
+    }
+    let destination = std::path::Path::new(&destination_path);
+    if !destination.is_absolute() || destination.file_name().is_none() {
+        return Err("Selecciona una ruta válida para guardar el documento.".to_owned());
+    }
+    std::fs::write(destination, bytes)
+        .map_err(|e| format!("No se pudo exportar el adjunto: {e}"))
+}
 
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
@@ -293,6 +310,13 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             Value::Array(Vec::new())
         }
     };
+    let concept_nodes_value = match root.remove(CONCEPT_NODES_KEY) {
+        Some(value) => value,
+        None => {
+            changed = true;
+            Value::Array(Vec::new())
+        }
+    };
     let flows_value = match root.remove(FLOWS_KEY) {
         Some(value) => value,
         None => {
@@ -321,6 +345,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
 
     let mut categories = parse_categories(categories_value, &mut changed);
     let mut flows = parse_flows(flows_value, &mut changed);
+    let concept_nodes = parse_concept_nodes(concept_nodes_value, &mut changed);
     let quick_text_groups = parse_quick_text_groups(quick_text_groups_value, &mut changed);
     let mut quick_texts = parse_quick_texts(quick_texts_value, &mut changed);
 
@@ -373,6 +398,46 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         }
     }
 
+    let mut concept_nodes = concept_nodes;
+    let mut seen_concept_ids = HashSet::new();
+    concept_nodes.retain(|node| {
+        let keep = valid_category_ids.contains(&node.category_id)
+            && !node.id.trim().is_empty()
+            && !node.title.trim().is_empty()
+            && seen_concept_ids.insert(node.id.clone());
+        if !keep { changed = true; }
+        keep
+    });
+    let valid_concept_ids: HashSet<String> = concept_nodes.iter().map(|node| node.id.clone()).collect();
+    let concept_categories: HashMap<String, String> = concept_nodes.iter()
+        .map(|node| (node.id.clone(), node.category_id.clone()))
+        .collect();
+    for node in &mut concept_nodes {
+        if let Some(parent_id) = &node.parent_id {
+            if parent_id == &node.id
+                || !valid_concept_ids.contains(parent_id)
+                || concept_categories.get(parent_id) != Some(&node.category_id) {
+                node.parent_id = None;
+                changed = true;
+            }
+        }
+    }
+    // A malformed cycle cannot produce a usable concept map; break it deterministically.
+    let parent_map: HashMap<String, Option<String>> = concept_nodes.iter()
+        .map(|node| (node.id.clone(), node.parent_id.clone())).collect();
+    for node in &mut concept_nodes {
+        let mut visited = HashSet::from([node.id.clone()]);
+        let mut cursor = node.parent_id.clone();
+        while let Some(parent_id) = cursor {
+            if !visited.insert(parent_id.clone()) {
+                node.parent_id = None;
+                changed = true;
+                break;
+            }
+            cursor = parent_map.get(&parent_id).cloned().flatten();
+        }
+    }
+
     let valid_note_ids: HashSet<String> = tasks
         .iter()
         .filter(|item| matches!(item.item_type, ItemType::Note))
@@ -412,6 +477,20 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             quick_text.group_sort_orders = normalized_group_sort_orders;
             changed = true;
         }
+    }
+
+    for node in &mut concept_nodes {
+        node.linked_note_ids = filter_known_note_ids(
+            dedupe_string_values(std::mem::take(&mut node.linked_note_ids), &mut changed),
+            &valid_note_ids,
+            &mut changed,
+        );
+        if node.color.is_empty() { node.color = "emerald".to_string(); changed = true; }
+        if node.icon.is_empty() { node.icon = "Layers".to_string(); changed = true; }
+        let old_count = node.note_positions.len();
+        let linked: HashSet<_> = node.linked_note_ids.iter().cloned().collect();
+        node.note_positions.retain(|note_id, _| linked.contains(note_id));
+        if node.note_positions.len() != old_count { changed = true; }
     }
 
     for flow in &mut flows {
@@ -467,6 +546,7 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
             quick_texts,
             quick_text_groups,
             flows,
+            concept_nodes,
             global_flow_linked_note_ids,
             global_quick_text_linked_note_ids,
         },
@@ -715,6 +795,8 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
             title: String::new(),
             comment: String::new(),
             images: Vec::new(),
+            links: Vec::new(),
+            documents: Vec::new(),
             tags: Vec::new(),
             item_type: ItemType::Task,
             done: false,
@@ -726,6 +808,8 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
     let title = string_value(map.remove("title"), "", changed);
     let comment = string_value(map.remove("comment"), "", changed);
     let images = item_images_value(map.remove("images"), changed);
+    let links = note_links_value(map.remove("links"), changed);
+    let documents = note_documents_value(map.remove("documents"), changed);
     let tags = normalize_item_tags(map.remove("tags"), changed);
     let item_type = item_type_value(map.remove("type"), changed);
     let done = bool_value(map.remove("done"), false, changed);
@@ -741,6 +825,8 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
         title,
         comment,
         images,
+        links: if matches!(item_type, ItemType::Note) { links } else { Vec::new() },
+        documents: if matches!(item_type, ItemType::Note) { documents } else { Vec::new() },
         tags: if matches!(item_type, ItemType::Note) { tags } else { Vec::new() },
         item_type,
         done,
@@ -1070,6 +1156,46 @@ fn item_images_value(value: Option<Value>, changed: &mut bool) -> Vec<ItemImage>
     }
 }
 
+fn note_links_value(value: Option<Value>, changed: &mut bool) -> Vec<NoteLink> {
+    let Some(value) = value else { return Vec::new() };
+    let Value::Array(values) = value else { *changed = true; return Vec::new() };
+    let mut seen = HashSet::new();
+    values.into_iter().enumerate().filter_map(|(index, value)| {
+        let Value::Object(mut entry) = value else { *changed = true; return None };
+        let url = string_value(entry.remove("url"), "", changed);
+        if !(url.starts_with("https://") || url.starts_with("http://")) { *changed = true; return None; }
+        let id = string_value(entry.remove("id"), &format!("link-{index}"), changed);
+        if !seen.insert(id.clone()) { *changed = true; return None; }
+        Some(NoteLink {
+            id,
+            title: string_value(entry.remove("title"), "", changed),
+            url,
+        })
+    }).collect()
+}
+
+fn note_documents_value(value: Option<Value>, changed: &mut bool) -> Vec<NoteDocument> {
+    let Some(value) = value else { return Vec::new() };
+    let Value::Array(values) = value else { *changed = true; return Vec::new() };
+    let mut seen = HashSet::new();
+    values.into_iter().enumerate().filter_map(|(index, value)| {
+        let Value::Object(mut entry) = value else { *changed = true; return None };
+        let data_url = string_value(entry.remove("data_url"), "", changed);
+        if !data_url.starts_with("data:") || !data_url.contains(";base64,") {
+            *changed = true;
+            return None;
+        }
+        let id = string_value(entry.remove("id"), &format!("document-{index}"), changed);
+        if !seen.insert(id.clone()) { *changed = true; return None; }
+        Some(NoteDocument {
+            id,
+            name: string_value(entry.remove("name"), "Documento", changed),
+            mime_type: string_value(entry.remove("mime_type"), "application/octet-stream", changed),
+            data_url,
+        })
+    }).collect()
+}
+
 fn link_from_value(value: Value, changed: &mut bool) -> Link {
     let Value::Object(mut map) = value else {
         *changed = true;
@@ -1215,6 +1341,59 @@ fn quick_text_group_from_value(
             updated_at
         },
     }
+}
+
+fn parse_concept_nodes(value: Value, changed: &mut bool) -> Vec<ConceptNode> {
+    let Value::Array(values) = value else {
+        *changed = true;
+        return Vec::new();
+    };
+    values.into_iter().filter_map(|value| {
+        let Value::Object(mut map) = value else {
+            *changed = true;
+            return None;
+        };
+        Some(ConceptNode {
+            id: string_value(map.remove("id"), "", changed),
+            category_id: string_value(map.remove("category_id"), "", changed),
+            parent_id: flow_category_id_value(map.remove("parent_id"), changed),
+            title: string_value(map.remove("title"), "", changed),
+            color: string_value(map.remove("color"), "emerald", changed),
+            icon: string_value(map.remove("icon"), "Layers", changed),
+            linked_note_ids: string_array_value(map.remove("linked_note_ids"), changed),
+            primary_note_id: flow_category_id_value(map.remove("primary_note_id"), changed),
+            position: match map.remove("position") {
+                Some(Value::Object(map)) => Some(flow_position_from_value(Some(Value::Object(map)), changed)),
+                Some(Value::Null) | None => None,
+                Some(_) => { *changed = true; None },
+            },
+            note_positions: match map.remove("note_positions") {
+                Some(Value::Object(positions)) => positions.into_iter()
+                    .filter_map(|(note_id, value)| {
+                        if let Value::Object(point) = value {
+                            Some((note_id, flow_position_from_value(Some(Value::Object(point)), changed)))
+                        } else {
+                            *changed = true;
+                            None
+                        }
+                    }).collect(),
+                Some(Value::Null) | None => HashMap::new(),
+                Some(_) => { *changed = true; HashMap::new() },
+            },
+            width: match map.remove("width") {
+                Some(Value::Number(number)) => match number.as_i64() {
+                    Some(value) => {
+                        let constrained = value.clamp(120, 520);
+                        if constrained != value { *changed = true; }
+                        Some(constrained as i32)
+                    },
+                    None => { *changed = true; None },
+                },
+                None | Some(Value::Null) => None,
+                Some(_) => { *changed = true; None },
+            },
+        })
+    }).collect()
 }
 
 fn flow_from_value(value: Value, changed: &mut bool) -> Flow {
@@ -1489,6 +1668,7 @@ mod tests {
                 }
             },
             "__SYSTEM_TASKS__": [],
+            "__SYSTEM_CONCEPT_NODES__": [],
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [],
@@ -1990,6 +2170,7 @@ mod tests {
                 }
             },
             "__SYSTEM_TASKS__": [],
+            "__SYSTEM_CONCEPT_NODES__": [],
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
             "__SYSTEM_FLOWS__": [
@@ -2109,6 +2290,97 @@ mod tests {
         assert_eq!(data.tasks.len(), 2);
         assert_ne!(data.tasks[0].category_id, GENERAL_CATEGORY_ID);
         assert_ne!(data.tasks[1].category_id, GENERAL_CATEGORY_ID);
+    }
+
+    #[test]
+    fn concept_map_round_trip_preserves_note_references_without_duplicates() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": DEFAULT_HOME_TEXT,
+            "__SYSTEM_CATEGORIES__": {
+                "general": { "id": "general", "name": "General", "parent_id": null, "icon": "Carpeta", "links": [], "notes": "" },
+                "research": { "id": "research", "name": "Investigacion", "parent_id": "general", "icon": "Ideas", "links": [], "notes": "" }
+            },
+            "__SYSTEM_TASKS__": [
+                { "id": "note_a", "title": "Apunte", "comment": "Texto", "type": "note", "done": false, "category_id": "general", "tags": [], "images": [],
+                  "links": [{"id":"l1", "title":"Documentación", "url":"https://example.com/source"}],
+                  "documents": [{"id":"d1", "name":"datos.pdf", "mime_type":"application/pdf", "data_url":"data:application/pdf;base64,SGVsbG8="}]
+                },
+                { "id": "task_b", "title": "Pendiente", "comment": "", "type": "task", "done": false, "category_id": "general", "tags": [], "images": [] }
+            ],
+            "__SYSTEM_CONCEPT_NODES__": [
+                { "id": "c1", "category_id": "research", "parent_id": null, "title": "Concepto", "color": "teal", "icon": "Layers", "linked_note_ids": ["note_a", "note_a", "task_b", "missing"] },
+                { "id": "c2", "category_id": "research", "parent_id": "c1", "title": "Subconcepto", "color": "amber", "icon": "Layers", "linked_note_ids": ["note_a"], "position": { "x": -325, "y": 1480 }, "width": 415,
+                  "note_positions": {"note_a": {"x": 950, "y": 1250}, "missing": {"x": 250, "y": 300}}
+                }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+
+        let (data, _) = normalize_data(raw);
+        assert_eq!(data.concept_nodes.len(), 2);
+        assert_eq!(data.concept_nodes[0].linked_note_ids, vec!["note_a".to_string()]);
+        assert_eq!(data.concept_nodes[1].linked_note_ids, vec!["note_a".to_string()]);
+        assert_eq!(data.concept_nodes[1].parent_id.as_deref(), Some("c1"));
+        assert_eq!(data.concept_nodes[1].position.as_ref().map(|pos| (pos.x, pos.y)), Some((-325, 1480)));
+        assert_eq!(data.concept_nodes[1].width, Some(415));
+        assert_eq!(data.concept_nodes[1].note_positions.len(), 1);
+        assert_eq!(data.concept_nodes[1].note_positions["note_a"].x, 950);
+        assert_eq!(data.concept_nodes[1].note_positions["note_a"].y, 1250);
+        assert_eq!(data.tasks[0].links.len(), 1);
+        assert_eq!(data.tasks[0].links[0].url, "https://example.com/source");
+        assert_eq!(data.tasks[0].documents.len(), 1);
+        assert_eq!(data.tasks[0].documents[0].name, "datos.pdf");
+        assert_eq!(data.concept_nodes[0].width, None);
+        assert_eq!(data.tasks.len(), 2);
+        assert_eq!(data.tasks[0].category_id, "general");
+
+        let stored = serde_json::to_value(&data).expect("serialize updated concept schema");
+        assert!(stored.get("__SYSTEM_CONCEPT_NODES__").is_some());
+        let (restored, _) = normalize_data(stored);
+        assert_eq!(restored.concept_nodes, data.concept_nodes);
+        assert_eq!(restored.tasks.len(), data.tasks.len());
+        assert_eq!(restored.tasks[0], data.tasks[0]);
+    }
+
+    #[test]
+    fn concept_map_breaks_cycles_and_ignores_missing_categories() {
+        let raw = json!({
+            "__SCHEMA_VERSION__": SCHEMA_VERSION,
+            "__SYSTEM_HOME_TEXT__": DEFAULT_HOME_TEXT,
+            "__SYSTEM_CATEGORIES__": {
+                "general": { "id": "general", "name": "General", "parent_id": null, "icon": "Carpeta", "links": [], "notes": "" }
+            },
+            "__SYSTEM_TASKS__": [],
+            "__SYSTEM_CONCEPT_NODES__": [
+                { "id": "a", "category_id": "general", "parent_id": "b", "title": "A", "color": "emerald", "icon": "Layers", "linked_note_ids": [] },
+                { "id": "b", "category_id": "general", "parent_id": "a", "title": "B", "color": "emerald", "icon": "Layers", "linked_note_ids": [] },
+                { "id": "lost", "category_id": "not-a-category", "parent_id": null, "title": "Lost", "color": "emerald", "icon": "Layers", "linked_note_ids": [] }
+            ],
+            "__SYSTEM_QUICK_TEXTS__": [],
+            "__SYSTEM_QUICK_TEXT_GROUPS__": [],
+            "__SYSTEM_FLOWS__": [],
+            "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__": [],
+            "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__": []
+        });
+        let (data, changed) = normalize_data(raw);
+        assert!(changed);
+        assert_eq!(data.concept_nodes.len(), 2);
+        assert!(data.concept_nodes.iter().any(|node| node.parent_id.is_none()));
+        let mut by_id = HashMap::new();
+        for node in &data.concept_nodes { by_id.insert(node.id.clone(), node.parent_id.clone()); }
+        for node in &data.concept_nodes {
+            let mut seen = HashSet::from([node.id.clone()]);
+            let mut cursor = node.parent_id.clone();
+            while let Some(id) = cursor {
+                assert!(seen.insert(id.clone()), "cycle should have been normalized");
+                cursor = by_id.get(&id).cloned().flatten();
+            }
+        }
     }
 
     #[test]

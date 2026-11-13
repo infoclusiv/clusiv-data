@@ -38,6 +38,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::data::load_data,
             commands::data::save_data,
+            commands::data::export_note_attachment,
             commands::backup::create_backup,
             commands::backup::open_backup_directory,
             commands::backup::list_backups,
@@ -49,6 +50,7 @@ pub fn run() {
             commands::shell::open_url,
             commands::transcription::detect_whisperx,
             commands::transcription::transcribe_audio,
+            commands::transcription::transcribe_x_audio,
             commands::transcription::export_transcription_file,
             commands::transcription::open_transcription_directory,
         ])

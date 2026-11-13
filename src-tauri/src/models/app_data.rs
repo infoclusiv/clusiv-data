@@ -7,7 +7,7 @@ use super::{Category, Item};
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
 pub const DEFAULT_HOME_TEXT: &str = "Sigue avanzando, un paso a la vez.";
-pub const SCHEMA_VERSION: u32 = 17;
+pub const SCHEMA_VERSION: u32 = 20;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct QuickText {
@@ -41,6 +41,32 @@ pub struct QuickTextGroup {
     pub created_at: String,
     #[serde(default)]
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct ConceptNode {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub category_id: String,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub color: String,
+    #[serde(default)]
+    pub icon: String,
+    #[serde(default)]
+    pub linked_note_ids: Vec<String>,
+    #[serde(default)]
+    pub primary_note_id: Option<String>,
+    #[serde(default)]
+    pub position: Option<FlowPosition>,
+    #[serde(default)]
+    pub width: Option<i32>,
+    #[serde(default)]
+    pub note_positions: HashMap<String, FlowPosition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -119,6 +145,8 @@ pub struct AppData {
     pub quick_text_groups: Vec<QuickTextGroup>,
     #[serde(rename = "__SYSTEM_FLOWS__", default)]
     pub flows: Vec<Flow>,
+    #[serde(rename = "__SYSTEM_CONCEPT_NODES__", default)]
+    pub concept_nodes: Vec<ConceptNode>,
     #[serde(rename = "__SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__", default)]
     pub global_flow_linked_note_ids: Vec<String>,
     #[serde(rename = "__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__", default)]
@@ -152,6 +180,7 @@ impl AppData {
             quick_texts: Vec::new(),
             quick_text_groups: Vec::new(),
             flows: Vec::new(),
+            concept_nodes: Vec::new(),
             global_flow_linked_note_ids: Vec::new(),
             global_quick_text_linked_note_ids: Vec::new(),
         }

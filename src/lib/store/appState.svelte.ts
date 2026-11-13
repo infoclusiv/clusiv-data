@@ -7,6 +7,7 @@ import type {
   BoardMode,
   CategorySection,
   CategoryFormInput,
+  ConceptNode,
   CreateFlowInput,
   Flow,
   FlowEdge,
@@ -15,6 +16,9 @@ import type {
   ItemEditorState,
   ItemFormInput,
   ItemType,
+  NoteLink,
+  NoteDocument,
+  ItemImage,
   Link,
   LinkFormInput,
   LogLevel,
@@ -43,12 +47,17 @@ import {
   normalizeQuickTextGroupSortOrders,
   normalizeQuickTextGroupIds,
   normalizeItemImages,
+  normalizeNoteLinks,
+  normalizeNoteDocuments,
   normalizeLink,
   normalizeLinks,
   syncLegacyQuickTextGroupId,
 } from "$lib/utils/categoryUtils";
 import { removeQuickTextGroupMembership } from "$lib/utils/quickTextGrouping";
 import { normalizeNoteTags } from "$lib/utils/noteTags";
+import { applyConceptReparent } from "$lib/utils/conceptReparent";
+import { moveNoteLink } from "$lib/utils/conceptNoteRelations";
+import { deleteNoteEverywhere } from "$lib/utils/conceptNoteDeletion";
 import {
   DEFAULT_HOME_TEXT,
   GENERAL_CATEGORY_ID,
@@ -61,7 +70,7 @@ export const appState = $state({
   currentView: "welcome" as AppView,
   currentBoardMode: "gallery" as BoardMode,
   currentBoardFilterId: null as string | null,
-  currentCategorySection: "overview" as CategorySection,
+  currentCategorySection: "concept-map" as CategorySection,
   currentFlowId: null as string | null,
   itemEditor: null as ItemEditorState | null,
   searchQuery: "",
@@ -115,7 +124,7 @@ interface OpenItemEditorOptions {
   recordHistory?: boolean;
 }
 
-const DEFAULT_CATEGORY_SECTION: CategorySection = "overview";
+const DEFAULT_CATEGORY_SECTION: CategorySection = "concept-map";
 
 function countLinks(appData: AppData): number {
   return Object.values(appData.__SYSTEM_CATEGORIES__).reduce(
@@ -346,6 +355,8 @@ function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
     categoryId: input.categoryId,
     images: input.type === "note" ? normalizeItemImages(input.images) : [],
     tags: input.type === "note" ? normalizeNoteTags(input.tags) : [],
+    links: input.type === "note" && input.links !== undefined ? normalizeNoteLinks(input.links) : undefined,
+    documents: input.type === "note" && input.documents !== undefined ? normalizeNoteDocuments(input.documents) : undefined,
   };
 }
 
@@ -787,7 +798,13 @@ function applyNavigation(snapshot: NavigationSnapshot): void {
   appState.currentCategoryId = snapshot.categoryId;
   appState.currentBoardMode = snapshot.boardMode;
   appState.currentBoardFilterId = snapshot.boardFilterId;
-  appState.currentCategorySection = sanitizeCategorySection(snapshot.categorySection);
+  const category = snapshot.categoryId && appState.appData
+    ? getCategory(appState.appData, snapshot.categoryId)
+    : null;
+  const section = sanitizeCategorySection(snapshot.categorySection);
+  appState.currentCategorySection = section === "concept-map" && category?.parent_id !== null
+    ? "overview"
+    : section;
   appState.currentFlowId = snapshot.flowId ?? null;
 
   if (snapshot.view !== "item-editor") {
@@ -1212,7 +1229,12 @@ export function goBack(): void {
 }
 
 export function setCategorySection(section: CategorySection): void {
-  appState.currentCategorySection = section;
+  const currentCategory = appState.appData && appState.currentCategoryId
+    ? getCategory(appState.appData, appState.currentCategoryId)
+    : null;
+  appState.currentCategorySection = section === "concept-map" && currentCategory?.parent_id !== null
+    ? "overview"
+    : section;
   if (section !== "flows") {
     appState.currentFlowId = null;
   }
@@ -1369,7 +1391,7 @@ export function selectCategory(
       categoryId,
       boardMode: appState.currentBoardMode,
       boardFilterId: null,
-      categorySection: DEFAULT_CATEGORY_SECTION,
+      categorySection: category?.parent_id === null ? "concept-map" : "overview",
       flowId: null,
     },
     options,
@@ -3077,6 +3099,228 @@ export function getItemIndex(item: Item): number {
   return requireAppData().__SYSTEM_TASKS__.findIndex((entry) => entry.id === item.id);
 }
 
+export async function createConceptNode(input: {
+  categoryId: string; parentId?: string | null; title: string; color?: string;
+}): Promise<string> {
+  const id = `concept-${crypto.randomUUID()}`;
+  await mutateAppData((draft) => {
+    const category = draft.__SYSTEM_CATEGORIES__[input.categoryId];
+    if (!category) throw new Error("Categoría no encontrada.");
+    if (category.parent_id !== null) throw new Error("El mapa solo está disponible en categorías principales.");
+    if (!input.title.trim()) throw new Error("El nombre es obligatorio.");
+    if (input.parentId && !draft.__SYSTEM_CONCEPT_NODES__.some(
+      (node) => node.id === input.parentId && node.category_id === input.categoryId,
+    )) throw new Error("El concepto padre no existe.");
+    draft.__SYSTEM_CONCEPT_NODES__.push({
+      id, category_id: input.categoryId, parent_id: input.parentId ?? null,
+      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], primary_note_id: null, position: null, width: null, note_positions: {},
+    });
+  });
+  return id;
+}
+
+export async function updateConceptNode(id: string, changes: Pick<ConceptNode, "title" | "color">): Promise<void> {
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    if (!changes.title.trim()) throw new Error("El nombre es obligatorio.");
+    node.title = changes.title.trim();
+    node.color = changes.color;
+    const note = draft.__SYSTEM_TASKS__.find((entry) => entry.id === node.primary_note_id && entry.type === "note");
+    if (note) note.title = node.title;
+  });
+}
+
+export async function deleteConceptNode(id: string): Promise<void> {
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    for (const child of draft.__SYSTEM_CONCEPT_NODES__) {
+      if (child.parent_id === id) child.parent_id = node.parent_id;
+    }
+    draft.__SYSTEM_CONCEPT_NODES__ = draft.__SYSTEM_CONCEPT_NODES__.filter((entry) => entry.id !== id);
+  });
+}
+
+/**
+ * Change the parent without moving any visible concepts. The currently
+ * rendered coordinates are persisted atomically with the new hierarchy so
+ * reflowing the radial layout cannot make the map jump after a connection.
+ */
+export async function reparentConceptNode(
+  id: string,
+  newParentId: string | null,
+  visiblePositions: ReadonlyArray<{ id: string; x: number; y: number }>,
+): Promise<void> {
+  await mutateAppData((draft) => {
+    applyConceptReparent(draft.__SYSTEM_CONCEPT_NODES__, id, newParentId, visiblePositions);
+  });
+}
+
+export async function updateConceptPosition(
+  id: string,
+  position: { x: number; y: number },
+): Promise<void> {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+    throw new Error("Coordenadas inválidas.");
+  }
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    node.position = {
+      x: Math.round(position.x),
+      y: Math.round(position.y),
+    };
+  });
+}
+
+/**
+ * A corner resize changes width and center together to keep the left edge in
+ * place. Save both fields atomically so a restart cannot split the geometry.
+ */
+export async function updateConceptGeometry(
+  id: string,
+  input: { width: number; position: { x: number; y: number } },
+): Promise<void> {
+  if (!Number.isFinite(input.width) || !Number.isFinite(input.position.x)
+    || !Number.isFinite(input.position.y)) {
+    throw new Error("Geometría inválida.");
+  }
+  const width = Math.round(Math.max(120, Math.min(520, input.width)));
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    node.width = width;
+    node.position = {
+      x: Math.round(input.position.x),
+      y: Math.round(input.position.y),
+    };
+  });
+}
+
+export async function updateConceptNotes(id: string, noteIds: string[]): Promise<void> {
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    const valid = new Set(draft.__SYSTEM_TASKS__.filter((item) => item.type === "note").map((item) => item.id));
+    node.linked_note_ids = [...new Set(noteIds.filter((noteId) => valid.has(noteId)))];
+    node.note_positions = Object.fromEntries(Object.entries(node.note_positions)
+      .filter(([noteId]) => node.linked_note_ids.includes(noteId)));
+  });
+}
+
+export interface ConceptNoteInput {
+  title: string;
+  comment: string;
+  links: NoteLink[];
+  documents: NoteDocument[];
+  images: ItemImage[];
+}
+
+/**
+ * Every newly created map element is an editable note with a stable backing
+ * node for position, color and parent-child connections. Both are saved once.
+ */
+export async function createMapNoteNode(input: {
+  categoryId: string;
+  parentId: string | null;
+  color?: string;
+  note: ConceptNoteInput;
+}): Promise<string> {
+  const nodeId = `concept-${crypto.randomUUID()}`;
+  const noteId = generateItemId();
+  await mutateAppData((draft) => {
+    const category = draft.__SYSTEM_CATEGORIES__[input.categoryId];
+    if (!category || category.parent_id !== null) {
+      throw new Error("Solo las categorías principales tienen mapa.");
+    }
+    if (input.parentId && !draft.__SYSTEM_CONCEPT_NODES__.some((node) =>
+      node.id === input.parentId && node.category_id === input.categoryId)) {
+      throw new Error("La nota padre ya no existe.");
+    }
+    const title = input.note.title.trim() || "Nota sin título";
+    draft.__SYSTEM_TASKS__.push({
+      id: noteId, title, comment: input.note.comment.trim(),
+      type: "note", done: false, category_id: input.categoryId,
+      tags: [], images: normalizeItemImages(input.note.images),
+      links: normalizeNoteLinks(input.note.links),
+      documents: normalizeNoteDocuments(input.note.documents),
+    });
+    draft.__SYSTEM_CONCEPT_NODES__.push({
+      id: nodeId, category_id: input.categoryId, parent_id: input.parentId,
+      title, color: input.color ?? "emerald", icon: "FileText",
+      primary_note_id: noteId, linked_note_ids: [], position: null,
+      width: null, note_positions: {},
+    });
+  });
+  return nodeId;
+}
+
+/** Save note and map connection together, so an interruption cannot orphan it. */
+export async function createNoteOnConcept(conceptId: string, input: ConceptNoteInput): Promise<string> {
+  const noteId = generateItemId();
+  await mutateAppData((draft) => {
+    const concept = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === conceptId);
+    if (!concept) throw new Error("Concepto no encontrado.");
+    draft.__SYSTEM_TASKS__.push({
+      id: noteId, title: input.title.trim() || "Nota sin título",
+      comment: input.comment.trim(), type: "note", done: false,
+      category_id: concept.category_id, tags: [],
+      images: normalizeItemImages(input.images),
+      links: normalizeNoteLinks(input.links),
+      documents: normalizeNoteDocuments(input.documents),
+    });
+    concept.linked_note_ids.push(noteId);
+  });
+  return noteId;
+}
+
+/** Permanently remove a note by stable ID and all its references in one save. */
+export async function deleteConceptNote(noteId: string): Promise<void> {
+  await mutateAppData((draft) => {
+    deleteNoteEverywhere(draft, noteId);
+  });
+}
+
+export async function updateConceptNote(noteId: string, input: ConceptNoteInput): Promise<void> {
+  await mutateAppData((draft) => {
+    const note = draft.__SYSTEM_TASKS__.find((item) => item.id === noteId && item.type === "note");
+    if (!note) throw new Error("La nota ya no existe.");
+    note.title = input.title.trim() || "Nota sin título";
+    for (const node of draft.__SYSTEM_CONCEPT_NODES__) {
+      if (node.primary_note_id === noteId) node.title = note.title;
+    }
+    note.comment = input.comment.trim();
+    note.images = normalizeItemImages(input.images);
+    note.links = normalizeNoteLinks(input.links);
+    note.documents = normalizeNoteDocuments(input.documents);
+  });
+}
+
+export async function updateConceptNotePosition(
+  conceptId: string, noteId: string, position: { x: number; y: number },
+): Promise<void> {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) throw new Error("Coordenadas inválidas.");
+  await mutateAppData((draft) => {
+    const concept = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === conceptId);
+    if (!concept?.linked_note_ids.includes(noteId)) throw new Error("La nota ya no está relacionada con ese concepto.");
+    concept.note_positions[noteId] = { x: Math.round(position.x), y: Math.round(position.y) };
+  });
+}
+
+/** Move one relation while retaining shared links to other concepts. */
+export async function moveConceptNote(
+  noteId: string, sourceConceptId: string, targetConceptId: string,
+  position: { x: number; y: number },
+): Promise<void> {
+  await mutateAppData((draft) => {
+    moveNoteLink(
+      draft.__SYSTEM_CONCEPT_NODES__, draft.__SYSTEM_TASKS__,
+      noteId, sourceConceptId, targetConceptId, position,
+    );
+  });
+}
+
 export async function saveItem(
   input: ItemFormInput,
   editingIndex: number | null = null,
@@ -3112,6 +3356,8 @@ export async function saveItem(
           title: normalizedInput.title,
           comment: normalizedInput.comment,
           images,
+          links: normalizedInput.links ?? current.links,
+          documents: normalizedInput.documents ?? current.documents,
           tags,
           type: normalizedInput.type,
           category_id: normalizedInput.categoryId,
@@ -3124,6 +3370,8 @@ export async function saveItem(
         title: normalizedInput.title,
         comment: normalizedInput.comment,
         images,
+        links: normalizedInput.links ?? [],
+        documents: normalizedInput.documents ?? [],
         tags,
         type: normalizedInput.type,
         done: false,

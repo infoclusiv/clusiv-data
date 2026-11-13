@@ -1,8 +1,10 @@
 import { normalizeNoteTags } from "$lib/utils/noteTags";
+import { ensurePrimaryMapNotes } from "$lib/utils/conceptPrimaryNotes";
 
 import type {
   AppData,
   Category,
+  ConceptNode,
   Flow,
   FlowEdge,
   FlowEdgeInput,
@@ -10,6 +12,8 @@ import type {
   FlowNodeInput,
   Item,
   ItemImage,
+  NoteLink,
+  NoteDocument,
   Link,
   LinkFormInput,
   QuickText,
@@ -71,9 +75,53 @@ export function createDefaultAppData(): AppData {
     __SYSTEM_QUICK_TEXTS__: [],
     __SYSTEM_QUICK_TEXT_GROUPS__: [],
     __SYSTEM_FLOWS__: [],
+    __SYSTEM_CONCEPT_NODES__: [],
     __SYSTEM_GLOBAL_FLOW_LINKED_NOTE_IDS__: [],
     __SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__: [],
   };
+}
+
+export const CONCEPT_COLORS = ["emerald", "lime", "amber", "sky", "teal", "violet", "rose"] as const;
+
+export function normalizeConceptNodes(value: unknown): ConceptNode[] {
+  if (!Array.isArray(value)) return [];
+  const result: ConceptNode[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const node = entry as Partial<ConceptNode>;
+    if (typeof node.id !== "string" || !node.id.trim() || seen.has(node.id)
+      || typeof node.category_id !== "string" || typeof node.title !== "string" || !node.title.trim()) continue;
+    seen.add(node.id);
+    result.push({
+      id: node.id,
+      category_id: node.category_id,
+      parent_id: typeof node.parent_id === "string" && node.parent_id.trim() ? node.parent_id : null,
+      title: node.title.trim(),
+      color: typeof node.color === "string" && (CONCEPT_COLORS as readonly string[]).includes(node.color) ? node.color : "emerald",
+      icon: typeof node.icon === "string" && node.icon ? node.icon : "Layers",
+      position: node.position && Number.isFinite(node.position.x) && Number.isFinite(node.position.y)
+        ? { x: Math.round(node.position.x), y: Math.round(node.position.y) }
+        : null,
+      width: typeof node.width === "number" && Number.isFinite(node.width)
+        ? Math.round(Math.max(120, Math.min(520, node.width)))
+        : null,
+      note_positions: node.note_positions && typeof node.note_positions === "object" && !Array.isArray(node.note_positions)
+        ? Object.fromEntries(Object.entries(node.note_positions).filter(([id, p]) =>
+            Boolean(id.trim()) && p && typeof p === "object" &&
+            Number.isFinite((p as {x:number}).x) && Number.isFinite((p as {y:number}).y)
+          ).map(([id, p]) => [id, {
+            x: Math.round((p as {x:number}).x),
+            y: Math.round((p as {y:number}).y),
+          }]))
+        : {},
+      primary_note_id: typeof node.primary_note_id === "string" && node.primary_note_id.trim() ? node.primary_note_id : null,
+      linked_note_ids: Array.isArray(node.linked_note_ids)
+        ? [...new Set(node.linked_note_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0))]
+        : [],
+    });
+  }
+  return result;
 }
 
 export function getCategoryMap(appData: AppData): Record<string, Category> {
@@ -191,6 +239,36 @@ function normalizeLinkedNoteIds(value: unknown): string[] {
   )];
 }
 
+export function normalizeNoteLinks(value: unknown): NoteLink[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const v = entry as Partial<NoteLink>;
+    if (typeof v.url !== "string" || !/^https?:\/\//i.test(v.url.trim())) return [];
+    const id = typeof v.id === "string" && v.id.trim() ? v.id : `link-${index}`;
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [{ id, title: typeof v.title === "string" ? v.title.trim() : "", url: v.url.trim() }];
+  });
+}
+
+export function normalizeNoteDocuments(value: unknown): NoteDocument[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const v = entry as Partial<NoteDocument>;
+    if (typeof v.data_url !== "string" || !/^data:[\w.+/-]+;base64,/i.test(v.data_url)) return [];
+    const id = typeof v.id === "string" && v.id.trim() ? v.id : `document-${index}`;
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [{ id, name: typeof v.name === "string" ? v.name : "Documento",
+      mime_type: typeof v.mime_type === "string" ? v.mime_type : "application/octet-stream",
+      data_url: v.data_url }];
+  });
+}
+
 function normalizeItem(value: unknown, fallbackId: string): Item | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -205,6 +283,8 @@ function normalizeItem(value: unknown, fallbackId: string): Item | null {
     title: typeof candidate.title === "string" ? candidate.title : "",
     comment: typeof candidate.comment === "string" ? candidate.comment : "",
     images: normalizeItemImages(candidate.images),
+    links: candidate.type === "note" ? normalizeNoteLinks(candidate.links) : [],
+    documents: candidate.type === "note" ? normalizeNoteDocuments(candidate.documents) : [],
     tags: candidate.type === "note" ? normalizeNoteTags(candidate.tags) : [],
     type: candidate.type === "note" ? "note" : "task",
     done: Boolean(candidate.done),
@@ -489,6 +569,9 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     (normalized as Partial<AppData>).__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__,
   );
   const validCategoryIds = new Set(Object.keys(categories));
+  normalized.__SYSTEM_CONCEPT_NODES__ = normalizeConceptNodes(
+    (normalized as Partial<AppData>).__SYSTEM_CONCEPT_NODES__,
+  );
 
   const generalCategory = categories[GENERAL_CATEGORY_ID];
   generalCategory.id = GENERAL_CATEGORY_ID;
@@ -520,6 +603,8 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     item.title ||= "";
     item.comment ||= "";
     item.images = normalizeItemImages(item.images);
+    item.links = item.type === "note" ? normalizeNoteLinks(item.links) : [];
+    item.documents = item.type === "note" ? normalizeNoteDocuments(item.documents) : [];
     item.tags = item.type === "note" ? normalizeNoteTags(item.tags) : [];
     item.type ||= "task";
     item.done ||= false;
@@ -527,6 +612,26 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
       item.category_id = GENERAL_CATEGORY_ID;
     }
   }
+
+  const nodeIds = new Set(normalized.__SYSTEM_CONCEPT_NODES__.map((node) => node.id));
+  const nodeById = new Map(normalized.__SYSTEM_CONCEPT_NODES__.map((node) => [node.id, node]));
+  normalized.__SYSTEM_CONCEPT_NODES__ = normalized.__SYSTEM_CONCEPT_NODES__
+    .filter((node) => validCategoryIds.has(node.category_id));
+  for (const node of normalized.__SYSTEM_CONCEPT_NODES__) {
+    const visited = new Set([node.id]);
+    let parentId = node.parent_id;
+    while (parentId) {
+      const parent = nodeById.get(parentId);
+      if (!nodeIds.has(parentId) || !parent || parent.category_id !== node.category_id || visited.has(parentId)) {
+        node.parent_id = null;
+        break;
+      }
+      visited.add(parentId);
+      parentId = parent.parent_id;
+    }
+  }
+
+  ensurePrimaryMapNotes(normalized);
 
   const validNoteIds = new Set(
     tasks
@@ -555,6 +660,12 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     normalized.__SYSTEM_GLOBAL_QUICK_TEXT_LINKED_NOTE_IDS__.filter((noteId) =>
       validNoteIds.has(noteId)
     );
+
+  for (const node of normalized.__SYSTEM_CONCEPT_NODES__) {
+    node.linked_note_ids = node.linked_note_ids.filter((noteId) => validNoteIds.has(noteId));
+    node.note_positions = Object.fromEntries(Object.entries(node.note_positions)
+      .filter(([noteId]) => node.linked_note_ids.includes(noteId)));
+  }
 
   for (const flow of normalized.__SYSTEM_FLOWS__) {
     if (flow.category_id !== null && !validCategoryIds.has(flow.category_id)) {
