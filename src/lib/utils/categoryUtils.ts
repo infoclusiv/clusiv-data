@@ -97,6 +97,9 @@ export function normalizeConceptNodes(value: unknown): ConceptNode[] {
       title: node.title.trim(),
       color: typeof node.color === "string" && (CONCEPT_COLORS as readonly string[]).includes(node.color) ? node.color : "emerald",
       icon: typeof node.icon === "string" && node.icon ? node.icon : "Layers",
+      position: node.position && Number.isFinite(node.position.x) && Number.isFinite(node.position.y)
+        ? { x: Math.round(node.position.x), y: Math.round(node.position.y) }
+        : null,
       linked_note_ids: Array.isArray(node.linked_note_ids)
         ? [...new Set(node.linked_note_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0))]
         : [],
