@@ -15,12 +15,11 @@ export function canFocusMapFromHover(state: {
 export function canPanMapWithSpace(state: {
   windowFocused: boolean;
   pointerOverMap: boolean;
-  mapHasDomFocus: boolean;
   isEditableTarget: boolean;
   detailOpen: boolean;
   overlayOpen: boolean;
 }): boolean {
   return state.windowFocused
-    && (state.pointerOverMap || state.mapHasDomFocus)
+    && state.pointerOverMap
     && !state.isEditableTarget && !state.detailOpen && !state.overlayOpen;
 }
