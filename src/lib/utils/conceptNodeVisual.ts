@@ -38,7 +38,7 @@ export function conceptNodeWidth(title: string, depth: number, savedWidth: numbe
   const visual = conceptNodeVisual(depth);
   const characters = [...title.trim()].length;
   const estimated = visual.paddingXPx * 2 + visual.iconPx + 14 +
-    characters * visual.titlePx * 0.64 + 12;
+    characters * visual.titlePx * 0.64 + 25;
   return Math.ceil(Math.max(visual.minWidthPx, Math.min(visual.maxWidthPx, estimated)));
 }
 
