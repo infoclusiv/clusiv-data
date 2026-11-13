@@ -5,7 +5,7 @@
   import ConceptNoteEditor from "$lib/components/category/ConceptNoteEditor.svelte";
   import { NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT, layoutConceptNoteCards } from "$lib/utils/conceptNoteLayout";
   import type { ConceptNoteInput } from "$lib/store/appState.svelte";
-  import { appState, createConceptNode, deleteConceptNode, goBack, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createNoteOnConcept, updateConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
+  import { appState, createConceptNode, deleteConceptNode, goBack, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
   import { canReparentConcept } from "$lib/utils/conceptReparent";
@@ -499,6 +499,14 @@
       await tick();
       fitContent();
     }
+  }
+
+  async function deleteNoteFromMap(noteId: string): Promise<void> {
+    await deleteConceptNote(noteId);
+    notePositionOverlay = Object.fromEntries(
+      Object.entries(notePositionOverlay).filter(([key]) => !key.endsWith("::" + noteId)),
+    );
+    showSnackbar("Nota eliminada de Clusiv-Data y de sus relaciones.", "success");
   }
 
   function openExistingNotePicker(conceptId: string): void {
@@ -1178,6 +1186,7 @@
   conceptTitle={nodes.find((node) => node.id === noteTargetConceptId)?.title ?? categoryName}
   onclose={() => { noteEditorOpen = false; editingNoteId = null; }}
   onsave={saveNoteFromMap}
+  ondelete={deleteNoteFromMap}
 />
 <Modal open={showNoteDestination} title="Elegir concepto para la nueva nota" onclose={() => showNoteDestination = false} widthClass="max-w-xl">
   <p class="mb-4 text-sm text-slate-500">Selecciona el concepto al que quieres conectar la nueva tarjeta.</p>
