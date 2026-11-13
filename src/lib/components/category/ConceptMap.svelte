@@ -12,7 +12,7 @@
   import { conceptNodeVisual, conceptNodeWidth, conceptNodeHeight, resizeConceptGeometry } from "$lib/utils/conceptNodeVisual";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { isTauri } from "@tauri-apps/api/core";
-  import { canFocusMapFromHover, canPanMapWithSpace } from "$lib/utils/conceptMapKeyboard";
+  import { canFocusMapFromHover, canPanMapWithSpace, isPointerInsideMap, isMouseMapOpenClick } from "$lib/utils/conceptMapKeyboard";
   import { conceptBounds, fitConceptCamera, zoomConceptCamera, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
   import { tick } from "svelte";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
@@ -46,6 +46,9 @@
   let mapViewport = $state<HTMLDivElement | null>(null);
   let spaceHeld = $state(false);
   let pointerOverMap = $state(false);
+  // Last physical pointer coordinates survive captured drag gestures, which
+  // can temporarily suppress pointerenter/pointerleave in the WebView.
+  let lastPointerPosition: MapPoint | null = null;
   let windowFocused = $state(!isTauri() && document.hasFocus());
   let focusRequestRunning = false;
   let isPanning = $state(false);
@@ -198,6 +201,27 @@
     zoomByFactor(Math.exp(-Math.max(-240, Math.min(240, event.deltaY)) * .0016), anchor);
   }
 
+  function isPointerCurrentlyOverMap(): boolean {
+    const rect = mapViewport?.getBoundingClientRect() ?? null;
+    return isPointerInsideMap(lastPointerPosition, rect);
+  }
+
+  function trackPointerPosition(event: PointerEvent): void {
+    lastPointerPosition = { x: event.clientX, y: event.clientY };
+    const inside = isPointerCurrentlyOverMap();
+    pointerOverMap = inside;
+    if (!inside && !panDrag) spaceHeld = false;
+  }
+
+  function restoreMapKeyboardFocus(): void {
+    // DOM-only focus; never call native Window.setFocus or Webview.setFocus.
+    // Wait until the pointer capture and its synthetic click have completed.
+    queueMicrotask(() => {
+      pointerOverMap = isPointerCurrentlyOverMap();
+      focusMapElementIfAllowed();
+    });
+  }
+
   // Hover never raises or activates the application. It can only move DOM
   // keyboard focus if the native window is already foreground.
   function focusMapElementIfAllowed(): void {
@@ -210,8 +234,8 @@
     viewport.focus({ preventScroll: true });
   }
 
-  async function activateMapOnHover(): Promise<void> {
-    pointerOverMap = true;
+  async function activateMapOnHover(event: PointerEvent): Promise<void> {
+    trackPointerPosition(event);
     if (!mapViewport || focusRequestRunning || selectedId || showCreate || showDelete || noteEditorOpen || showNotePicker) return;
     if (!isTauri()) {
       windowFocused = document.hasFocus();
@@ -233,6 +257,8 @@
 
   function releaseKeyboardOnBlur(): void {
     spaceHeld = false;
+    lastPointerPosition = null;
+    pointerOverMap = false;
     if (panDrag) { panDrag = null; isPanning = false; }
     if (!isTauri()) windowFocused = false;
   }
@@ -262,29 +288,40 @@
     return () => { disposed = true; unlisten?.(); };
   });
 
-  function leaveMap(): void {
-    pointerOverMap = false;
-    if (!panDrag) spaceHeld = false;
+  function leaveMap(event: PointerEvent): void {
+    // Never trust pointerleave alone during setPointerCapture() on a node.
+    trackPointerPosition(event);
   }
 
   function keyDown(event: KeyboardEvent): void {
+    if (!isMapPanShortcut(event)) return;
     const target = event.target as HTMLElement | null;
     const editable = Boolean(target?.isContentEditable ||
-      ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? ""));
+      ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? "") ||
+      target?.closest('[contenteditable="true"]'));
+    pointerOverMap = isPointerCurrentlyOverMap();
     if (!canPanMapWithSpace({
       windowFocused, pointerOverMap,
       isEditableTarget: editable,
       detailOpen: Boolean(selectedId),
       overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker || showNoteDestination,
     })) return;
-    if (isMapPanShortcut(event)) {
-      event.preventDefault();
-      spaceHeld = true;
-    }
+
+    // Capture-phase keyboard interception prevents a focused draggable
+    // button from converting Space into an unwanted synthetic click.
+    event.preventDefault();
+    event.stopPropagation();
+    spaceHeld = true;
+    focusMapElementIfAllowed();
   }
 
   function keyUp(event: KeyboardEvent): void {
-    if (event.code === "Space") spaceHeld = false;
+    if (event.code !== "Space") return;
+    if (spaceHeld) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    spaceHeld = false;
   }
 
   function cancelGestures(): void {
@@ -294,6 +331,7 @@
     isDragging = false;
     spaceHeld = false;
     pointerOverMap = false;
+    lastPointerPosition = null;
     dragPositions = {};
     resizeDraftWidths = {};
     resizeDrag = null;
@@ -337,6 +375,7 @@
     panDrag = null;
     spaceHeld = false;
     pointerOverMap = false;
+    lastPointerPosition = null;
     requestAnimationFrame(() => fitContent());
   });
 
@@ -765,6 +804,11 @@
   }
 
   function clickConcept(event: MouseEvent, id: string): void {
+    // Space/Enter activation is not navigation. Only pointer clicks enter.
+    if (!isMouseMapOpenClick(event) || spaceHeld) {
+      event.preventDefault();
+      return;
+    }
     if (suppressNodeClick) {
       suppressNodeClick = false;
       event.preventDefault();
@@ -882,7 +926,7 @@
   }
 </script>
 
-<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={releaseKeyboardOnBlur} onfocus={() => { if (!isTauri()) { windowFocused = document.hasFocus(); if (pointerOverMap) focusMapElementIfAllowed(); } }}/>
+<svelte:window onkeydowncapture={keyDown} onkeyupcapture={keyUp} onpointermove={trackPointerPosition} onblur={releaseKeyboardOnBlur} onfocus={() => { if (!isTauri()) { windowFocused = document.hasFocus(); if (pointerOverMap) focusMapElementIfAllowed(); } }}/>
 
 <div class="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.6rem] border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl">
   {#if selected}
@@ -1004,7 +1048,7 @@
       class="concept-map-background relative min-h-0 flex-1 overflow-hidden select-none"
       class:space-mode={spaceHeld}
       class:panning={isPanning}
-      onpointerenter={() => void activateMapOnHover()}
+      onpointerenter={(event) => void activateMapOnHover(event)}
       onpointerleave={leaveMap}
       onpointerdown={viewportPointerDown}
       onpointermove={viewportPointerMove}
@@ -1268,8 +1312,16 @@
   .concept-resize-handle:hover { transform: scale(1.08); }
   .concept-map-node:hover { filter: brightness(1.02); }
   .concept-map-node:active, .concept-map-node.node-moving { cursor: grabbing; }
-  .concept-map-background.space-mode, .concept-map-background.space-mode .concept-map-node, .concept-map-background.space-mode .concept-resize-handle { cursor: grab !important; }
-  .concept-map-background.panning, .concept-map-background.panning .concept-map-node, .concept-map-background.panning .concept-resize-handle { cursor: grabbing !important; }
+  .concept-map-background.space-mode, .concept-map-background.space-mode .concept-map-node,
+  .concept-map-background.space-mode .concept-resize-handle,
+  .concept-map-background.space-mode .concept-link-handle,
+  .concept-map-background.space-mode .concept-add-child,
+  .concept-map-background.space-mode :global(.concept-note-card),
+  .concept-map-background.space-mode :global(.note-link-handle) { cursor: grab !important; }
+  .concept-map-background.panning, .concept-map-background.panning .concept-map-node,
+  .concept-map-background.panning .concept-resize-handle,
+  .concept-map-background.panning .concept-link-handle,
+  .concept-map-background.panning :global(.concept-note-card) { cursor: grabbing !important; }
   .concept-map-background > div.origin-top-left { transition: transform 190ms cubic-bezier(.22,1,.36,1); will-change: transform; }
   .concept-map-background > div.origin-top-left.camera-moving { transition: none; }
   .concept-map-background { touch-action: none; }
