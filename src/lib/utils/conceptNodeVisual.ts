@@ -55,3 +55,13 @@ export function resizeConceptGeometry(
     position: { x: starting.x + (width - starting.width) / 2, y: starting.y },
   };
 }
+
+/** Conservative text-height estimate used by fit-to-map after narrow resizes. */
+export function conceptNodeHeight(title: string, depth: number, width: number): number {
+  const visual = conceptNodeVisual(depth);
+  const textWidth = Math.max(22, width - 2 * visual.paddingXPx - visual.iconPx - 14);
+  const charsPerLine = Math.max(1, Math.floor(textWidth / (visual.titlePx * 0.58)));
+  const lines = Math.max(1, Math.ceil([...title].length / charsPerLine));
+  const contentHeight = lines * visual.titlePx * 1.18 + 7 + visual.notePx * 1.3;
+  return Math.ceil(Math.max(visual.iconPx, contentHeight) + 2 * visual.paddingYPx + 18);
+}
