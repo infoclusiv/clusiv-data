@@ -105,6 +105,8 @@ export interface ConceptNode {
   color: string;
   icon: string;
   linked_note_ids: string[];
+  /** Primary editable note for this map node; legacy nodes are migrated automatically. */
+  primary_note_id: string | null;
   position: { x: number; y: number } | null;
   width: number | null;
   note_positions: Record<string, { x: number; y: number }>;
