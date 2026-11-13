@@ -81,3 +81,18 @@ export function zoomConceptCamera(
     y: anchor.y - (anchor.y - camera.y) * ratio,
   };
 }
+
+/** Keep the exact same zoom and world-space center after a viewport resize. */
+export function preserveConceptCameraOnResize(
+  camera: MapCamera, oldWidth: number, oldHeight: number,
+  newWidth: number, newHeight: number,
+): MapCamera {
+  if (![oldWidth, oldHeight, newWidth, newHeight].every((value) => Number.isFinite(value) && value > 0)) {
+    return camera;
+  }
+  return {
+    ...camera,
+    x: camera.x + (newWidth - oldWidth) / 2,
+    y: camera.y + (newHeight - oldHeight) / 2,
+  };
+}
