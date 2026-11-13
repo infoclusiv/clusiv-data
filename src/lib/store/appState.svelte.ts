@@ -57,6 +57,7 @@ import { removeQuickTextGroupMembership } from "$lib/utils/quickTextGrouping";
 import { normalizeNoteTags } from "$lib/utils/noteTags";
 import { applyConceptReparent } from "$lib/utils/conceptReparent";
 import { moveNoteLink } from "$lib/utils/conceptNoteRelations";
+import { deleteNoteEverywhere } from "$lib/utils/conceptNoteDeletion";
 import {
   DEFAULT_HOME_TEXT,
   GENERAL_CATEGORY_ID,
@@ -3231,6 +3232,13 @@ export async function createNoteOnConcept(conceptId: string, input: ConceptNoteI
     concept.linked_note_ids.push(noteId);
   });
   return noteId;
+}
+
+/** Permanently remove a note by stable ID and all its references in one save. */
+export async function deleteConceptNote(noteId: string): Promise<void> {
+  await mutateAppData((draft) => {
+    deleteNoteEverywhere(draft, noteId);
+  });
 }
 
 export async function updateConceptNote(noteId: string, input: ConceptNoteInput): Promise<void> {
