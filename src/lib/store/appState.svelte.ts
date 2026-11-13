@@ -788,7 +788,13 @@ function applyNavigation(snapshot: NavigationSnapshot): void {
   appState.currentCategoryId = snapshot.categoryId;
   appState.currentBoardMode = snapshot.boardMode;
   appState.currentBoardFilterId = snapshot.boardFilterId;
-  appState.currentCategorySection = sanitizeCategorySection(snapshot.categorySection);
+  const category = snapshot.categoryId && appState.appData
+    ? getCategory(appState.appData, snapshot.categoryId)
+    : null;
+  const section = sanitizeCategorySection(snapshot.categorySection);
+  appState.currentCategorySection = section === "concept-map" && category?.parent_id !== null
+    ? "overview"
+    : section;
   appState.currentFlowId = snapshot.flowId ?? null;
 
   if (snapshot.view !== "item-editor") {
