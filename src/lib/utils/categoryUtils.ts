@@ -100,6 +100,9 @@ export function normalizeConceptNodes(value: unknown): ConceptNode[] {
       position: node.position && Number.isFinite(node.position.x) && Number.isFinite(node.position.y)
         ? { x: Math.round(node.position.x), y: Math.round(node.position.y) }
         : null,
+      width: typeof node.width === "number" && Number.isFinite(node.width)
+        ? Math.round(Math.max(120, Math.min(520, node.width)))
+        : null,
       linked_note_ids: Array.isArray(node.linked_note_ids)
         ? [...new Set(node.linked_note_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0))]
         : [],
