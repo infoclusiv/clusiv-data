@@ -702,12 +702,14 @@
   }
 
   function viewportPointerUp(event: PointerEvent): void {
+    trackPointerPosition(event);
     if (noteLinkDrag?.pointerId === event.pointerId) {
       const drag = noteLinkDrag;
       const destination = findNoteDropTarget(event, drag.sourceConceptId);
       noteLinkDrag = null;
       noteHoverTargetId = null;
       if (destination) void commitNoteLink(drag.sourceConceptId, drag.noteId, destination, { x: drag.x, y: drag.y });
+      restoreMapKeyboardFocus();
       return;
     }
     if (noteDrag?.pointerId === event.pointerId) {
@@ -718,6 +720,7 @@
         suppressNoteClick = true;
         const next = notePositionOverlay[drag.key];
         if (next) void commitNotePosition(drag.conceptId, drag.noteId, drag.key, next);
+        restoreMapKeyboardFocus();
       }
       return;
     }
@@ -729,6 +732,7 @@
       linkDrag = null;
       linkHoverTargetId = null;
       if (destination) void commitLinkDrop(sourceId, destination);
+      restoreMapKeyboardFocus();
       return;
     }
     if (resizeDrag?.pointerId === event.pointerId) {
@@ -739,12 +743,14 @@
         const width = resizeDraftWidths[current.id];
         const position = dragPositions[current.id];
         if (width !== undefined && position) void commitNodeResize(current.id, width, position);
+        restoreMapKeyboardFocus();
       }
       return;
     }
     if (panDrag?.pointerId === event.pointerId) {
       panDrag = null;
       isPanning = false;
+      restoreMapKeyboardFocus();
     }
     if (nodeDrag?.pointerId === event.pointerId) {
       const current = nodeDrag;
@@ -754,6 +760,7 @@
         suppressNodeClick = true;
         const position = dragPositions[current.id];
         if (position) void commitNodePosition(current.id, position);
+        restoreMapKeyboardFocus();
       }
     }
   }
