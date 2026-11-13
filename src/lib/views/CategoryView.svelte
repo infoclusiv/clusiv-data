@@ -417,7 +417,7 @@
 {#if category && appState.appData}
   {@const CategoryIcon = getCategoryIcon(category)}
 
-  {#if appState.currentCategorySection === "concept-map"}
+  {#if appState.currentCategorySection === "concept-map" && category.parent_id === null}
     <ConceptMap categoryId={category.id} categoryName={category.name} />
   {:else}
   <div class="relative flex h-full flex-1">
@@ -476,6 +476,7 @@
 
       <CategorySectionTabs
         activeSection={appState.currentCategorySection}
+        allowConceptMap={category.parent_id === null}
         onselect={setCategorySection}
       />
 
