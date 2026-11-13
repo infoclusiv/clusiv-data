@@ -1300,6 +1300,18 @@ fn parse_concept_nodes(value: Value, changed: &mut bool) -> Vec<ConceptNode> {
                 Some(Value::Null) | None => None,
                 Some(_) => { *changed = true; None },
             },
+            width: match map.remove("width") {
+                Some(Value::Number(number)) => match number.as_i64() {
+                    Some(value) => {
+                        let constrained = value.clamp(120, 520);
+                        if constrained != value { *changed = true; }
+                        Some(constrained as i32)
+                    },
+                    None => { *changed = true; None },
+                },
+                None | Some(Value::Null) => None,
+                Some(_) => { *changed = true; None },
+            },
         })
     }).collect()
 }
