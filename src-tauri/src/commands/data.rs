@@ -26,6 +26,21 @@ const QUICK_TEXT_GROUPS_KEY: &str = "__SYSTEM_QUICK_TEXT_GROUPS__";
 const SCHEMA_VERSION_KEY: &str = "__SCHEMA_VERSION__";
 const TASKS_KEY: &str = "__SYSTEM_TASKS__";
 
+/// Export a user-selected attachment from the note editor. File contents
+/// are never fetched from a URL; the UI sends only local, size-limited bytes.
+#[tauri::command]
+pub fn export_note_attachment(destination_path: String, bytes: Vec<u8>) -> Result<(), String> {
+    if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
+        return Err("El adjunto debe ocupar entre 1 byte y 8 MB.".to_owned());
+    }
+    let destination = std::path::Path::new(&destination_path);
+    if !destination.is_absolute() || destination.file_name().is_none() {
+        return Err("Selecciona una ruta válida para guardar el documento.".to_owned());
+    }
+    std::fs::write(destination, bytes)
+        .map_err(|e| format!("No se pudo exportar el adjunto: {e}"))
+}
+
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
 }
