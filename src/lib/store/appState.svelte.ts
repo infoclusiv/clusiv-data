@@ -50,6 +50,7 @@ import {
 } from "$lib/utils/categoryUtils";
 import { removeQuickTextGroupMembership } from "$lib/utils/quickTextGrouping";
 import { normalizeNoteTags } from "$lib/utils/noteTags";
+import { assertConceptReparent } from "$lib/utils/conceptReparent";
 import {
   DEFAULT_HOME_TEXT,
   GENERAL_CATEGORY_ID,
@@ -3127,6 +3128,38 @@ export async function deleteConceptNode(id: string): Promise<void> {
       if (child.parent_id === id) child.parent_id = node.parent_id;
     }
     draft.__SYSTEM_CONCEPT_NODES__ = draft.__SYSTEM_CONCEPT_NODES__.filter((entry) => entry.id !== id);
+  });
+}
+
+/**
+ * Change the parent without moving any visible concepts. The currently
+ * rendered coordinates are persisted atomically with the new hierarchy so
+ * reflowing the radial layout cannot make the map jump after a connection.
+ */
+export async function reparentConceptNode(
+  id: string,
+  newParentId: string | null,
+  visiblePositions: ReadonlyArray<{ id: string; x: number; y: number }>,
+): Promise<void> {
+  await mutateAppData((draft) => {
+    const nodes = draft.__SYSTEM_CONCEPT_NODES__;
+    assertConceptReparent(nodes, id, newParentId);
+    const node = nodes.find((entry) => entry.id === id)!;
+    if (node.parent_id === newParentId) return;
+
+    const category = node.category_id;
+    for (const point of visiblePositions) {
+      if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+        throw new Error("El mapa contiene coordenadas inválidas.");
+      }
+    }
+    const byId = new Map(visiblePositions.map((point) => [point.id, point]));
+    for (const item of nodes) {
+      if (item.category_id !== category) continue;
+      const point = byId.get(item.id);
+      if (point) item.position = { x: Math.round(point.x), y: Math.round(point.y) };
+    }
+    node.parent_id = newParentId;
   });
 }
 
