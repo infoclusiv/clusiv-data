@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { ArrowLeft, Check, ChevronDown, ChevronRight, CirclePlus, Edit3, FileText, Filter, Layers, Link2, Minus, MoreHorizontal, Plus, Search, Target, Trash2, X, ZoomIn, ZoomOut } from "lucide-svelte";
+  import { ArrowLeft, ChevronDown, CirclePlus, FileText, Filter, Layers, Link2, Minus, Plus, Search, Target } from "lucide-svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
   import ConceptNoteCard from "$lib/components/category/ConceptNoteCard.svelte";
   import ConceptNoteEditor from "$lib/components/category/ConceptNoteEditor.svelte";
   import { NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT, layoutConceptNoteCards } from "$lib/utils/conceptNoteLayout";
   import type { ConceptNoteInput } from "$lib/store/appState.svelte";
-  import { appState, createConceptNode, deleteConceptNode, goBack, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
+  import { appState, goBack, setCategorySection, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
   import { canReparentConcept } from "$lib/utils/conceptReparent";
@@ -14,9 +14,8 @@
   import { isTauri } from "@tauri-apps/api/core";
   import { canFocusMapFromHover, canPanMapWithSpace, isPointerInsideMap, isMouseMapOpenClick } from "$lib/utils/conceptMapKeyboard";
   import { conceptBounds, fitConceptCamera, zoomConceptCamera, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
-  import { tick } from "svelte";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
-  import type { ConceptNode, Item } from "$lib/store/types";
+  import type { ConceptNode } from "$lib/store/types";
 
   interface Props { categoryId: string; categoryName: string; }
   let { categoryId, categoryName }: Props = $props();
@@ -39,9 +38,7 @@
     const q = pickerSearch.toLocaleLowerCase().trim();
     return !q || (note.title + " " + note.comment).toLocaleLowerCase().includes(q);
   }));
-  let selectedId = $state<string | null>(null);
   let search = $state("");
-  let noteQuery = $state("");
   let camera = $state<MapCamera>({ x: 0, y: 0, scale: 1 });
   let mapViewport = $state<HTMLDivElement | null>(null);
   let spaceHeld = $state(false);
@@ -97,27 +94,8 @@
   };
   let nodeDrag = $state<NodeDrag | null>(null);
   let panDrag = $state<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
-  let showCreate = $state(false);
-  let editingConcept = $state(false);
-  let newParentId = $state<string | null>(null);
-  let draftTitle = $state("");
-  let draftColor = $state("emerald");
-  let activeTab = $state<"notes" | "children" | "related">("notes");
-  let noteTitle = $state("");
-  let noteBody = $state("");
-  let isSaving = $state(false);
-  let checkedIds = $state<string[]>([]);
-  let showLinkPicker = $state(false);
   let sectionMenu = $state(false);
-  let showDelete = $state(false);
 
-  const selected = $derived(nodes.find((node) => node.id === selectedId) ?? null);
-  const directNotes = $derived(allNotes.filter((note) => selected?.linked_note_ids.includes(note.id)));
-  const availableNotes = $derived(allNotes.filter((note) => {
-    const q = noteQuery.toLocaleLowerCase().trim();
-    return !q || (note.title + " " + note.comment).toLocaleLowerCase().includes(q);
-  }));
-  const children = $derived(nodes.filter((node) => node.parent_id === selectedId));
   const visibleNodes = $derived(nodes.filter((node) =>
     !search.trim() || node.title.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()),
   ));
@@ -195,7 +173,7 @@
   function wheelZoom(event: WheelEvent): void {
     // Ctrl+wheel is deliberately used instead of Alt+wheel:
     // Windows reserves Alt+Space for its native window menu.
-    if (!mapViewport || !isMapZoomShortcut(event) || selectedId || showCreate || showDelete || noteEditorOpen || showNotePicker) return;
+    if (!mapViewport || !isMapZoomShortcut(event) || noteEditorOpen || showNotePicker) return;
     event.preventDefault();
     const rect = mapViewport.getBoundingClientRect();
     const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -229,15 +207,15 @@
     const viewport = mapViewport;
     if (!viewport || !canFocusMapFromHover({
       windowFocused, pointerOverMap,
-      detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
+      detailOpen: false,
+      overlayOpen: noteEditorOpen || showNotePicker,
     })) return;
     viewport.focus({ preventScroll: true });
   }
 
   async function activateMapOnHover(event: PointerEvent): Promise<void> {
     trackPointerPosition(event);
-    if (!mapViewport || focusRequestRunning || selectedId || showCreate || showDelete || noteEditorOpen || showNotePicker) return;
+    if (!mapViewport || focusRequestRunning || noteEditorOpen || showNotePicker) return;
     if (!isTauri()) {
       windowFocused = document.hasFocus();
       focusMapElementIfAllowed();
@@ -304,8 +282,8 @@
     if (!canPanMapWithSpace({
       windowFocused, pointerOverMap,
       isEditableTarget: editable,
-      detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
+      detailOpen: false,
+      overlayOpen: noteEditorOpen || showNotePicker,
     })) return;
 
     // Capture-phase keyboard interception prevents a focused draggable
@@ -374,7 +352,6 @@
 
   $effect(() => {
     categoryId;
-    selectedId = null;
     search = "";
     dragPositions = {};
     resizeDraftWidths = {};
@@ -836,14 +813,7 @@
     }
   }
 
-  function openMap(): void {
-    selectedId = null;
-    void tick().then(() => fitContent());
-  }
-
   function clickConcept(event: MouseEvent, id: string): void {
-    // Every visual map node is backed by an editable note.
-    // Space/Enter activation is not navigation. Only pointer clicks enter.
     if (!isMouseMapOpenClick(event) || spaceHeld) {
       event.preventDefault();
       return;
@@ -855,114 +825,6 @@
     }
     const node = nodes.find((candidate) => candidate.id === id);
     if (node?.primary_note_id) openNoteEditor(node.primary_note_id, id);
-  }
-
-  function chooseNode(id: string): void {
-    selectedId = id;
-    activeTab = "notes";
-    showLinkPicker = false;
-    noteQuery = "";
-    checkedIds = [];
-    noteTitle = "";
-    noteBody = "";
-  }
-
-  function showNew(parentId: string | null = null): void {
-    newParentId = parentId;
-    draftTitle = "";
-    draftColor = palette[nodes.find((node) => node.id === parentId)?.color ?? ""] ? nodes.find((node) => node.id === parentId)!.color : CONCEPT_COLORS[nodes.length % CONCEPT_COLORS.length];
-    editingConcept = false;
-    showCreate = true;
-  }
-
-  function showEdit(): void {
-    if (!selected) return;
-    draftTitle = selected.title;
-    draftColor = selected.color;
-    editingConcept = true;
-    showCreate = true;
-  }
-
-  async function saveConcept(): Promise<void> {
-    if (!draftTitle.trim() || isSaving) return;
-    isSaving = true;
-    try {
-      if (editingConcept && selected) {
-        await updateConceptNode(selected.id, { title: draftTitle, color: draftColor });
-      } else {
-        const id = await createConceptNode({ categoryId, parentId: newParentId, title: draftTitle, color: draftColor });
-        // A child created on the map stays on the map; when creating from the
-        // detail pane, keep that pane open instead of changing navigation.
-        if (selectedId && newParentId) chooseNode(newParentId);
-        else {
-          selectedId = null;
-          await tick();
-          fitContent();
-        }
-        showSnackbar("Concepto creado.", "success");
-      }
-      showCreate = false;
-    } catch (error) { showSnackbar(error instanceof Error ? error.message : "No se pudo guardar.", "error"); }
-    finally { isSaving = false; }
-  }
-
-  async function removeConcept(): Promise<void> {
-    if (!selected || isSaving) return;
-    isSaving = true;
-    try {
-      await deleteConceptNode(selected.id);
-      selectedId = null;
-      showDelete = false;
-      showSnackbar("Concepto eliminado. Sus notas se conservaron.", "success");
-    } catch (error) { showSnackbar(error instanceof Error ? error.message : "No se pudo eliminar.", "error"); }
-    finally { isSaving = false; }
-  }
-
-  async function createNote(): Promise<void> {
-    if (!selected || isSaving || !(noteTitle.trim() || noteBody.trim())) return;
-    isSaving = true;
-    const conceptId = selected.id;
-    try {
-      const index = await saveItem({ title: noteTitle.trim() || "Nota sin título", comment: noteBody.trim(), type: "note", categoryId });
-      const id = appState.appData?.__SYSTEM_TASKS__[index]?.id;
-      if (!id) throw new Error("No se pudo obtener la nota guardada.");
-      const currentLinks = appState.appData?.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === conceptId)?.linked_note_ids ?? [];
-      await updateConceptNotes(conceptId, [...currentLinks, id]);
-      noteTitle = "";
-      noteBody = "";
-      showSnackbar("Nota creada y vinculada.", "success");
-    } catch (error) { showSnackbar(error instanceof Error ? error.message : "No se pudo crear la nota.", "error"); }
-    finally { isSaving = false; }
-  }
-
-  function openLinks(): void {
-    checkedIds = [...(selected?.linked_note_ids ?? [])];
-    noteQuery = "";
-    showLinkPicker = true;
-    activeTab = "related";
-  }
-
-  async function applyLinks(): Promise<void> {
-    if (!selected || isSaving) return;
-    isSaving = true;
-    try {
-      await updateConceptNotes(selected.id, checkedIds);
-      showLinkPicker = false;
-      showSnackbar("Relaciones guardadas.", "success");
-    } catch (error) { showSnackbar(error instanceof Error ? error.message : "No se pudieron relacionar las notas.", "error"); }
-    finally { isSaving = false; }
-  }
-
-  function toggleChecked(id: string): void {
-    checkedIds = checkedIds.includes(id) ? checkedIds.filter((value) => value !== id) : [...checkedIds, id];
-  }
-  async function unlinkNote(note: Item): Promise<void> {
-    if (!selected) return;
-    try { await updateConceptNotes(selected.id, selected.linked_note_ids.filter((id) => id !== note.id)); }
-    catch (error) { showSnackbar(error instanceof Error ? error.message : "No se pudo desvincular.", "error"); }
-  }
-  function editNote(note: Item): void {
-    if (selected) openNoteEditor(note.id, selected.id);
   }
 </script>
 
