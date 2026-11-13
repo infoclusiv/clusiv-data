@@ -60,6 +60,8 @@ pub struct ConceptNode {
     #[serde(default)]
     pub linked_note_ids: Vec<String>,
     #[serde(default)]
+    pub primary_note_id: Option<String>,
+    #[serde(default)]
     pub position: Option<FlowPosition>,
     #[serde(default)]
     pub width: Option<i32>,
