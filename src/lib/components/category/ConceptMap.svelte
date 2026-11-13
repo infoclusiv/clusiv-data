@@ -305,7 +305,7 @@
       windowFocused, pointerOverMap,
       isEditableTarget: editable,
       detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker || showNoteDestination,
+      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
     })) return;
 
     // Capture-phase keyboard interception prevents a focused draggable
