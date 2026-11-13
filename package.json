@@ -23,6 +23,7 @@
     "test:concept-reparent": "node --experimental-strip-types src/lib/utils/conceptReparent.test.mjs",
     "test:transcription-x": "node src/lib/utils/transcriptionXPresence.test.mjs",
     "test:concept-notes": "node --experimental-strip-types src/lib/utils/conceptNoteLayout.test.mjs",
+    "test:concept-note-links": "node --experimental-strip-types src/lib/utils/conceptNoteRelations.test.mjs",
     "test:flows": "pnpm run test:flow-layout && pnpm run test:flow-graph",
     "tauri": "tauri"
   },
