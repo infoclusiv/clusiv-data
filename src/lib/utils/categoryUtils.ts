@@ -11,6 +11,8 @@ import type {
   FlowNodeInput,
   Item,
   ItemImage,
+  NoteLink,
+  NoteDocument,
   Link,
   LinkFormInput,
   QuickText,
@@ -103,6 +105,15 @@ export function normalizeConceptNodes(value: unknown): ConceptNode[] {
       width: typeof node.width === "number" && Number.isFinite(node.width)
         ? Math.round(Math.max(120, Math.min(520, node.width)))
         : null,
+      note_positions: node.note_positions && typeof node.note_positions === "object" && !Array.isArray(node.note_positions)
+        ? Object.fromEntries(Object.entries(node.note_positions).filter(([id, p]) =>
+            Boolean(id.trim()) && p && typeof p === "object" &&
+            Number.isFinite((p as {x:number}).x) && Number.isFinite((p as {y:number}).y)
+          ).map(([id, p]) => [id, {
+            x: Math.round((p as {x:number}).x),
+            y: Math.round((p as {y:number}).y),
+          }]))
+        : {},
       linked_note_ids: Array.isArray(node.linked_note_ids)
         ? [...new Set(node.linked_note_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0))]
         : [],
@@ -226,6 +237,36 @@ function normalizeLinkedNoteIds(value: unknown): string[] {
   )];
 }
 
+export function normalizeNoteLinks(value: unknown): NoteLink[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const v = entry as Partial<NoteLink>;
+    if (typeof v.url !== "string" || !/^https?:\/\//i.test(v.url.trim())) return [];
+    const id = typeof v.id === "string" && v.id.trim() ? v.id : `link-${index}`;
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [{ id, title: typeof v.title === "string" ? v.title.trim() : "", url: v.url.trim() }];
+  });
+}
+
+export function normalizeNoteDocuments(value: unknown): NoteDocument[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const v = entry as Partial<NoteDocument>;
+    if (typeof v.data_url !== "string" || !/^data:[\w.+/-]+;base64,/i.test(v.data_url)) return [];
+    const id = typeof v.id === "string" && v.id.trim() ? v.id : `document-${index}`;
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [{ id, name: typeof v.name === "string" ? v.name : "Documento",
+      mime_type: typeof v.mime_type === "string" ? v.mime_type : "application/octet-stream",
+      data_url: v.data_url }];
+  });
+}
+
 function normalizeItem(value: unknown, fallbackId: string): Item | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -240,6 +281,8 @@ function normalizeItem(value: unknown, fallbackId: string): Item | null {
     title: typeof candidate.title === "string" ? candidate.title : "",
     comment: typeof candidate.comment === "string" ? candidate.comment : "",
     images: normalizeItemImages(candidate.images),
+    links: candidate.type === "note" ? normalizeNoteLinks(candidate.links) : [],
+    documents: candidate.type === "note" ? normalizeNoteDocuments(candidate.documents) : [],
     tags: candidate.type === "note" ? normalizeNoteTags(candidate.tags) : [],
     type: candidate.type === "note" ? "note" : "task",
     done: Boolean(candidate.done),
@@ -558,6 +601,8 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
     item.title ||= "";
     item.comment ||= "";
     item.images = normalizeItemImages(item.images);
+    item.links = item.type === "note" ? normalizeNoteLinks(item.links) : [];
+    item.documents = item.type === "note" ? normalizeNoteDocuments(item.documents) : [];
     item.tags = item.type === "note" ? normalizeNoteTags(item.tags) : [];
     item.type ||= "task";
     item.done ||= false;
@@ -614,6 +659,8 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
 
   for (const node of normalized.__SYSTEM_CONCEPT_NODES__) {
     node.linked_note_ids = node.linked_note_ids.filter((noteId) => validNoteIds.has(noteId));
+    node.note_positions = Object.fromEntries(Object.entries(node.note_positions)
+      .filter(([noteId]) => node.linked_note_ids.includes(noteId)));
   }
 
   for (const flow of normalized.__SYSTEM_FLOWS__) {
