@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { conceptNodeVisual, conceptNodeWidth, resizeConceptGeometry } from "./conceptNodeVisual.ts";
+import { conceptNodeVisual, conceptNodeWidth, conceptNodeHeight, resizeConceptGeometry } from "./conceptNodeVisual.ts";
 
 const first = conceptNodeVisual(1);
 assert.equal(first.titlePx, 20);
@@ -35,5 +35,7 @@ console.log("PASS graduated concept hierarchy levels 1–6 and deeper floor");
   assert.equal(next.position.y, start.y);
   const narrow = resizeConceptGeometry(start, -900, 1);
   assert.equal(narrow.width, 120);
+  assert.ok(conceptNodeHeight("A rather long concept title that needs wrapping", 1, 120) >
+    conceptNodeHeight("A rather long concept title that needs wrapping", 1, 480));
   console.log("PASS widths, manual wrapping and anchored resize at zoom");
 }
