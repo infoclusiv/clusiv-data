@@ -25,6 +25,7 @@
     "test:concept-notes": "node --experimental-strip-types src/lib/utils/conceptNoteLayout.test.mjs",
     "test:concept-note-links": "node --experimental-strip-types src/lib/utils/conceptNoteRelations.test.mjs",
     "test:concept-note-delete": "node --experimental-strip-types src/lib/utils/conceptNoteDeletion.test.mjs",
+    "test:map-primary-notes": "node --experimental-strip-types src/lib/utils/conceptPrimaryNotes.test.mjs",
     "test:flows": "pnpm run test:flow-layout && pnpm run test:flow-graph",
     "tauri": "tauri"
   },
