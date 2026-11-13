@@ -60,3 +60,29 @@ export function canReparentConcept(
     return false;
   }
 }
+
+/** Atomically rewrite the relationship and preserve the whole visible layout. */
+export function applyConceptReparent(
+  nodes: ConceptNode[],
+  sourceId: string,
+  newParentId: string | null,
+  visiblePositions: ReadonlyArray<{ id: string; x: number; y: number }>,
+): boolean {
+  assertConceptReparent(nodes, sourceId, newParentId);
+  const source = nodes.find((node) => node.id === sourceId)!;
+  if (source.parent_id === newParentId) return false;
+
+  for (const point of visiblePositions) {
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      throw new Error("El mapa contiene coordenadas inválidas.");
+    }
+  }
+  const byId = new Map(visiblePositions.map((point) => [point.id, point]));
+  for (const node of nodes) {
+    if (node.category_id !== source.category_id) continue;
+    const point = byId.get(node.id);
+    if (point) node.position = { x: Math.round(point.x), y: Math.round(point.y) };
+  }
+  source.parent_id = newParentId;
+  return true;
+}
