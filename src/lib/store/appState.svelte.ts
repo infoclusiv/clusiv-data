@@ -56,6 +56,7 @@ import {
 import { removeQuickTextGroupMembership } from "$lib/utils/quickTextGrouping";
 import { normalizeNoteTags } from "$lib/utils/noteTags";
 import { applyConceptReparent } from "$lib/utils/conceptReparent";
+import { moveNoteLink } from "$lib/utils/conceptNoteRelations";
 import {
   DEFAULT_HOME_TEXT,
   GENERAL_CATEGORY_ID,
@@ -3260,22 +3261,11 @@ export async function moveConceptNote(
   noteId: string, sourceConceptId: string, targetConceptId: string,
   position: { x: number; y: number },
 ): Promise<void> {
-  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) throw new Error("Coordenadas inválidas.");
   await mutateAppData((draft) => {
-    const source = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === sourceConceptId);
-    const target = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === targetConceptId);
-    if (!source || !target || source.category_id !== target.category_id) {
-      throw new Error("Solo se pueden conectar notas entre conceptos del mismo mapa.");
-    }
-    if (!source.linked_note_ids.includes(noteId)) throw new Error("La relación ya no existe.");
-    if (!draft.__SYSTEM_TASKS__.some((item) => item.id === noteId && item.type === "note")) {
-      throw new Error("La nota ya no existe.");
-    }
-    if (source.id === target.id) return;
-    source.linked_note_ids = source.linked_note_ids.filter((id) => id !== noteId);
-    delete source.note_positions[noteId];
-    if (!target.linked_note_ids.includes(noteId)) target.linked_note_ids.push(noteId);
-    target.note_positions[noteId] = { x: Math.round(position.x), y: Math.round(position.y) };
+    moveNoteLink(
+      draft.__SYSTEM_CONCEPT_NODES__, draft.__SYSTEM_TASKS__,
+      noteId, sourceConceptId, targetConceptId, position,
+    );
   });
 }
 
