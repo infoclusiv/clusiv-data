@@ -43,6 +43,7 @@ jobs:
           pnpm run test:concept-keyboard
           pnpm run test:concept-reparent
           pnpm run test:transcription-x
+          pnpm run test:concept-notes
 
   backend:
     name: Tauri Rust tests
