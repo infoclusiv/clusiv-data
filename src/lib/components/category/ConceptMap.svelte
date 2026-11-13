@@ -173,7 +173,7 @@
         conceptNodeWidth(position.node.title, position.depth, position.node.width),
       height: conceptNodeHeight(position.node.title, position.depth, resizeDraftWidths[position.node.id] ??
         conceptNodeWidth(position.node.title, position.depth, position.node.width)),
-    }), ...shownNotes.map((note) => ({
+    })), ...shownNotes.map((note) => ({
       x: note.x, y: note.y, width: NOTE_CARD_WIDTH, height: NOTE_CARD_HEIGHT,
     }))], { centerWidth: 420, centerHeight: 170 });
     camera = fitConceptCamera(bounds, mapViewport.clientWidth, mapViewport.clientHeight);
