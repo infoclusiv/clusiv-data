@@ -1295,6 +1295,11 @@ fn parse_concept_nodes(value: Value, changed: &mut bool) -> Vec<ConceptNode> {
             color: string_value(map.remove("color"), "emerald", changed),
             icon: string_value(map.remove("icon"), "Layers", changed),
             linked_note_ids: string_array_value(map.remove("linked_note_ids"), changed),
+            position: match map.remove("position") {
+                Some(Value::Object(map)) => Some(flow_position_from_value(Some(Value::Object(map)), changed)),
+                Some(Value::Null) | None => None,
+                Some(_) => { *changed = true; None },
+            },
         })
     }).collect()
 }
