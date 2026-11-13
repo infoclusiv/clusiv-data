@@ -91,6 +91,7 @@ export interface ConceptNode {
   icon: string;
   linked_note_ids: string[];
   position: { x: number; y: number } | null;
+  width: number | null;
 }
 
 export interface FlowNode {
