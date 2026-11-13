@@ -2301,12 +2301,17 @@ mod tests {
                 "research": { "id": "research", "name": "Investigacion", "parent_id": "general", "icon": "Ideas", "links": [], "notes": "" }
             },
             "__SYSTEM_TASKS__": [
-                { "id": "note_a", "title": "Apunte", "comment": "Texto", "type": "note", "done": false, "category_id": "general", "tags": [], "images": [] },
+                { "id": "note_a", "title": "Apunte", "comment": "Texto", "type": "note", "done": false, "category_id": "general", "tags": [], "images": [],
+                  "links": [{"id":"l1", "title":"Documentación", "url":"https://example.com/source"}],
+                  "documents": [{"id":"d1", "name":"datos.pdf", "mime_type":"application/pdf", "data_url":"data:application/pdf;base64,SGVsbG8="}]
+                },
                 { "id": "task_b", "title": "Pendiente", "comment": "", "type": "task", "done": false, "category_id": "general", "tags": [], "images": [] }
             ],
             "__SYSTEM_CONCEPT_NODES__": [
                 { "id": "c1", "category_id": "research", "parent_id": null, "title": "Concepto", "color": "teal", "icon": "Layers", "linked_note_ids": ["note_a", "note_a", "task_b", "missing"] },
-                { "id": "c2", "category_id": "research", "parent_id": "c1", "title": "Subconcepto", "color": "amber", "icon": "Layers", "linked_note_ids": ["note_a"], "position": { "x": -325, "y": 1480 }, "width": 415 }
+                { "id": "c2", "category_id": "research", "parent_id": "c1", "title": "Subconcepto", "color": "amber", "icon": "Layers", "linked_note_ids": ["note_a"], "position": { "x": -325, "y": 1480 }, "width": 415,
+                  "note_positions": {"note_a": {"x": 950, "y": 1250}, "missing": {"x": 250, "y": 300}}
+                }
             ],
             "__SYSTEM_QUICK_TEXTS__": [],
             "__SYSTEM_QUICK_TEXT_GROUPS__": [],
@@ -2322,6 +2327,13 @@ mod tests {
         assert_eq!(data.concept_nodes[1].parent_id.as_deref(), Some("c1"));
         assert_eq!(data.concept_nodes[1].position.as_ref().map(|pos| (pos.x, pos.y)), Some((-325, 1480)));
         assert_eq!(data.concept_nodes[1].width, Some(415));
+        assert_eq!(data.concept_nodes[1].note_positions.len(), 1);
+        assert_eq!(data.concept_nodes[1].note_positions["note_a"].x, 950);
+        assert_eq!(data.concept_nodes[1].note_positions["note_a"].y, 1250);
+        assert_eq!(data.tasks[0].links.len(), 1);
+        assert_eq!(data.tasks[0].links[0].url, "https://example.com/source");
+        assert_eq!(data.tasks[0].documents.len(), 1);
+        assert_eq!(data.tasks[0].documents[0].name, "datos.pdf");
         assert_eq!(data.concept_nodes[0].width, None);
         assert_eq!(data.tasks.len(), 2);
         assert_eq!(data.tasks[0].category_id, "general");
@@ -2331,6 +2343,7 @@ mod tests {
         let (restored, _) = normalize_data(stored);
         assert_eq!(restored.concept_nodes, data.concept_nodes);
         assert_eq!(restored.tasks.len(), data.tasks.len());
+        assert_eq!(restored.tasks[0], data.tasks[0]);
     }
 
     #[test]
