@@ -65,6 +65,8 @@
   let linkDrag = $state<LinkDrag | null>(null);
   let linkHoverTargetId = $state<string | null>(null);
   let quickMenuId = $state<string | null>(null);
+  let headerPlusOpen = $state(false);
+  let showNoteDestination = $state(false);
   let noteEditorOpen = $state(false);
   let editingNoteId = $state<string | null>(null);
   let noteTargetConceptId = $state<string | null>(null);
@@ -203,7 +205,7 @@
     if (!viewport || !canFocusMapFromHover({
       windowFocused, pointerOverMap,
       detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
+      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker || showNoteDestination,
     })) return;
     viewport.focus({ preventScroll: true });
   }
@@ -273,7 +275,7 @@
       windowFocused, pointerOverMap,
       isEditableTarget: editable,
       detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
+      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker || showNoteDestination,
     })) return;
     if (isMapPanShortcut(event)) {
       event.preventDefault();
@@ -956,7 +958,18 @@
     <header class="flex flex-wrap items-center gap-3 border-b border-slate-200/60 px-5 py-4 lg:px-6">
       <div class="flex min-w-0 flex-1 items-center gap-3"><button class="btn-ghost !px-2" title="Volver" onclick={goBack} disabled={appState.navigationHistory.length === 0}><ArrowLeft size={19}/></button><Target size={25} class="shrink-0 text-brand-700"/><h1 class="truncate text-xl font-bold tracking-tight text-brand-800">{categoryName}</h1></div>
       <label class="flex w-full items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 shadow-sm sm:w-72 lg:w-80"><Search size={17} class="shrink-0 text-slate-400"/><input class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" bind:value={search} placeholder="Buscar conceptos..."/></label>
-      <button class="btn-primary !rounded-full !px-3" onclick={() => showNew(null)} title="Nuevo concepto" aria-label="Nuevo concepto"><Plus size={20}/></button>
+      <div class="relative">
+        <button class="btn-primary !rounded-full !px-3" onclick={() => headerPlusOpen = !headerPlusOpen}
+          title="Añadir concepto o nota" aria-label="Añadir concepto o nota"><Plus size={20}/></button>
+        {#if headerPlusOpen}
+          <div class="absolute right-0 top-full z-30 mt-2 w-48 space-y-1 rounded-xl border border-brand-100 bg-white p-2 shadow-xl">
+            <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-emerald-50"
+              onclick={() => { headerPlusOpen = false; showNew(null); }}><Layers size={16}/> Nuevo concepto</button>
+            <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-emerald-50"
+              onclick={() => { headerPlusOpen = false; showNoteDestination = true; }}><FileText size={16}/> Nueva nota</button>
+          </div>
+        {/if}
+      </div>
       <div class="relative">
         <button class="btn-ghost rounded-full border border-slate-200 bg-white/85" onclick={() => (sectionMenu = !sectionMenu)}><Filter size={16}/> Secciones <ChevronDown size={14}/></button>
         {#if sectionMenu}
@@ -1166,6 +1179,20 @@
   onclose={() => { noteEditorOpen = false; editingNoteId = null; }}
   onsave={saveNoteFromMap}
 />
+<Modal open={showNoteDestination} title="Elegir concepto para la nueva nota" onclose={() => showNoteDestination = false} widthClass="max-w-xl">
+  <p class="mb-4 text-sm text-slate-500">Selecciona el concepto al que quieres conectar la nueva tarjeta.</p>
+  <div class="max-h-[48vh] space-y-2 overflow-y-auto">
+    {#each nodes as concept (concept.id)}
+      <button class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-brand-300 hover:bg-emerald-50/30"
+        onclick={() => { showNoteDestination = false; openNoteEditor(null, concept.id); }}>
+        <Layers size={18} class="shrink-0 text-brand-700"/><span class="min-w-0 truncate text-sm font-semibold">{concept.title}</span>
+      </button>
+    {:else}
+      <p class="py-8 text-center text-sm text-slate-500">Crea primero un concepto al que relacionar la nota.</p>
+    {/each}
+  </div>
+</Modal>
+
 <Modal open={showNotePicker} title="Relacionar una nota existente" onclose={() => showNotePicker = false} widthClass="max-w-2xl">
   <div class="space-y-3">
     <p class="text-sm text-slate-500">Selecciona una nota ya guardada para mostrarla en el mapa. No se duplicará.</p>
