@@ -9,17 +9,17 @@ assert.equal(canFocusMapFromHover({ ...active, pointerOverMap: false }), false);
 assert.equal(canFocusMapFromHover({ ...active, overlayOpen: true }), false);
 assert.equal(canFocusMapFromHover({ ...active, detailOpen: true }), false);
 assert.equal(canPanMapWithSpace({
-  ...active, mapHasDomFocus: false, isEditableTarget: false,
+  ...active, isEditableTarget: false,
 }), true, "Space should work without a previous click when the app is active");
 assert.equal(canPanMapWithSpace({
-  ...active, windowFocused: false, mapHasDomFocus: true, isEditableTarget: false,
+  ...active, windowFocused: false, isEditableTarget: false,
 }), false, "never pan while Chrome or another window is foreground");
 assert.equal(canPanMapWithSpace({
-  ...active, mapHasDomFocus: true, isEditableTarget: true,
+  ...active, isEditableTarget: true,
 }), false, "text fields must keep their Space key");
 assert.equal(canPanMapWithSpace({
-  ...active, pointerOverMap: false, mapHasDomFocus: true, isEditableTarget: false,
-}), true, "keep keyboard pan while the map itself has DOM focus");
+  ...active, pointerOverMap: false, isEditableTarget: false,
+}), false, "Space should work only when the cursor is over the map");
 console.log("PASS keyboard focus isolation across foreground/background windows");
 
 const component = readFileSync(new URL("../components/category/ConceptMap.svelte", import.meta.url), "utf8");
