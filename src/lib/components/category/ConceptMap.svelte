@@ -219,7 +219,6 @@
       ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? ""));
     if (!canPanMapWithSpace({
       windowFocused, pointerOverMap,
-      mapHasDomFocus: document.activeElement === mapViewport,
       isEditableTarget: editable,
       detailOpen: Boolean(selectedId),
       overlayOpen: showCreate || showDelete,
