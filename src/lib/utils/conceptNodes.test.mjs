@@ -50,8 +50,13 @@ test("multiple concepts can link the same existing note without moving or duplic
   assert.deepEqual(normalized.__SYSTEM_CONCEPT_NODES__[0].linked_note_ids, ["note_1"]);
   assert.deepEqual(normalized.__SYSTEM_CONCEPT_NODES__[1].linked_note_ids, ["note_1"]);
   assert.equal(normalized.__SYSTEM_CONCEPT_NODES__[1].parent_id, "root");
-  assert.equal(normalized.__SYSTEM_TASKS__.length, 2);
+  // The two old concepts now each own one new note. The original shared
+  // note remains exactly one record and keeps all its existing references.
+  assert.equal(normalized.__SYSTEM_TASKS__.length, 4);
+  assert.equal(normalized.__SYSTEM_TASKS__.filter((item) => item.id === "note_1").length, 1);
   assert.equal(normalized.__SYSTEM_TASKS__[0].category_id, "general");
+  assert.equal(normalized.__SYSTEM_CONCEPT_NODES__[0].primary_note_id, "map-note-root");
+  assert.equal(normalized.__SYSTEM_CONCEPT_NODES__[1].primary_note_id, "map-note-child");
 });
 
 test("manually dragged positions survive normalization and old nodes remain automatic", () => {
