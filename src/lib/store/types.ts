@@ -90,6 +90,7 @@ export interface ConceptNode {
   color: string;
   icon: string;
   linked_note_ids: string[];
+  position: { x: number; y: number } | null;
 }
 
 export interface FlowNode {
