@@ -16,6 +16,9 @@ import type {
   ItemEditorState,
   ItemFormInput,
   ItemType,
+  NoteLink,
+  NoteDocument,
+  ItemImage,
   Link,
   LinkFormInput,
   LogLevel,
@@ -44,6 +47,8 @@ import {
   normalizeQuickTextGroupSortOrders,
   normalizeQuickTextGroupIds,
   normalizeItemImages,
+  normalizeNoteLinks,
+  normalizeNoteDocuments,
   normalizeLink,
   normalizeLinks,
   syncLegacyQuickTextGroupId,
@@ -348,6 +353,8 @@ function normalizeItemFormInput(input: ItemFormInput): ItemFormInput {
     categoryId: input.categoryId,
     images: input.type === "note" ? normalizeItemImages(input.images) : [],
     tags: input.type === "note" ? normalizeNoteTags(input.tags) : [],
+    links: input.type === "note" && input.links !== undefined ? normalizeNoteLinks(input.links) : undefined,
+    documents: input.type === "note" && input.documents !== undefined ? normalizeNoteDocuments(input.documents) : undefined,
   };
 }
 
@@ -3104,7 +3111,7 @@ export async function createConceptNode(input: {
     )) throw new Error("El concepto padre no existe.");
     draft.__SYSTEM_CONCEPT_NODES__.push({
       id, category_id: input.categoryId, parent_id: input.parentId ?? null,
-      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], position: null, width: null,
+      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], position: null, width: null, note_positions: {},
     });
   });
   return id;
@@ -3193,6 +3200,82 @@ export async function updateConceptNotes(id: string, noteIds: string[]): Promise
     if (!node) throw new Error("Concepto no encontrado.");
     const valid = new Set(draft.__SYSTEM_TASKS__.filter((item) => item.type === "note").map((item) => item.id));
     node.linked_note_ids = [...new Set(noteIds.filter((noteId) => valid.has(noteId)))];
+    node.note_positions = Object.fromEntries(Object.entries(node.note_positions)
+      .filter(([noteId]) => node.linked_note_ids.includes(noteId)));
+  });
+}
+
+export interface ConceptNoteInput {
+  title: string;
+  comment: string;
+  links: NoteLink[];
+  documents: NoteDocument[];
+  images: ItemImage[];
+}
+
+/** Save note and map connection together, so an interruption cannot orphan it. */
+export async function createNoteOnConcept(conceptId: string, input: ConceptNoteInput): Promise<string> {
+  const noteId = generateItemId();
+  await mutateAppData((draft) => {
+    const concept = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === conceptId);
+    if (!concept) throw new Error("Concepto no encontrado.");
+    draft.__SYSTEM_TASKS__.push({
+      id: noteId, title: input.title.trim() || "Nota sin título",
+      comment: input.comment.trim(), type: "note", done: false,
+      category_id: concept.category_id, tags: [],
+      images: normalizeItemImages(input.images),
+      links: normalizeNoteLinks(input.links),
+      documents: normalizeNoteDocuments(input.documents),
+    });
+    concept.linked_note_ids.push(noteId);
+  });
+  return noteId;
+}
+
+export async function updateConceptNote(noteId: string, input: ConceptNoteInput): Promise<void> {
+  await mutateAppData((draft) => {
+    const note = draft.__SYSTEM_TASKS__.find((item) => item.id === noteId && item.type === "note");
+    if (!note) throw new Error("La nota ya no existe.");
+    note.title = input.title.trim() || "Nota sin título";
+    note.comment = input.comment.trim();
+    note.images = normalizeItemImages(input.images);
+    note.links = normalizeNoteLinks(input.links);
+    note.documents = normalizeNoteDocuments(input.documents);
+  });
+}
+
+export async function updateConceptNotePosition(
+  conceptId: string, noteId: string, position: { x: number; y: number },
+): Promise<void> {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) throw new Error("Coordenadas inválidas.");
+  await mutateAppData((draft) => {
+    const concept = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === conceptId);
+    if (!concept?.linked_note_ids.includes(noteId)) throw new Error("La nota ya no está relacionada con ese concepto.");
+    concept.note_positions[noteId] = { x: Math.round(position.x), y: Math.round(position.y) };
+  });
+}
+
+/** Move one relation while retaining shared links to other concepts. */
+export async function moveConceptNote(
+  noteId: string, sourceConceptId: string, targetConceptId: string,
+  position: { x: number; y: number },
+): Promise<void> {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) throw new Error("Coordenadas inválidas.");
+  await mutateAppData((draft) => {
+    const source = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === sourceConceptId);
+    const target = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === targetConceptId);
+    if (!source || !target || source.category_id !== target.category_id) {
+      throw new Error("Solo se pueden conectar notas entre conceptos del mismo mapa.");
+    }
+    if (!source.linked_note_ids.includes(noteId)) throw new Error("La relación ya no existe.");
+    if (!draft.__SYSTEM_TASKS__.some((item) => item.id === noteId && item.type === "note")) {
+      throw new Error("La nota ya no existe.");
+    }
+    if (source.id === target.id) return;
+    source.linked_note_ids = source.linked_note_ids.filter((id) => id !== noteId);
+    delete source.note_positions[noteId];
+    if (!target.linked_note_ids.includes(noteId)) target.linked_note_ids.push(noteId);
+    target.note_positions[noteId] = { x: Math.round(position.x), y: Math.round(position.y) };
   });
 }
 
@@ -3231,6 +3314,8 @@ export async function saveItem(
           title: normalizedInput.title,
           comment: normalizedInput.comment,
           images,
+          links: normalizedInput.links ?? current.links,
+          documents: normalizedInput.documents ?? current.documents,
           tags,
           type: normalizedInput.type,
           category_id: normalizedInput.categoryId,
@@ -3243,6 +3328,8 @@ export async function saveItem(
         title: normalizedInput.title,
         comment: normalizedInput.comment,
         images,
+        links: normalizedInput.links ?? [],
+        documents: normalizedInput.documents ?? [],
         tags,
         type: normalizedInput.type,
         done: false,
