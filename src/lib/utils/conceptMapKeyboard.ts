@@ -23,3 +23,21 @@ export function canPanMapWithSpace(state: {
     && state.pointerOverMap
     && !state.isEditableTarget && !state.detailOpen && !state.overlayOpen;
 }
+
+/**
+ * Pointer captures used by draggable nodes may suppress pointerenter/leave
+ * notifications. Determine map hover from real viewport coordinates instead.
+ */
+export function isPointerInsideMap(
+  pointer: { x: number; y: number } | null,
+  rect: { left: number; top: number; right: number; bottom: number } | null,
+): boolean {
+  if (!pointer || !rect) return false;
+  return pointer.x >= rect.left && pointer.x <= rect.right
+    && pointer.y >= rect.top && pointer.y <= rect.bottom;
+}
+
+/** Browser-generated keyboard clicks have detail=0. Only a real mouse click opens a concept. */
+export function isMouseMapOpenClick(click: { detail: number }): boolean {
+  return click.detail > 0;
+}
