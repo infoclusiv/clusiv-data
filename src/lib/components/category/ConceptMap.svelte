@@ -1,7 +1,11 @@
 <script lang="ts">
   import { ArrowLeft, Check, ChevronDown, ChevronRight, CirclePlus, Edit3, FileText, Filter, Layers, Link2, Minus, MoreHorizontal, Plus, Search, Target, Trash2, X, ZoomIn, ZoomOut } from "lucide-svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
-  import { appState, createConceptNode, deleteConceptNode, goBack, getItemIndex, openItemEditor, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode } from "$lib/store/appState.svelte";
+  import ConceptNoteCard from "$lib/components/category/ConceptNoteCard.svelte";
+  import ConceptNoteEditor from "$lib/components/category/ConceptNoteEditor.svelte";
+  import { NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT, layoutConceptNoteCards } from "$lib/utils/conceptNoteLayout";
+  import type { ConceptNoteInput } from "$lib/store/appState.svelte";
+  import { appState, createConceptNode, deleteConceptNode, goBack, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createNoteOnConcept, updateConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
   import { canReparentConcept } from "$lib/utils/conceptReparent";
@@ -29,6 +33,12 @@
   const allNodes = $derived(appState.appData?.__SYSTEM_CONCEPT_NODES__ ?? []);
   const nodes = $derived(allNodes.filter((node) => node.category_id === categoryId));
   const allNotes = $derived((appState.appData?.__SYSTEM_TASKS__ ?? []).filter((item) => item.type === "note"));
+  const noteById = $derived(new Map(allNotes.map((note) => [note.id, note])));
+  const editingNote = $derived(allNotes.find((item) => item.id === editingNoteId) ?? null);
+  const linkedNoteCandidates = $derived(allNotes.filter((note) => {
+    const q = pickerSearch.toLocaleLowerCase().trim();
+    return !q || (note.title + " " + note.comment).toLocaleLowerCase().includes(q);
+  }));
   let selectedId = $state<string | null>(null);
   let search = $state("");
   let noteQuery = $state("");
@@ -54,6 +64,25 @@
   };
   let linkDrag = $state<LinkDrag | null>(null);
   let linkHoverTargetId = $state<string | null>(null);
+  let quickMenuId = $state<string | null>(null);
+  let noteEditorOpen = $state(false);
+  let editingNoteId = $state<string | null>(null);
+  let noteTargetConceptId = $state<string | null>(null);
+  let showNotePicker = $state(false);
+  let pickerSearch = $state("");
+  let notePositionOverlay = $state<Record<string, MapPoint>>({});
+  type NoteDrag = {
+    key: string; noteId: string; conceptId: string; pointerId: number;
+    startX: number; startY: number; origin: MapPoint; moved: boolean;
+  };
+  type NoteLinkDrag = {
+    noteId: string; sourceConceptId: string; pointerId: number;
+    x: number; y: number; currentX: number; currentY: number;
+  };
+  let noteDrag = $state<NoteDrag | null>(null);
+  let noteLinkDrag = $state<NoteLinkDrag | null>(null);
+  let noteHoverTargetId = $state<string | null>(null);
+  let suppressNoteClick = false;
   let savingLink = $state(false);
   let suppressNodeClick = false;
   type NodeDrag = {
@@ -122,17 +151,31 @@
     return result;
   });
   const layoutById = $derived(new Map(layout.map((position) => [position.node.id, position])));
+  const notePlacements = $derived(layoutConceptNoteCards(layout.map((position) => ({
+    node: position.node, x: position.x, y: position.y,
+    width: resizeDraftWidths[position.node.id] ??
+      conceptNodeWidth(position.node.title, position.depth, position.node.width),
+    height: conceptNodeHeight(position.node.title, position.depth,
+      resizeDraftWidths[position.node.id] ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)),
+  })), new Set(allNotes.map((note) => note.id))));
+  const shownNotes = $derived(notePlacements.map((placement) => ({
+    ...placement,
+    x: notePositionOverlay[placement.key]?.x ?? placement.x,
+    y: notePositionOverlay[placement.key]?.y ?? placement.y,
+  })));
 
   function fitContent(): void {
     if (!mapViewport) return;
-    const bounds = conceptBounds(layout.map((position) => ({
+    const bounds = conceptBounds([...layout.map((position) => ({
       x: position.x,
       y: position.y,
       width: resizeDraftWidths[position.node.id] ??
         conceptNodeWidth(position.node.title, position.depth, position.node.width),
       height: conceptNodeHeight(position.node.title, position.depth, resizeDraftWidths[position.node.id] ??
         conceptNodeWidth(position.node.title, position.depth, position.node.width)),
-    })), { centerWidth: 420, centerHeight: 170 });
+    }), ...shownNotes.map((note) => ({
+      x: note.x, y: note.y, width: NOTE_CARD_WIDTH, height: NOTE_CARD_HEIGHT,
+    }))], { centerWidth: 420, centerHeight: 170 });
     camera = fitConceptCamera(bounds, mapViewport.clientWidth, mapViewport.clientHeight);
   }
 
