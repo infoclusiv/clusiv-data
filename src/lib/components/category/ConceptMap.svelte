@@ -5,7 +5,7 @@
   import ConceptNoteEditor from "$lib/components/category/ConceptNoteEditor.svelte";
   import { NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT, layoutConceptNoteCards } from "$lib/utils/conceptNoteLayout";
   import type { ConceptNoteInput } from "$lib/store/appState.svelte";
-  import { appState, createConceptNode, deleteConceptNode, goBack, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
+  import { appState, createConceptNode, deleteConceptNode, goBack, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
   import { canReparentConcept } from "$lib/utils/conceptReparent";
@@ -71,6 +71,9 @@
   let headerPlusOpen = $state(false);
   let showNoteDestination = $state(false);
   let noteEditorOpen = $state(false);
+  // Undefined means an existing note or a linked-note card is being edited.
+  // null means a new top-level map note; a string means a new child note.
+  let newMapParentId = $state<string | null | undefined>(undefined);
   let editingNoteId = $state<string | null>(null);
   let noteTargetConceptId = $state<string | null>(null);
   let showNotePicker = $state(false);
@@ -349,7 +352,21 @@
     const viewport = mapViewport;
     if (!viewport) return;
     viewport.addEventListener("wheel", wheelZoom, { passive: false });
-    const observer = new ResizeObserver(() => fitContent());
+    let lastWidth = viewport.clientWidth;
+    let lastHeight = viewport.clientHeight;
+    const observer = new ResizeObserver(() => {
+      const width = viewport.clientWidth;
+      const height = viewport.clientHeight;
+      if (width > 0 && height > 0 && lastWidth > 0 && lastHeight > 0
+        && (width !== lastWidth || height !== lastHeight)) {
+        // Keep the center world point stable; never invoke fitContent here.
+        camera = { ...camera,
+          x: camera.x + (width - lastWidth) / 2,
+          y: camera.y + (height - lastHeight) / 2 };
+      }
+      lastWidth = width;
+      lastHeight = height;
+    });
     observer.observe(viewport);
     return () => {
       observer.disconnect();
@@ -520,24 +537,43 @@
   }
 
   function openNoteEditor(noteId: string | null, conceptId: string): void {
+    newMapParentId = undefined;
     editingNoteId = noteId;
     noteTargetConceptId = conceptId;
     noteEditorOpen = true;
     quickMenuId = null;
   }
 
+  function createMapNote(parentId: string | null): void {
+    newMapParentId = parentId;
+    noteTargetConceptId = parentId;
+    editingNoteId = null;
+    noteEditorOpen = true;
+    quickMenuId = null;
+    headerPlusOpen = false;
+  }
+
   async function saveNoteFromMap(input: ConceptNoteInput): Promise<void> {
-    const conceptId = noteTargetConceptId;
-    if (!conceptId) throw new Error("Selecciona un concepto para guardar la nota.");
+    if (newMapParentId !== undefined) {
+      const parent = nodes.find((node) => node.id === newMapParentId);
+      await createMapNoteNode({
+        categoryId,
+        parentId: newMapParentId,
+        color: parent?.color ?? CONCEPT_COLORS[nodes.length % CONCEPT_COLORS.length],
+        note: input,
+      });
+      showSnackbar("Nota creada en el mapa.", "success");
+      // Never change zoom/pan when creating or editing a node.
+      return;
+    }
     if (editingNoteId) {
       await updateConceptNote(editingNoteId, input);
       showSnackbar("Nota actualizada.", "success");
-    } else {
-      await createNoteOnConcept(conceptId, input);
-      showSnackbar("Nota creada y conectada al concepto.", "success");
-      await tick();
-      fitContent();
+      return;
     }
+    if (!noteTargetConceptId) throw new Error("Selecciona dónde conectar la nota.");
+    await createNoteOnConcept(noteTargetConceptId, input);
+    showSnackbar("Nota creada y conectada.", "success");
   }
 
   async function deleteNoteFromMap(noteId: string): Promise<void> {
@@ -563,8 +599,6 @@
     try {
       await updateConceptNotes(targetId, [...target.linked_note_ids, noteId]);
       showNotePicker = false;
-      await tick();
-      fitContent();
       showSnackbar("Nota existente vinculada.", "success");
     } catch (error) {
       showSnackbar(error instanceof Error ? error.message : "No se pudo vincular la nota.", "error");
@@ -811,6 +845,7 @@
   }
 
   function clickConcept(event: MouseEvent, id: string): void {
+    // Every visual map node is backed by an editable note.
     // Space/Enter activation is not navigation. Only pointer clicks enter.
     if (!isMouseMapOpenClick(event) || spaceHeld) {
       event.preventDefault();
@@ -821,7 +856,8 @@
       event.preventDefault();
       return;
     }
-    chooseNode(id);
+    const node = nodes.find((candidate) => candidate.id === id);
+    if (node?.primary_note_id) openNoteEditor(node.primary_note_id, id);
   }
 
   function chooseNode(id: string): void {
