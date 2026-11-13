@@ -13,7 +13,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { isTauri } from "@tauri-apps/api/core";
   import { canFocusMapFromHover, canPanMapWithSpace, isPointerInsideMap, isMouseMapOpenClick } from "$lib/utils/conceptMapKeyboard";
-  import { conceptBounds, fitConceptCamera, zoomConceptCamera, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
+  import { conceptBounds, fitConceptCamera, zoomConceptCamera, preserveConceptCameraOnResize, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
   import type { ConceptNode } from "$lib/store/types";
 
@@ -336,9 +336,7 @@
       if (width > 0 && height > 0 && lastWidth > 0 && lastHeight > 0
         && (width !== lastWidth || height !== lastHeight)) {
         // Keep the center world point stable; never invoke fitContent here.
-        camera = { ...camera,
-          x: camera.x + (width - lastWidth) / 2,
-          y: camera.y + (height - lastHeight) / 2 };
+        camera = preserveConceptCameraOnResize(camera, lastWidth, lastHeight, width, height);
       }
       lastWidth = width;
       lastHeight = height;
