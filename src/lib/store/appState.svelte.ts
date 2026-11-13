@@ -3113,7 +3113,7 @@ export async function createConceptNode(input: {
     )) throw new Error("El concepto padre no existe.");
     draft.__SYSTEM_CONCEPT_NODES__.push({
       id, category_id: input.categoryId, parent_id: input.parentId ?? null,
-      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], position: null, width: null, note_positions: {},
+      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], primary_note_id: null, position: null, width: null, note_positions: {},
     });
   });
   return id;
@@ -3126,6 +3126,8 @@ export async function updateConceptNode(id: string, changes: Pick<ConceptNode, "
     if (!changes.title.trim()) throw new Error("El nombre es obligatorio.");
     node.title = changes.title.trim();
     node.color = changes.color;
+    const note = draft.__SYSTEM_TASKS__.find((entry) => entry.id === node.primary_note_id && entry.type === "note");
+    if (note) note.title = node.title;
   });
 }
 
@@ -3215,6 +3217,45 @@ export interface ConceptNoteInput {
   images: ItemImage[];
 }
 
+/**
+ * Every newly created map element is an editable note with a stable backing
+ * node for position, color and parent-child connections. Both are saved once.
+ */
+export async function createMapNoteNode(input: {
+  categoryId: string;
+  parentId: string | null;
+  color?: string;
+  note: ConceptNoteInput;
+}): Promise<string> {
+  const nodeId = `concept-${crypto.randomUUID()}`;
+  const noteId = generateItemId();
+  await mutateAppData((draft) => {
+    const category = draft.__SYSTEM_CATEGORIES__[input.categoryId];
+    if (!category || category.parent_id !== null) {
+      throw new Error("Solo las categorías principales tienen mapa.");
+    }
+    if (input.parentId && !draft.__SYSTEM_CONCEPT_NODES__.some((node) =>
+      node.id === input.parentId && node.category_id === input.categoryId)) {
+      throw new Error("La nota padre ya no existe.");
+    }
+    const title = input.note.title.trim() || "Nota sin título";
+    draft.__SYSTEM_TASKS__.push({
+      id: noteId, title, comment: input.note.comment.trim(),
+      type: "note", done: false, category_id: input.categoryId,
+      tags: [], images: normalizeItemImages(input.note.images),
+      links: normalizeNoteLinks(input.note.links),
+      documents: normalizeNoteDocuments(input.note.documents),
+    });
+    draft.__SYSTEM_CONCEPT_NODES__.push({
+      id: nodeId, category_id: input.categoryId, parent_id: input.parentId,
+      title, color: input.color ?? "emerald", icon: "FileText",
+      primary_note_id: noteId, linked_note_ids: [], position: null,
+      width: null, note_positions: {},
+    });
+  });
+  return nodeId;
+}
+
 /** Save note and map connection together, so an interruption cannot orphan it. */
 export async function createNoteOnConcept(conceptId: string, input: ConceptNoteInput): Promise<string> {
   const noteId = generateItemId();
@@ -3246,6 +3287,9 @@ export async function updateConceptNote(noteId: string, input: ConceptNoteInput)
     const note = draft.__SYSTEM_TASKS__.find((item) => item.id === noteId && item.type === "note");
     if (!note) throw new Error("La nota ya no existe.");
     note.title = input.title.trim() || "Nota sin título";
+    for (const node of draft.__SYSTEM_CONCEPT_NODES__) {
+      if (node.primary_note_id === noteId) node.title = note.title;
+    }
     note.comment = input.comment.trim();
     note.images = normalizeItemImages(input.images);
     note.links = normalizeNoteLinks(input.links);
