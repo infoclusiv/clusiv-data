@@ -46,6 +46,7 @@ jobs:
           pnpm run test:concept-notes
           pnpm run test:concept-note-links
           pnpm run test:concept-note-delete
+          pnpm run test:map-primary-notes
 
   backend:
     name: Tauri Rust tests
