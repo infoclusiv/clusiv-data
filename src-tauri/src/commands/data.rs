@@ -8,6 +8,7 @@ use tauri::{command, State};
 use uuid::Uuid;
 
 use crate::logging::{AppLoggerState, LogLevel};
+use crate::models::item::{NoteLink, NoteDocument};
 use crate::models::{
     AppData, Category, ConceptNode, Flow, FlowEdge, FlowNode, FlowPosition, Item, ItemImage, ItemType, Link,
     QuickText, QuickTextGroup, DEFAULT_HOME_TEXT, GENERAL_CATEGORY_ID, GENERAL_CATEGORY_NAME,
@@ -471,6 +472,10 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         );
         if node.color.is_empty() { node.color = "emerald".to_string(); changed = true; }
         if node.icon.is_empty() { node.icon = "Layers".to_string(); changed = true; }
+        let old_count = node.note_positions.len();
+        let linked: HashSet<_> = node.linked_note_ids.iter().cloned().collect();
+        node.note_positions.retain(|note_id, _| linked.contains(note_id));
+        if node.note_positions.len() != old_count { changed = true; }
     }
 
     for flow in &mut flows {
@@ -775,6 +780,8 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
             title: String::new(),
             comment: String::new(),
             images: Vec::new(),
+            links: Vec::new(),
+            documents: Vec::new(),
             tags: Vec::new(),
             item_type: ItemType::Task,
             done: false,
@@ -786,6 +793,8 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
     let title = string_value(map.remove("title"), "", changed);
     let comment = string_value(map.remove("comment"), "", changed);
     let images = item_images_value(map.remove("images"), changed);
+    let links = note_links_value(map.remove("links"), changed);
+    let documents = note_documents_value(map.remove("documents"), changed);
     let tags = normalize_item_tags(map.remove("tags"), changed);
     let item_type = item_type_value(map.remove("type"), changed);
     let done = bool_value(map.remove("done"), false, changed);
@@ -801,6 +810,8 @@ fn item_from_value(value: Value, changed: &mut bool) -> Item {
         title,
         comment,
         images,
+        links: if matches!(item_type, ItemType::Note) { links } else { Vec::new() },
+        documents: if matches!(item_type, ItemType::Note) { documents } else { Vec::new() },
         tags: if matches!(item_type, ItemType::Note) { tags } else { Vec::new() },
         item_type,
         done,
@@ -1130,6 +1141,46 @@ fn item_images_value(value: Option<Value>, changed: &mut bool) -> Vec<ItemImage>
     }
 }
 
+fn note_links_value(value: Option<Value>, changed: &mut bool) -> Vec<NoteLink> {
+    let Some(value) = value else { return Vec::new() };
+    let Value::Array(values) = value else { *changed = true; return Vec::new() };
+    let mut seen = HashSet::new();
+    values.into_iter().enumerate().filter_map(|(index, value)| {
+        let Value::Object(mut entry) = value else { *changed = true; return None };
+        let url = string_value(entry.remove("url"), "", changed);
+        if !(url.starts_with("https://") || url.starts_with("http://")) { *changed = true; return None; }
+        let id = string_value(entry.remove("id"), &format!("link-{index}"), changed);
+        if !seen.insert(id.clone()) { *changed = true; return None; }
+        Some(NoteLink {
+            id,
+            title: string_value(entry.remove("title"), "", changed),
+            url,
+        })
+    }).collect()
+}
+
+fn note_documents_value(value: Option<Value>, changed: &mut bool) -> Vec<NoteDocument> {
+    let Some(value) = value else { return Vec::new() };
+    let Value::Array(values) = value else { *changed = true; return Vec::new() };
+    let mut seen = HashSet::new();
+    values.into_iter().enumerate().filter_map(|(index, value)| {
+        let Value::Object(mut entry) = value else { *changed = true; return None };
+        let data_url = string_value(entry.remove("data_url"), "", changed);
+        if !data_url.starts_with("data:") || !data_url.contains(";base64,") {
+            *changed = true;
+            return None;
+        }
+        let id = string_value(entry.remove("id"), &format!("document-{index}"), changed);
+        if !seen.insert(id.clone()) { *changed = true; return None; }
+        Some(NoteDocument {
+            id,
+            name: string_value(entry.remove("name"), "Documento", changed),
+            mime_type: string_value(entry.remove("mime_type"), "application/octet-stream", changed),
+            data_url,
+        })
+    }).collect()
+}
+
 fn link_from_value(value: Value, changed: &mut bool) -> Link {
     let Value::Object(mut map) = value else {
         *changed = true;
@@ -1299,6 +1350,19 @@ fn parse_concept_nodes(value: Value, changed: &mut bool) -> Vec<ConceptNode> {
                 Some(Value::Object(map)) => Some(flow_position_from_value(Some(Value::Object(map)), changed)),
                 Some(Value::Null) | None => None,
                 Some(_) => { *changed = true; None },
+            },
+            note_positions: match map.remove("note_positions") {
+                Some(Value::Object(positions)) => positions.into_iter()
+                    .filter_map(|(note_id, value)| {
+                        if let Value::Object(point) = value {
+                            Some((note_id, flow_position_from_value(Some(Value::Object(point)), changed)))
+                        } else {
+                            *changed = true;
+                            None
+                        }
+                    }).collect(),
+                Some(Value::Null) | None => HashMap::new(),
+                Some(_) => { *changed = true; HashMap::new() },
             },
             width: match map.remove("width") {
                 Some(Value::Number(number)) => match number.as_i64() {
