@@ -68,8 +68,6 @@
   let linkDrag = $state<LinkDrag | null>(null);
   let linkHoverTargetId = $state<string | null>(null);
   let quickMenuId = $state<string | null>(null);
-  let headerPlusOpen = $state(false);
-  let showNoteDestination = $state(false);
   let noteEditorOpen = $state(false);
   // Undefined means an existing note or a linked-note card is being edited.
   // null means a new top-level map note; a string means a new child note.
@@ -232,7 +230,7 @@
     if (!viewport || !canFocusMapFromHover({
       windowFocused, pointerOverMap,
       detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker || showNoteDestination,
+      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
     })) return;
     viewport.focus({ preventScroll: true });
   }
@@ -550,7 +548,6 @@
     editingNoteId = null;
     noteEditorOpen = true;
     quickMenuId = null;
-    headerPlusOpen = false;
   }
 
   async function saveNoteFromMap(input: ConceptNoteInput): Promise<void> {
@@ -1057,7 +1054,7 @@
       ondragstart={(event) => event.preventDefault()}
     >
       {#if nodes.length === 0}
-        <div class="flex h-full min-h-[380px] flex-col items-center justify-center gap-4 text-center"><div class="rounded-[2rem] bg-brand-50 p-6 text-brand-700 shadow-sm"><Layers size={40}/></div><h2 class="text-xl font-bold text-brand-800">Comienza tu mapa de conceptos</h2><p class="max-w-sm text-sm leading-relaxed text-slate-500">Organiza ideas en conceptos y subconceptos, y vincula tus notas guardadas.</p><button class="btn-primary" onclick={() => showNew(null)}><CirclePlus size={18}/> Crear primer concepto</button></div>
+        <div class="flex h-full min-h-[380px] flex-col items-center justify-center gap-4 text-center"><div class="rounded-[2rem] bg-brand-50 p-6 text-brand-700 shadow-sm"><Layers size={40}/></div><h2 class="text-xl font-bold text-brand-800">Comienza tu mapa de conceptos</h2><p class="max-w-sm text-sm leading-relaxed text-slate-500">Organiza notas de investigación en una jerarquía visual y conéctalas libremente.</p><button class="btn-primary" onclick={() => createMapNote(null)}><CirclePlus size={18}/> Crear primera nota</button></div>
       {:else}
         <div
           class="absolute left-0 top-0 origin-top-left"
@@ -1308,6 +1305,4 @@
   .concept-map-background > div.origin-top-left { transition: transform 190ms cubic-bezier(.22,1,.36,1); will-change: transform; }
   .concept-map-background > div.origin-top-left.camera-moving { transition: none; }
   .concept-map-background { touch-action: none; }
-  .concept-detail-tab { display:inline-flex;align-items:center;gap:.4rem;padding:.65rem .8rem;border-bottom:2px solid transparent;font-size:.85rem;font-weight:600;color:#64748b; }
-  .concept-active-tab { border-color:#0f766e;color:#0f5448;background:rgba(216,245,233,.35); }
 </style>
