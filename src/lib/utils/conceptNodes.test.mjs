@@ -54,6 +54,17 @@ test("multiple concepts can link the same existing note without moving or duplic
   assert.equal(normalized.__SYSTEM_TASKS__[0].category_id, "general");
 });
 
+test("manually dragged positions survive normalization and old nodes remain automatic", () => {
+  const data = fixture();
+  data.__SYSTEM_CONCEPT_NODES__ = [
+    { id: "manual", category_id: "general", parent_id: null, title: "Moved", color: "teal", icon: "Layers", linked_note_ids: [], position: { x: -824.6, y: 1360.4 } },
+    { id: "automatic", category_id: "general", parent_id: "manual", title: "Fresh", color: "teal", icon: "Layers", linked_note_ids: [] },
+  ];
+  const normalized = normalizeAppData(data);
+  assert.deepEqual(normalized.__SYSTEM_CONCEPT_NODES__[0].position, { x: -825, y: 1360 });
+  assert.equal(normalized.__SYSTEM_CONCEPT_NODES__[1].position, null);
+});
+
 test("invalid parents and cyclic concept links cannot break the tree", () => {
   const data = fixture();
   data.__SYSTEM_CONCEPT_NODES__ = [
