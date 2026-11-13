@@ -1,3 +1,21 @@
+/** Ctrl + wheel belongs to the map only when Alt/Meta are not held. */
+export function isMapZoomShortcut(modifiers: {
+  ctrlKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+}): boolean {
+  return modifiers.ctrlKey && !modifiers.altKey && !modifiers.metaKey;
+}
+
+/** Allow Space immediately after Ctrl zoom, even if Ctrl has not been released yet. */
+export function isMapPanShortcut(event: {
+  code: string;
+  altKey: boolean;
+  metaKey: boolean;
+}): boolean {
+  return event.code === "Space" && !event.altKey && !event.metaKey;
+}
+
 export interface MapPoint { x: number; y: number; }
 export interface MapCamera { x: number; y: number; scale: number; }
 export interface MapBounds {
