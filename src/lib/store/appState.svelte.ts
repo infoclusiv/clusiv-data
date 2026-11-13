@@ -1213,7 +1213,12 @@ export function goBack(): void {
 }
 
 export function setCategorySection(section: CategorySection): void {
-  appState.currentCategorySection = section;
+  const currentCategory = appState.appData && appState.currentCategoryId
+    ? getCategory(appState.appData, appState.currentCategoryId)
+    : null;
+  appState.currentCategorySection = section === "concept-map" && currentCategory?.parent_id !== null
+    ? "overview"
+    : section;
   if (section !== "flows") {
     appState.currentFlowId = null;
   }
@@ -1370,7 +1375,7 @@ export function selectCategory(
       categoryId,
       boardMode: appState.currentBoardMode,
       boardFilterId: null,
-      categorySection: DEFAULT_CATEGORY_SECTION,
+      categorySection: category?.parent_id === null ? "concept-map" : "overview",
       flowId: null,
     },
     options,
@@ -3083,14 +3088,16 @@ export async function createConceptNode(input: {
 }): Promise<string> {
   const id = `concept-${crypto.randomUUID()}`;
   await mutateAppData((draft) => {
-    if (!draft.__SYSTEM_CATEGORIES__[input.categoryId]) throw new Error("Categoría no encontrada.");
+    const category = draft.__SYSTEM_CATEGORIES__[input.categoryId];
+    if (!category) throw new Error("Categoría no encontrada.");
+    if (category.parent_id !== null) throw new Error("El mapa solo está disponible en categorías principales.");
     if (!input.title.trim()) throw new Error("El nombre es obligatorio.");
     if (input.parentId && !draft.__SYSTEM_CONCEPT_NODES__.some(
       (node) => node.id === input.parentId && node.category_id === input.categoryId,
     )) throw new Error("El concepto padre no existe.");
     draft.__SYSTEM_CONCEPT_NODES__.push({
       id, category_id: input.categoryId, parent_id: input.parentId ?? null,
-      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [],
+      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], position: null,
     });
   });
   return id;
@@ -3114,6 +3121,23 @@ export async function deleteConceptNode(id: string): Promise<void> {
       if (child.parent_id === id) child.parent_id = node.parent_id;
     }
     draft.__SYSTEM_CONCEPT_NODES__ = draft.__SYSTEM_CONCEPT_NODES__.filter((entry) => entry.id !== id);
+  });
+}
+
+export async function updateConceptPosition(
+  id: string,
+  position: { x: number; y: number },
+): Promise<void> {
+  if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+    throw new Error("Coordenadas inválidas.");
+  }
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("Concepto no encontrado.");
+    node.position = {
+      x: Math.round(position.x),
+      y: Math.round(position.y),
+    };
   });
 }
 
