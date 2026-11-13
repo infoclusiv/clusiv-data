@@ -57,7 +57,7 @@ assert.equal(applyConceptReparent(testNodes,"sources",null,frozen),true,"may dro
 assert.equal(testNodes[1].parent_id,null);
 assert.equal(applyConceptReparent(testNodes,"sources",null,frozen),false,"no-op change does not write");
 const copy=structuredClone(testNodes);
-assert.throws(()=>applyConceptReparent(testNodes,"analysis","csv",frozen),/descendientes/);
+assert.throws(()=>applyConceptReparent(testNodes,"sources","csv",frozen),/descendientes/);
 assert.deepEqual(testNodes,copy,"invalid drops leave data untouched");
 assert.throws(()=>applyConceptReparent(testNodes,"sources","analysis",[{id:"sources",x:Infinity,y:0}]),/coordenadas/);
 assert.deepEqual(testNodes,copy,"nonfinite positions leave data untouched");
