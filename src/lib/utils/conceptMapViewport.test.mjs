@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { conceptBounds, fitConceptCamera, zoomConceptCamera } from "./conceptMapViewport.ts";
+import { conceptBounds, fitConceptCamera, zoomConceptCamera, isMapZoomShortcut, isMapPanShortcut } from "./conceptMapViewport.ts";
 
 const equal = (x, y, epsilon = 1e-8) => assert.ok(Math.abs(x - y) < epsilon, `${x} !== ${y}`);
 
@@ -31,4 +31,15 @@ const equal = (x, y, epsilon = 1e-8) => assert.ok(Math.abs(x - y) < epsilon, `${
   const newCamera = fitConceptCamera(conceptBounds([{x:850,y:440}]), 500, 320);
   assert.ok(newCamera.scale < camera.scale);
   console.log("PASS initial and resized viewport fit");
+}
+
+{
+  assert.equal(isMapZoomShortcut({ctrlKey:true,altKey:false,metaKey:false}),true);
+  assert.equal(isMapZoomShortcut({ctrlKey:false,altKey:true,metaKey:false}),false);
+  assert.equal(isMapZoomShortcut({ctrlKey:true,altKey:true,metaKey:false}),false);
+  assert.equal(isMapZoomShortcut({ctrlKey:false,altKey:false,metaKey:false}),false);
+  assert.equal(isMapPanShortcut({code:"Space",altKey:false,metaKey:false}),true);
+  assert.equal(isMapPanShortcut({code:"Space",altKey:true,metaKey:false}),false);
+  assert.equal(isMapPanShortcut({code:"ControlLeft",altKey:false,metaKey:false}),false);
+  console.log("PASS Ctrl+wheel zoom and immediate Space pan without Windows Alt+Space");
 }
