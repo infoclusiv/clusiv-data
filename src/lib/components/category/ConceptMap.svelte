@@ -1,9 +1,12 @@
 <script lang="ts">
   import { ArrowLeft, Check, ChevronDown, ChevronRight, CirclePlus, Edit3, FileText, Filter, Layers, Link2, Minus, MoreHorizontal, Plus, Search, Target, Trash2, X, ZoomIn, ZoomOut } from "lucide-svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
-  import { appState, createConceptNode, deleteConceptNode, goBack, getItemIndex, openItemEditor, saveItem, setCategorySection, updateConceptNode, updateConceptNotes } from "$lib/store/appState.svelte";
+  import { appState, createConceptNode, deleteConceptNode, goBack, getItemIndex, openItemEditor, saveItem, setCategorySection, updateConceptNode, updateConceptNotes, updateConceptPosition } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
+  import { conceptBounds, fitConceptCamera, zoomConceptCamera } from "$lib/utils/conceptMapViewport";
+  import { tick } from "svelte";
+  import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
   import type { ConceptNode, Item } from "$lib/store/types";
 
   interface Props { categoryId: string; categoryName: string; }
@@ -24,7 +27,20 @@
   let selectedId = $state<string | null>(null);
   let search = $state("");
   let noteQuery = $state("");
-  let zoom = $state(1);
+  let camera = $state<MapCamera>({ x: 0, y: 0, scale: 1 });
+  let mapViewport = $state<HTMLDivElement | null>(null);
+  let spaceHeld = $state(false);
+  let altLeftHeld = $state(false);
+  let isPanning = $state(false);
+  let isDragging = $state(false);
+  let dragPositions = $state<Record<string, MapPoint>>({});
+  let suppressNodeClick = false;
+  type NodeDrag = {
+    id: string; pointerId: number; startX: number; startY: number;
+    origin: MapPoint; moved: boolean;
+  };
+  let nodeDrag: NodeDrag | null = null;
+  let panDrag: { pointerId: number; startX: number; startY: number; originX: number; originY: number } | null = null;
   let showCreate = $state(false);
   let editingConcept = $state(false);
   let newParentId = $state<string | null>(null);
@@ -50,8 +66,8 @@
     !search.trim() || node.title.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()),
   ));
 
-  // Stable radial layout. Each tree root gets one angular sector; descendants
-  // fan outward within that sector, so map connections remain predictable.
+  // New concepts start in a radial layout. After a node is dragged, its
+  // explicit saved position takes priority and never gets overwritten by layout.
   type Positioned = { node: ConceptNode; x: number; y: number; depth: number; color: string };
   const layout = $derived.by(() => {
     const roots = nodes.filter((node) => !node.parent_id || !nodes.some((entry) => entry.id === node.parent_id));
@@ -61,27 +77,198 @@
       if (visited.has(node.id)) return;
       visited.add(node.id);
       const radius = depth === 1 ? 235 : depth === 2 ? 415 : 415 + (depth - 2) * 175;
-      const x = 650 + Math.cos(angle) * radius;
-      const y = 440 + Math.sin(angle) * radius;
-      result.push({ node, x, y, depth, color: node.color in palette ? node.color : "emerald" });
+      const automatic = { x: 650 + Math.cos(angle) * radius, y: 440 + Math.sin(angle) * radius };
+      const position = dragPositions[node.id] ?? node.position ?? automatic;
+      result.push({ node, x: position.x, y: position.y, depth, color: node.color in palette ? node.color : "emerald" });
       const kids = nodes.filter((entry) => entry.parent_id === node.id);
       const spread = Math.min(sector * .86, Math.PI * .80);
-      kids.forEach((child, index) => put(child, angle + (index - (kids.length - 1) / 2) * (spread / Math.max(1, kids.length - 1)), spread / Math.max(1, kids.length), depth + 1));
+      kids.forEach((child, index) => put(child,
+        angle + (index - (kids.length - 1) / 2) * spread / Math.max(1, kids.length - 1),
+        spread / Math.max(1, kids.length), depth + 1));
     };
     roots.forEach((root, index) => put(root, -Math.PI / 2 + index * (2 * Math.PI / roots.length), 2 * Math.PI / roots.length, 1));
     return result;
   });
   const layoutById = $derived(new Map(layout.map((position) => [position.node.id, position])));
-  const mapWidth = $derived(Math.max(1300, ...layout.map((position) => position.x + 200)));
-  const mapHeight = $derived(Math.max(850, ...layout.map((position) => position.y + 130)));
+
+  function fitContent(): void {
+    if (!mapViewport) return;
+    const bounds = conceptBounds(layout);
+    camera = fitConceptCamera(bounds, mapViewport.clientWidth, mapViewport.clientHeight);
+  }
+
+  function zoomByFactor(factor: number, anchor?: MapPoint): void {
+    if (!mapViewport) return;
+    camera = zoomConceptCamera(camera, anchor ?? {
+      x: mapViewport.clientWidth / 2, y: mapViewport.clientHeight / 2,
+    }, factor);
+  }
+
+  function wheelZoom(event: WheelEvent): void {
+    // Require LEFT Alt, not AltGr/Right Alt. Do not steal ordinary scrolling.
+    if (!mapViewport || !altLeftHeld || !event.altKey || selectedId) return;
+    event.preventDefault();
+    const rect = mapViewport.getBoundingClientRect();
+    const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    zoomByFactor(Math.exp(-Math.max(-240, Math.min(240, event.deltaY)) * .0016), anchor);
+  }
+
+  function keyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    const editable = target?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? "");
+    if (event.code === "AltLeft" && !editable && !selectedId && !showCreate) {
+      altLeftHeld = true;
+      return;
+    }
+    if (event.code === "Space" && !editable && !selectedId && !showCreate && !showDelete) {
+      event.preventDefault();
+      spaceHeld = true;
+    }
+  }
+
+  function keyUp(event: KeyboardEvent): void {
+    if (event.code === "AltLeft") altLeftHeld = false;
+    if (event.code === "Space") spaceHeld = false;
+  }
+
+  function cancelGestures(): void {
+    nodeDrag = null;
+    panDrag = null;
+    isPanning = false;
+    isDragging = false;
+    spaceHeld = false;
+    altLeftHeld = false;
+    dragPositions = {};
+  }
+
+  // Rebind the listeners when the map view mounts again after opening a note.
+  $effect(() => {
+    const viewport = mapViewport;
+    if (!viewport) return;
+    viewport.addEventListener("wheel", wheelZoom, { passive: false });
+    const observer = new ResizeObserver(() => fitContent());
+    observer.observe(viewport);
+    return () => {
+      observer.disconnect();
+      viewport.removeEventListener("wheel", wheelZoom);
+    };
+  });
 
   $effect(() => {
     categoryId;
     selectedId = null;
     search = "";
-    zoom = 1;
-    showLinkPicker = false;
+    dragPositions = {};
+    nodeDrag = null;
+    panDrag = null;
+    spaceHeld = false;
+    altLeftHeld = false;
+    requestAnimationFrame(() => fitContent());
   });
+
+  function nodePointerDown(event: PointerEvent, id: string): void {
+    if (event.button !== 0 || spaceHeld) return;
+    const current = layoutById.get(id);
+    if (!current) return;
+    event.stopPropagation();
+    suppressNodeClick = false;
+    nodeDrag = {
+      id, pointerId: event.pointerId, startX: event.clientX,
+      startY: event.clientY, origin: { x: current.x, y: current.y }, moved: false,
+    };
+    (event.currentTarget as HTMLButtonElement).setPointerCapture(event.pointerId);
+  }
+
+  function viewportPointerDown(event: PointerEvent): void {
+    if ((!spaceHeld || event.button !== 0) && event.button !== 1) return;
+    event.preventDefault();
+    panDrag = {
+      pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+      originX: camera.x, originY: camera.y,
+    };
+    isPanning = true;
+    (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+  }
+
+  function viewportPointerMove(event: PointerEvent): void {
+    if (nodeDrag?.pointerId === event.pointerId) {
+      const dx = event.clientX - nodeDrag.startX;
+      const dy = event.clientY - nodeDrag.startY;
+      if (Math.hypot(dx, dy) > 4) nodeDrag.moved = true;
+      if (!nodeDrag.moved) return;
+      isDragging = true;
+      dragPositions = {
+        ...dragPositions,
+        [nodeDrag.id]: {
+          x: nodeDrag.origin.x + dx / camera.scale,
+          y: nodeDrag.origin.y + dy / camera.scale,
+        },
+      };
+    } else if (panDrag?.pointerId === event.pointerId) {
+      camera = {
+        ...camera,
+        x: panDrag.originX + event.clientX - panDrag.startX,
+        y: panDrag.originY + event.clientY - panDrag.startY,
+      };
+    }
+  }
+
+  async function commitNodePosition(id: string, position: MapPoint): Promise<void> {
+    try {
+      await updateConceptPosition(id, position);
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : "No se pudo guardar la posición.", "error");
+    } finally {
+      // Keep the optimistic position while saving, then use the normalized
+      // persisted position (or the old position if the write failed).
+      const updated = { ...dragPositions };
+      delete updated[id];
+      dragPositions = updated;
+    }
+  }
+
+  function viewportPointerUp(event: PointerEvent): void {
+    if (panDrag?.pointerId === event.pointerId) {
+      panDrag = null;
+      isPanning = false;
+    }
+    if (nodeDrag?.pointerId === event.pointerId) {
+      const current = nodeDrag;
+      nodeDrag = null;
+      isDragging = false;
+      if (current.moved) {
+        suppressNodeClick = true;
+        const position = dragPositions[current.id];
+        if (position) void commitNodePosition(current.id, position);
+      }
+    }
+  }
+
+  function viewportPointerCancel(event: PointerEvent): void {
+    if (panDrag?.pointerId === event.pointerId) { panDrag = null; isPanning = false; }
+    if (nodeDrag?.pointerId === event.pointerId) {
+      const updated = { ...dragPositions };
+      delete updated[nodeDrag.id];
+      dragPositions = updated;
+      nodeDrag = null;
+      isDragging = false;
+      suppressNodeClick = true;
+    }
+  }
+
+  function openMap(): void {
+    selectedId = null;
+    void tick().then(() => fitContent());
+  }
+
+  function clickConcept(event: MouseEvent, id: string): void {
+    if (suppressNodeClick) {
+      suppressNodeClick = false;
+      event.preventDefault();
+      return;
+    }
+    chooseNode(id);
+  }
 
   function chooseNode(id: string): void {
     selectedId = id;
@@ -118,7 +305,7 @@
       } else {
         const id = await createConceptNode({ categoryId, parentId: newParentId, title: draftTitle, color: draftColor });
         if (newParentId) chooseNode(newParentId);
-        else selectedId = null;
+        else { selectedId = null; await tick(); fitContent(); }
         showSnackbar("Concepto creado.", "success");
       }
       showCreate = false;
@@ -186,17 +373,19 @@
   }
 </script>
 
+<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={cancelGestures}/>
+
 <div class="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.6rem] border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl">
   {#if selected}
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4 lg:px-7">
       <div class="flex min-w-0 items-center gap-2 text-sm">
-        <button class="btn-ghost !px-2" onclick={() => (selectedId = null)} aria-label="Volver al mapa"><ArrowLeft size={18}/></button>
-        <button class="font-medium text-slate-500 hover:text-brand-700" onclick={() => (selectedId = null)}>{categoryName}</button>
+        <button class="btn-ghost !px-2" onclick={openMap} aria-label="Volver al mapa"><ArrowLeft size={18}/></button>
+        <button class="font-medium text-slate-500 hover:text-brand-700" onclick={openMap}>{categoryName}</button>
         <ChevronRight size={15} class="text-slate-400"/>
         <span class="truncate font-semibold text-brand-800">{selected.title}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button class="btn-ghost border border-slate-200 bg-white/80" onclick={() => (selectedId = null)}><Layers size={16}/> Ver mapa</button>
+        <button class="btn-ghost border border-slate-200 bg-white/80" onclick={openMap}><Layers size={16}/> Ver mapa</button>
         <button class="btn-ghost !px-2" onclick={showEdit} aria-label="Editar concepto" title="Editar concepto"><Edit3 size={17}/></button>
         <button class="btn-ghost !px-2 text-rose-600" onclick={() => (showDelete = true)} aria-label="Eliminar concepto" title="Eliminar concepto"><Trash2 size={17}/></button>
       </div>
@@ -279,35 +468,76 @@
           </div>
         {/if}
       </div>
-      <button class="btn-ghost !rounded-full border border-slate-200 bg-white/85" onclick={() => (zoom = 1)}><Target size={16}/> Centrar</button>
-      <div class="flex rounded-full border border-slate-200 bg-white/85"><button class="px-3 py-2" title="Alejar" aria-label="Alejar" onclick={() => (zoom = Math.max(.55, Math.round((zoom - .15) * 100) / 100))}><Minus size={16}/></button><span class="my-auto text-xs text-slate-500">{Math.round(zoom * 100)}%</span><button class="px-3 py-2" title="Acercar" aria-label="Acercar" onclick={() => (zoom = Math.min(1.65, Math.round((zoom + .15) * 100) / 100))}><Plus size={16}/></button></div>
+      <button class="btn-ghost !rounded-full border border-slate-200 bg-white/85" onclick={fitContent} title="Ajustar el zoom para mostrar todo el mapa"><Target size={16}/> Centrar</button>
+      <div class="flex rounded-full border border-slate-200 bg-white/85">
+        <button class="px-3 py-2 hover:text-brand-700" title="Alejar" aria-label="Alejar" onclick={() => zoomByFactor(1 / 1.2)}><Minus size={16}/></button>
+        <span class="my-auto min-w-11 text-center text-xs text-slate-500">{Math.round(camera.scale * 100)}%</span>
+        <button class="px-3 py-2 hover:text-brand-700" title="Acercar" aria-label="Acercar" onclick={() => zoomByFactor(1.2)}><Plus size={16}/></button>
+      </div>
     </header>
-    <div class="concept-map-background min-h-0 flex-1 overflow-auto p-3">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      bind:this={mapViewport}
+      class="concept-map-background relative min-h-0 flex-1 overflow-hidden select-none"
+      class:space-mode={spaceHeld}
+      class:panning={isPanning}
+      onpointerdown={viewportPointerDown}
+      onpointermove={viewportPointerMove}
+      onpointerup={viewportPointerUp}
+      onpointercancel={viewportPointerCancel}
+      ondragstart={(event) => event.preventDefault()}
+    >
       {#if nodes.length === 0}
         <div class="flex h-full min-h-[380px] flex-col items-center justify-center gap-4 text-center"><div class="rounded-[2rem] bg-brand-50 p-6 text-brand-700 shadow-sm"><Layers size={40}/></div><h2 class="text-xl font-bold text-brand-800">Comienza tu mapa de conceptos</h2><p class="max-w-sm text-sm leading-relaxed text-slate-500">Organiza ideas en conceptos y subconceptos, y vincula tus notas guardadas.</p><button class="btn-primary" onclick={() => showNew(null)}><CirclePlus size={18}/> Crear primer concepto</button></div>
       {:else}
-        <div class="relative mx-auto origin-top-left transition-[width,height] duration-150" style:width={(mapWidth * zoom) + "px"} style:height={(mapHeight * zoom) + "px"}>
-          <div class="absolute left-0 top-0 origin-top-left" style:width={mapWidth + "px"} style:height={mapHeight + "px"} style:transform={"scale(" + zoom + ")"}>
-            <svg class="pointer-events-none absolute inset-0 h-full w-full" viewBox={"0 0 " + mapWidth + " " + mapHeight} aria-hidden="true">
-              {#each layout as position (position.node.id)}
-                {@const parent = position.node.parent_id ? layoutById.get(position.node.parent_id) : null}
-                {@const startX = parent?.x ?? 650}
-                {@const startY = parent?.y ?? 440}
-                <path d={"M " + startX + " " + startY + " C " + (startX + position.x)/2 + " " + startY + ", " + (startX + position.x)/2 + " " + position.y + ", " + position.x + " " + position.y} stroke={palette[position.color].stroke} stroke-width="2.4" stroke-linecap="round" fill="none" opacity=".85"/>
-                <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
-              {/each}
-            </svg>
-            <div class="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-[2rem] border-[2px] border-brand-400 bg-gradient-to-br from-emerald-50 to-teal-100 px-7 py-5 shadow-lg" style:left="650px" style:top="440px"><Target size={32} class="text-brand-700"/><span class="max-w-52 truncate text-2xl font-bold text-brand-800">{categoryName}</span></div>
+        <div
+          class="absolute left-0 top-0 origin-top-left"
+          class:camera-moving={isDragging || isPanning}
+          style:transform={`translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.scale})`}
+        >
+          <!-- SVG overflows intentionally: freely positioned items may have negative coordinates. -->
+          <svg class="pointer-events-none absolute left-0 top-0 overflow-visible" width="1" height="1" aria-hidden="true">
             {#each layout as position (position.node.id)}
-              {@const shade = palette[position.color]}
-              <button class="concept-map-node absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-[1.5rem] border-2 px-5 py-3 text-left transition-transform hover:scale-[1.045] focus:outline-none focus:ring-4 focus:ring-brand-100" style:left={position.x + "px"} style:top={position.y + "px"} style:background={shade.pale} style:border-color={shade.stroke} style:box-shadow={"0 8px 25px " + shade.glow} style:opacity={visibleNodes.some((node) => node.id === position.node.id) ? 1 : .24} onclick={() => chooseNode(position.node.id)} title={"Abrir " + position.node.title}>
-                <span class="shrink-0" style:color={shade.stroke}><Layers size={position.depth === 1 ? 24 : 19}/></span>
-                <span class="min-w-0"><span class:font-bold={position.depth === 1} class="block max-w-[190px] text-sm font-semibold leading-tight text-slate-900">{position.node.title}</span><span class="mt-1 block text-xs text-slate-500">{position.node.linked_note_ids.length} {position.node.linked_note_ids.length === 1 ? "nota" : "notas"}</span></span>
-              </button>
+              {@const parent = position.node.parent_id ? layoutById.get(position.node.parent_id) : null}
+              {@const startX = parent?.x ?? 650}
+              {@const startY = parent?.y ?? 440}
+              <path
+                d={`M ${startX} ${startY} C ${(startX + position.x) / 2} ${startY}, ${(startX + position.x) / 2} ${position.y}, ${position.x} ${position.y}`}
+                stroke={palette[position.color].stroke}
+                stroke-width="2.4"
+                stroke-linecap="round"
+                fill="none"
+                opacity=".85"
+              />
+              <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
             {/each}
-          </div>
+          </svg>
+          <div class="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-[2rem] border-[2px] border-brand-400 bg-gradient-to-br from-emerald-50 to-teal-100 px-7 py-5 shadow-lg" style:left="650px" style:top="440px"><Target size={32} class="text-brand-700"/><span class="max-w-52 truncate text-2xl font-bold text-brand-800">{categoryName}</span></div>
+          {#each layout as position (position.node.id)}
+            {@const shade = palette[position.color]}
+            <button
+              class="concept-map-node absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-[1.5rem] border-2 px-5 py-3 text-left hover:brightness-[1.02] focus:outline-none focus:ring-4 focus:ring-brand-100"
+              class:node-moving={isDragging && nodeDrag?.id === position.node.id}
+              style:left={position.x + "px"}
+              style:top={position.y + "px"}
+              style:background={shade.pale}
+              style:border-color={shade.stroke}
+              style:box-shadow={"0 8px 25px " + shade.glow}
+              style:opacity={visibleNodes.some((node) => node.id === position.node.id) ? 1 : .24}
+              onpointerdown={(event) => nodePointerDown(event, position.node.id)}
+              onclick={(event) => clickConcept(event, position.node.id)}
+              title={"Arrastrar para mover · clic para abrir " + position.node.title}
+              aria-label={"Abrir o mover " + position.node.title}
+            >
+              <span class="shrink-0" style:color={shade.stroke}><Layers size={position.depth === 1 ? 24 : 19}/></span>
+              <span class="min-w-0"><span class:font-bold={position.depth === 1} class="block max-w-[190px] text-sm font-semibold leading-tight text-slate-900">{position.node.title}</span><span class="mt-1 block text-xs text-slate-500">{position.node.linked_note_ids.length} {position.node.linked_note_ids.length === 1 ? "nota" : "notas"}</span></span>
+            </button>
+          {/each}
         </div>
       {/if}
+      <div class="pointer-events-none absolute bottom-3 left-4 rounded-full border border-slate-200/70 bg-white/75 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm backdrop-blur-sm">
+        Arrastra conceptos · Espacio + arrastrar para desplazarte · Alt izquierdo + rueda para zoom
+      </div>
     </div>
   {/if}
 </div>
@@ -327,7 +557,13 @@
 
 <style>
   .concept-map-background { background: radial-gradient(circle at 15% 18%,rgba(252,230,191,.28),transparent 31%),radial-gradient(circle at 77% 75%,rgba(157,224,199,.22),transparent 37%),#fbfaf6; }
-  .concept-map-node { min-width: 148px; max-width: 265px; z-index: 2; }
+  .concept-map-node { min-width: 148px; max-width: 265px; z-index: 2; cursor: grab; touch-action: none; user-select: none; will-change: left, top; }
+  .concept-map-node:active, .concept-map-node.node-moving { cursor: grabbing; z-index: 4; }
+  .concept-map-background.space-mode, .concept-map-background.space-mode .concept-map-node { cursor: grab !important; }
+  .concept-map-background.panning, .concept-map-background.panning .concept-map-node { cursor: grabbing !important; }
+  .concept-map-background > div.origin-top-left { transition: transform 190ms cubic-bezier(.22,1,.36,1); will-change: transform; }
+  .concept-map-background > div.origin-top-left.camera-moving { transition: none; }
+  .concept-map-background { touch-action: none; }
   .concept-detail-tab { display:inline-flex;align-items:center;gap:.4rem;padding:.65rem .8rem;border-bottom:2px solid transparent;font-size:.85rem;font-weight:600;color:#64748b; }
   .concept-active-tab { border-color:#0f766e;color:#0f5448;background:rgba(216,245,233,.35); }
 </style>
