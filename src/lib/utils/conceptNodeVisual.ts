@@ -17,18 +17,41 @@ export interface ConceptNodeVisual {
 }
 
 const LEVELS: readonly ConceptNodeVisual[] = [
-  // Direct branches: clearly primary, with bold type and larger surfaces.
-  { titlePx: 22, notePx: 12.5, iconPx: 29, minWidthPx: 205, maxWidthPx: 315, paddingXPx: 24, paddingYPx: 17, weight: 800, borderPx: 3, shadowPx: 28 },
-  // Second-level concepts: recognizable but visibly subordinate.
-  { titlePx: 18, notePx: 11.5, iconPx: 23, minWidthPx: 166, maxWidthPx: 264, paddingXPx: 18, paddingYPx: 13, weight: 700, borderPx: 2.4, shadowPx: 21 },
-  // Third-level ideas: compact, medium weight.
-  { titlePx: 15, notePx: 10.5, iconPx: 19, minWidthPx: 140, maxWidthPx: 230, paddingXPx: 15, paddingYPx: 11, weight: 600, borderPx: 1.8, shadowPx: 15 },
-  { titlePx: 13, notePx: 10, iconPx: 17, minWidthPx: 125, maxWidthPx: 205, paddingXPx: 12, paddingYPx: 9, weight: 500, borderPx: 1.5, shadowPx: 12 },
-  { titlePx: 12, notePx: 10, iconPx: 15, minWidthPx: 116, maxWidthPx: 190, paddingXPx: 11, paddingYPx: 8, weight: 500, borderPx: 1.3, shadowPx: 10 },
-  { titlePx: 12, notePx: 10, iconPx: 15, minWidthPx: 116, maxWidthPx: 190, paddingXPx: 11, paddingYPx: 8, weight: 500, borderPx: 1.3, shadowPx: 10 },
+  { titlePx: 20, notePx: 12, iconPx: 24, minWidthPx: 185, maxWidthPx: 425, paddingXPx: 20, paddingYPx: 14, weight: 700, borderPx: 2.4, shadowPx: 22 },
+  { titlePx: 16, notePx: 11, iconPx: 20, minWidthPx: 155, maxWidthPx: 390, paddingXPx: 17, paddingYPx: 12, weight: 650, borderPx: 2, shadowPx: 17 },
+  { titlePx: 14, notePx: 10.5, iconPx: 18, minWidthPx: 140, maxWidthPx: 350, paddingXPx: 15, paddingYPx: 10, weight: 600, borderPx: 1.7, shadowPx: 13 },
+  { titlePx: 12.5, notePx: 10, iconPx: 16, minWidthPx: 130, maxWidthPx: 325, paddingXPx: 12, paddingYPx: 9, weight: 500, borderPx: 1.4, shadowPx: 10 },
+  { titlePx: 12, notePx: 10, iconPx: 15, minWidthPx: 125, maxWidthPx: 305, paddingXPx: 11, paddingYPx: 8, weight: 500, borderPx: 1.3, shadowPx: 9 },
+  { titlePx: 12, notePx: 10, iconPx: 15, minWidthPx: 125, maxWidthPx: 305, paddingXPx: 11, paddingYPx: 8, weight: 500, borderPx: 1.3, shadowPx: 9 },
 ];
 
 export function conceptNodeVisual(depth: number): ConceptNodeVisual {
   const index = Number.isFinite(depth) ? Math.max(0, Math.floor(depth) - 1) : 0;
   return LEVELS[Math.min(LEVELS.length - 1, index)];
+}
+
+/** Default width favors a single line for shorter titles, with user-controlled wrapping. */
+export function conceptNodeWidth(title: string, depth: number, savedWidth: number | null): number {
+  if (savedWidth !== null && Number.isFinite(savedWidth)) {
+    return Math.round(Math.max(120, Math.min(520, savedWidth)));
+  }
+  const visual = conceptNodeVisual(depth);
+  const characters = [...title.trim()].length;
+  const estimated = visual.paddingXPx * 2 + visual.iconPx + 14 +
+    characters * visual.titlePx * 0.64 + 12;
+  return Math.ceil(Math.max(visual.minWidthPx, Math.min(visual.maxWidthPx, estimated)));
+}
+
+/** A resize from the lower-right corner preserves the left edge when centered. */
+export function resizeConceptGeometry(
+  starting: { x: number; y: number; width: number },
+  clientDeltaX: number,
+  zoom: number,
+): { position: { x: number; y: number }; width: number } {
+  const dx = clientDeltaX / Math.max(0.02, zoom);
+  const width = Math.max(120, Math.min(520, starting.width + dx));
+  return {
+    width,
+    position: { x: starting.x + (width - starting.width) / 2, y: starting.y },
+  };
 }
