@@ -5,9 +5,9 @@
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
   import { conceptNodeVisual, conceptNodeWidth, conceptNodeHeight, resizeConceptGeometry } from "$lib/utils/conceptNodeVisual";
-  import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { isTauri } from "@tauri-apps/api/core";
+  import { canFocusMapFromHover, canPanMapWithSpace } from "$lib/utils/conceptMapKeyboard";
   import { conceptBounds, fitConceptCamera, zoomConceptCamera, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
   import { tick } from "svelte";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
@@ -35,6 +35,7 @@
   let mapViewport = $state<HTMLDivElement | null>(null);
   let spaceHeld = $state(false);
   let pointerOverMap = $state(false);
+  let windowFocused = $state(!isTauri() && document.hasFocus());
   let focusRequestRunning = false;
   let isPanning = $state(false);
   let isDragging = $state(false);
@@ -143,43 +144,69 @@
     zoomByFactor(Math.exp(-Math.max(-240, Math.min(240, event.deltaY)) * .0016), anchor);
   }
 
-  /**
-   * Focusing the DOM element is sufficient when the Tauri window is active.
-   * On Windows the native WebView can be unfocused until a click; when the
-   * pointer first enters the map, explicitly activate the native window and
-   * webview so Space can be recognized before clicking.
-   */
+  // Hover never raises or activates the application. It can only move DOM
+  // keyboard focus if the native window is already foreground.
+  function focusMapElementIfAllowed(): void {
+    const viewport = mapViewport;
+    if (!viewport || !canFocusMapFromHover({
+      windowFocused, pointerOverMap,
+      detailOpen: Boolean(selectedId),
+      overlayOpen: showCreate || showDelete,
+    })) return;
+    viewport.focus({ preventScroll: true });
+  }
+
   async function activateMapOnHover(): Promise<void> {
     pointerOverMap = true;
-    if (!mapViewport || selectedId || showCreate || showDelete || focusRequestRunning) return;
-    const viewport = mapViewport;
+    if (!mapViewport || focusRequestRunning || selectedId || showCreate || showDelete) return;
     if (!isTauri()) {
-      viewport.focus({ preventScroll: true });
+      windowFocused = document.hasFocus();
+      focusMapElementIfAllowed();
       return;
     }
     focusRequestRunning = true;
     try {
-      const currentWindow = getCurrentWindow();
-      if (!(await currentWindow.isFocused())) {
-        if (!pointerOverMap || mapViewport !== viewport) return;
-        await currentWindow.setFocus();
-      }
-      if (!pointerOverMap || mapViewport !== viewport) return;
-      await getCurrentWebview().setFocus();
-      if (pointerOverMap && mapViewport === viewport) {
-        viewport.focus({ preventScroll: true });
-      }
+      // Read-only: never call Window.setFocus or Webview.setFocus here.
+      const focused = await getCurrentWindow().isFocused();
+      windowFocused = focused;
+      if (pointerOverMap) focusMapElementIfAllowed();
     } catch (error) {
-      // Windows may deny focus if another foreground app is active.
-      // Keep a local HTML focus attempt rather than stealing focus repeatedly.
-      if (pointerOverMap && mapViewport === viewport) {
-        viewport.focus({ preventScroll: true });
-      }
-      console.debug("Unable to focus the map webview on hover:", error);
+      console.debug("Unable to check foreground state:", error);
     } finally {
       focusRequestRunning = false;
     }
   }
+
+  function releaseKeyboardOnBlur(): void {
+    spaceHeld = false;
+    if (panDrag) { panDrag = null; isPanning = false; }
+    if (!isTauri()) windowFocused = false;
+  }
+
+  // Handles switching back to Clusiv-Data via taskbar / Alt+Tab, even if the
+  // pointer is already over the map and pointerenter does not fire again.
+  $effect(() => {
+    if (!isTauri()) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    const nativeWindow = getCurrentWindow();
+    void nativeWindow.onFocusChanged(({ payload: focused }) => {
+      if (disposed) return;
+      windowFocused = focused;
+      if (!focused) releaseKeyboardOnBlur();
+      else if (pointerOverMap) focusMapElementIfAllowed();
+    }).then((off) => {
+      if (disposed) off();
+      else unlisten = off;
+    }).catch((error) => console.debug("Window focus listener unavailable:", error));
+
+    void nativeWindow.isFocused().then((focused) => {
+      if (disposed) return;
+      windowFocused = focused;
+      if (focused && pointerOverMap) focusMapElementIfAllowed();
+    }).catch((error) => console.debug("Window focus query unavailable:", error));
+    return () => { disposed = true; unlisten?.(); };
+  });
 
   function leaveMap(): void {
     pointerOverMap = false;
@@ -188,10 +215,16 @@
 
   function keyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
-    const editable = target?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? "");
-    const mapFocused = document.activeElement === mapViewport;
-    if ((!pointerOverMap && !mapFocused) || selectedId || showCreate || showDelete) return;
-    if (!editable && isMapPanShortcut(event)) {
+    const editable = Boolean(target?.isContentEditable ||
+      ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? ""));
+    if (!canPanMapWithSpace({
+      windowFocused, pointerOverMap,
+      mapHasDomFocus: document.activeElement === mapViewport,
+      isEditableTarget: editable,
+      detailOpen: Boolean(selectedId),
+      overlayOpen: showCreate || showDelete,
+    })) return;
+    if (isMapPanShortcut(event)) {
       event.preventDefault();
       spaceHeld = true;
     }
@@ -538,7 +571,7 @@
   }
 </script>
 
-<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={cancelGestures}/>
+<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={releaseKeyboardOnBlur} onfocus={() => { if (!isTauri()) { windowFocused = document.hasFocus(); if (pointerOverMap) focusMapElementIfAllowed(); } }}/>
 
 <div class="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.6rem] border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl">
   {#if selected}
