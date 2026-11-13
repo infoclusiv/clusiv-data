@@ -969,51 +969,6 @@
 <svelte:window onkeydowncapture={keyDown} onkeyupcapture={keyUp} onpointermove={trackPointerPosition} onblur={releaseKeyboardOnBlur} onfocus={() => { if (!isTauri()) { windowFocused = document.hasFocus(); if (pointerOverMap) focusMapElementIfAllowed(); } }}/>
 
 <div class="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.6rem] border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl">
-              <div class="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">Aún no hay subconceptos.</div>
-            {/each}
-          {:else if activeTab === "related"}
-            <p class="mb-2 text-sm text-slate-500">Selecciona notas existentes de cualquier categoría. No se crearán duplicados.</p>
-            <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"><Search size={17} class="text-slate-400"/><input class="w-full bg-transparent text-sm outline-none" bind:value={noteQuery} placeholder="Buscar notas guardadas..."/></label>
-            {#each availableNotes as note (note.id)}
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-100 bg-paper-50/65 p-3 hover:border-brand-200">
-                <input class="mt-1 accent-brand-700" type="checkbox" checked={checkedIds.includes(note.id)} onchange={() => toggleChecked(note.id)}/>
-                <FileText size={18} class="mt-0.5 shrink-0 text-brand-700"/>
-                <span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-900">{note.title || "Nota sin título"}</span><span class="mt-1 block truncate text-xs text-slate-500">{note.comment || "Sin contenido"}</span></span>
-              </label>
-            {:else}
-              <p class="py-8 text-center text-sm text-slate-500">No se encontraron notas.</p>
-            {/each}
-            <div class="sticky bottom-0 flex items-center justify-between gap-2 border-t border-slate-100 bg-white/95 py-3"><span class="text-xs text-slate-500">{checkedIds.length} seleccionadas</span><button class="btn-primary" disabled={isSaving} onclick={() => void applyLinks()}><Link2 size={16}/> Guardar relaciones</button></div>
-          {:else}
-            {#each directNotes as note (note.id)}
-              <div class="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                <div class="rounded-xl bg-brand-50 p-2.5 text-brand-700"><FileText size={19}/></div>
-                <button class="min-w-0 flex-1 text-left" onclick={() => editNote(note)}><h3 class="truncate text-sm font-semibold text-slate-900">{note.title || "Nota sin título"}</h3><p class="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{note.comment || "Sin contenido"}</p></button>
-                <button class="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label="Desvincular nota" title="Desvincular, sin eliminar" onclick={() => void unlinkNote(note)}><X size={16}/></button>
-              </div>
-            {:else}
-              <div class="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">Este concepto aún no tiene notas. Crea una o relaciona una existente.</div>
-            {/each}
-          {/if}
-        </div>
-      </div>
-      <div class="flex min-h-[380px] flex-col gap-4 overflow-y-auto lg:min-h-0">
-        <section class="rounded-[1.4rem] border border-brand-100 bg-gradient-to-br from-brand-50/90 to-white p-4 shadow-sm">
-          <h3 class="flex items-center gap-2 text-base font-bold text-brand-800"><Edit3 size={19}/> Nueva nota</h3>
-          <div class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <input class="w-full border-b border-slate-100 px-4 py-3 text-sm font-semibold outline-none placeholder:font-normal" bind:value={noteTitle} placeholder="Título de la nota (opcional)"/>
-            <textarea class="min-h-[140px] w-full resize-y p-4 text-sm outline-none" bind:value={noteBody} placeholder="Escribe una nota sobre este concepto..."></textarea>
-            <div class="flex justify-end border-t border-slate-100 p-2"><button class="btn-primary" disabled={isSaving || !(noteTitle.trim() || noteBody.trim())} onclick={() => void createNote()}><Plus size={16}/> Crear nota</button></div>
-          </div>
-        </section>
-        <section class="rounded-[1.4rem] border border-slate-200/80 bg-white/90 p-4 shadow-sm">
-          <h3 class="flex items-center gap-2 text-base font-bold text-brand-800"><Link2 size={19}/> Relacionar notas existentes</h3>
-          <p class="mt-2 text-sm leading-relaxed text-slate-500">Busca y vincula notas que ya tienes guardadas, incluso de otras categorías.</p>
-          <button class="btn-ghost mt-3 w-full border border-brand-100 bg-brand-50/60 text-brand-800" onclick={openLinks}><Search size={16}/> Buscar notas para relacionar</button>
-        </section>
-      </div>
-    </div>
-  {:else}
     <header class="flex flex-wrap items-center gap-3 border-b border-slate-200/60 px-5 py-4 lg:px-6">
       <div class="flex min-w-0 flex-1 items-center gap-3"><button class="btn-ghost !px-2" title="Volver" onclick={goBack} disabled={appState.navigationHistory.length === 0}><ArrowLeft size={19}/></button><Target size={25} class="shrink-0 text-brand-700"/><h1 class="truncate text-xl font-bold tracking-tight text-brand-800">{categoryName}</h1></div>
       <label class="flex w-full items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 shadow-sm sm:w-72 lg:w-80"><Search size={17} class="shrink-0 text-slate-400"/><input class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" bind:value={search} placeholder="Buscar notas..."/></label>
