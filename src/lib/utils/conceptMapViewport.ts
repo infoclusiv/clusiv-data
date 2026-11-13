@@ -25,19 +25,21 @@ export interface MapBounds {
 
 /** Coordinates are in unscaled map units and are not limited to the viewport. */
 export function conceptBounds(
-  positions: readonly MapPoint[],
-  { centerX = 650, centerY = 440, margin = 65 } = {},
+  positions: readonly (MapPoint & { width?: number; height?: number })[],
+  { centerX = 650, centerY = 440, centerWidth = 380, centerHeight = 145, margin = 65 } = {},
 ): MapBounds {
-  let left = centerX - 140;
-  let right = centerX + 140;
-  let top = centerY - 58;
-  let bottom = centerY + 58;
+  let left = centerX - centerWidth / 2;
+  let right = centerX + centerWidth / 2;
+  let top = centerY - centerHeight / 2;
+  let bottom = centerY + centerHeight / 2;
   for (const point of positions) {
     if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
-    left = Math.min(left, point.x - 145);
-    right = Math.max(right, point.x + 145);
-    top = Math.min(top, point.y - 60);
-    bottom = Math.max(bottom, point.y + 60);
+    const halfWidth = (point.width ?? 290) / 2;
+    const halfHeight = (point.height ?? 120) / 2;
+    left = Math.min(left, point.x - halfWidth);
+    right = Math.max(right, point.x + halfWidth);
+    top = Math.min(top, point.y - halfHeight);
+    bottom = Math.max(bottom, point.y + halfHeight);
   }
   left -= margin;
   right += margin;
