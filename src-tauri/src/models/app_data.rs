@@ -7,7 +7,7 @@ use super::{Category, Item};
 pub const GENERAL_CATEGORY_ID: &str = "general";
 pub const GENERAL_CATEGORY_NAME: &str = "General";
 pub const DEFAULT_HOME_TEXT: &str = "Sigue avanzando, un paso a la vez.";
-pub const SCHEMA_VERSION: u32 = 18;
+pub const SCHEMA_VERSION: u32 = 19;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct QuickText {
@@ -63,6 +63,8 @@ pub struct ConceptNode {
     pub position: Option<FlowPosition>,
     #[serde(default)]
     pub width: Option<i32>,
+    #[serde(default)]
+    pub note_positions: HashMap<String, FlowPosition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
