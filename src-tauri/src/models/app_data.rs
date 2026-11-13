@@ -59,6 +59,8 @@ pub struct ConceptNode {
     pub icon: String,
     #[serde(default)]
     pub linked_note_ids: Vec<String>,
+    #[serde(default)]
+    pub position: Option<FlowPosition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
