@@ -38,6 +38,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::data::load_data,
             commands::data::save_data,
+            commands::data::export_note_attachment,
             commands::backup::create_backup,
             commands::backup::open_backup_directory,
             commands::backup::list_backups,
