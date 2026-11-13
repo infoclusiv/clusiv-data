@@ -164,7 +164,7 @@
     width: resizeDraftWidths[position.node.id] ??
       conceptNodeWidth(position.node.title, position.depth, position.node.width),
     height: conceptNodeHeight(position.node.title, position.depth,
-      resizeDraftWidths[position.node.id] ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)),
+      resizeDraftWidths[position.node.id] ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)) + 78,
   })), new Set(allNotes.map((note) => note.id))));
   const shownNotes = $derived(notePlacements.map((placement) => ({
     ...placement,
@@ -180,7 +180,7 @@
       width: resizeDraftWidths[position.node.id] ??
         conceptNodeWidth(position.node.title, position.depth, position.node.width),
       height: conceptNodeHeight(position.node.title, position.depth, resizeDraftWidths[position.node.id] ??
-        conceptNodeWidth(position.node.title, position.depth, position.node.width)),
+        conceptNodeWidth(position.node.title, position.depth, position.node.width)) + 78,
     })), ...shownNotes.map((note) => ({
       x: note.x, y: note.y, width: NOTE_CARD_WIDTH, height: NOTE_CARD_HEIGHT,
     }))], { centerWidth: 420, centerHeight: 170 });
@@ -972,39 +972,6 @@
 <svelte:window onkeydowncapture={keyDown} onkeyupcapture={keyUp} onpointermove={trackPointerPosition} onblur={releaseKeyboardOnBlur} onfocus={() => { if (!isTauri()) { windowFocused = document.hasFocus(); if (pointerOverMap) focusMapElementIfAllowed(); } }}/>
 
 <div class="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.6rem] border border-white/70 bg-white/60 shadow-soft backdrop-blur-xl">
-  {#if selected}
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4 lg:px-7">
-      <div class="flex min-w-0 items-center gap-2 text-sm">
-        <button class="btn-ghost !px-2" onclick={openMap} aria-label="Volver al mapa"><ArrowLeft size={18}/></button>
-        <button class="font-medium text-slate-500 hover:text-brand-700" onclick={openMap}>{categoryName}</button>
-        <ChevronRight size={15} class="text-slate-400"/>
-        <span class="truncate font-semibold text-brand-800">{selected.title}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button class="btn-ghost border border-slate-200 bg-white/80" onclick={openMap}><Layers size={16}/> Ver mapa</button>
-        <button class="btn-ghost !px-2" onclick={showEdit} aria-label="Editar concepto" title="Editar concepto"><Edit3 size={17}/></button>
-        <button class="btn-ghost !px-2 text-rose-600" onclick={() => (showDelete = true)} aria-label="Eliminar concepto" title="Eliminar concepto"><Trash2 size={17}/></button>
-      </div>
-    </div>
-    <div class="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(310px,1fr)] lg:overflow-hidden lg:p-5">
-      <div class="flex min-h-[420px] flex-col overflow-hidden rounded-[1.4rem] border border-slate-200/70 bg-white/85">
-        <div class="border-b border-slate-200/70 p-5">
-          <div class="flex items-center gap-4">
-            <div class="rounded-2xl p-4" style:background={palette[selected.color]?.pale ?? palette.emerald.pale} style:color={palette[selected.color]?.stroke ?? palette.emerald.stroke}><Layers size={28}/></div>
-            <div class="min-w-0"><h2 class="text-2xl font-bold tracking-tight text-slate-900">{selected.title}</h2><p class="mt-1 text-sm text-slate-500">{directNotes.length} {directNotes.length === 1 ? "nota" : "notas"}</p></div>
-          </div>
-          <div class="mt-5 flex flex-wrap gap-2 border-b border-slate-100">
-            <button class:concept-active-tab={activeTab === "notes"} class="concept-detail-tab" onclick={() => {activeTab = "notes"; showLinkPicker = false;}}><FileText size={16}/> Notas ({directNotes.length})</button>
-            <button class:concept-active-tab={activeTab === "children"} class="concept-detail-tab" onclick={() => {activeTab = "children"; showLinkPicker = false;}}><Layers size={16}/> Subconceptos ({children.length})</button>
-            <button class:concept-active-tab={activeTab === "related"} class="concept-detail-tab" onclick={openLinks}><Link2 size={16}/> Relacionar notas</button>
-          </div>
-        </div>
-        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 lg:p-5">
-          {#if activeTab === "children"}
-            <button class="btn-primary mb-3" onclick={() => showNew(selected.id)}><Plus size={16}/> Nuevo subconcepto</button>
-            {#each children as child (child.id)}
-              <button class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-paper-50 px-4 py-3 text-left hover:border-brand-200" onclick={() => chooseNode(child.id)}><Layers size={18} class="text-brand-700"/><span class="flex-1 font-semibold">{child.title}</span><ChevronRight size={16}/></button>
-            {:else}
               <div class="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">Aún no hay subconceptos.</div>
             {/each}
           {:else if activeTab === "related"}
@@ -1052,19 +1019,9 @@
   {:else}
     <header class="flex flex-wrap items-center gap-3 border-b border-slate-200/60 px-5 py-4 lg:px-6">
       <div class="flex min-w-0 flex-1 items-center gap-3"><button class="btn-ghost !px-2" title="Volver" onclick={goBack} disabled={appState.navigationHistory.length === 0}><ArrowLeft size={19}/></button><Target size={25} class="shrink-0 text-brand-700"/><h1 class="truncate text-xl font-bold tracking-tight text-brand-800">{categoryName}</h1></div>
-      <label class="flex w-full items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 shadow-sm sm:w-72 lg:w-80"><Search size={17} class="shrink-0 text-slate-400"/><input class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" bind:value={search} placeholder="Buscar conceptos..."/></label>
-      <div class="relative">
-        <button class="btn-primary !rounded-full !px-3" onclick={() => headerPlusOpen = !headerPlusOpen}
-          title="Añadir concepto o nota" aria-label="Añadir concepto o nota"><Plus size={20}/></button>
-        {#if headerPlusOpen}
-          <div class="absolute right-0 top-full z-30 mt-2 w-48 space-y-1 rounded-xl border border-brand-100 bg-white p-2 shadow-xl">
-            <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-emerald-50"
-              onclick={() => { headerPlusOpen = false; showNew(null); }}><Layers size={16}/> Nuevo concepto</button>
-            <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-emerald-50"
-              onclick={() => { headerPlusOpen = false; showNoteDestination = true; }}><FileText size={16}/> Nueva nota</button>
-          </div>
-        {/if}
-      </div>
+      <label class="flex w-full items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 shadow-sm sm:w-72 lg:w-80"><Search size={17} class="shrink-0 text-slate-400"/><input class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400" bind:value={search} placeholder="Buscar notas..."/></label>
+      <button class="btn-primary !rounded-full !px-3" onclick={() => createMapNote(null)}
+        title="Crear nota principal" aria-label="Crear nueva nota principal"><Plus size={20}/></button>
       <div class="relative">
         <button class="btn-ghost rounded-full border border-slate-200 bg-white/85" onclick={() => (sectionMenu = !sectionMenu)}><Filter size={16}/> Secciones <ChevronDown size={14}/></button>
         {#if sectionMenu}
@@ -1168,6 +1125,7 @@
           {#each layout as position (position.node.id)}
             {@const shade = palette[position.color]}
             {@const visual = conceptNodeVisual(position.depth)}
+            {@const primaryNote = noteById.get(position.node.primary_note_id ?? "")}
             {@const boxWidth = resizeDraftWidths[position.node.id] ??
               conceptNodeWidth(position.node.title, position.depth, position.node.width)}
             <div
@@ -1192,22 +1150,34 @@
                 style:box-shadow={"0 " + Math.round(visual.shadowPx * .28) + "px " + visual.shadowPx + "px " + shade.glow}
                 onpointerdown={(event) => nodePointerDown(event, position.node.id)}
                 onclick={(event) => clickConcept(event, position.node.id)}
-                title={"Arrastrar para mover · clic para abrir " + position.node.title}
-                aria-label={"Abrir o mover " + position.node.title}
+                title={"Arrastrar para mover · clic para editar nota " + position.node.title}
+                aria-label={"Editar o mover nota " + position.node.title}
               >
-                <span class="shrink-0" style:color={shade.stroke}><Layers size={visual.iconPx}/></span>
+                <span class="shrink-0" style:color={shade.stroke}><FileText size={visual.iconPx}/></span>
                 <span class="min-w-0 flex-1">
                   <span
                     class="block min-w-0 whitespace-normal break-words leading-[1.17] text-slate-900"
                     style:font-size={visual.titlePx + "px"}
                     style:font-weight={visual.weight}
-                  >{position.node.title}</span>
+                  >{primaryNote?.title ?? position.node.title}</span>
+                  {#if primaryNote?.comment}
+                    <span class="mt-1 block line-clamp-2 text-[12px] font-normal leading-relaxed text-slate-600">{primaryNote.comment}</span>
+                  {:else}
+                    <span class="mt-1 block text-[11px] font-normal text-slate-400">Añadir contenido a esta nota...</span>
+                  {/if}
+                  {#if primaryNote && (primaryNote.links.length || primaryNote.documents.length || primaryNote.images.length)}
+                    <span class="mt-2 flex items-center gap-3 text-[11px] font-medium text-slate-500">
+                      {#if primaryNote.links.length}<span class="inline-flex items-center gap-1"><Link2 size={12}/>{primaryNote.links.length}</span>{/if}
+                      {#if primaryNote.documents.length}<span class="inline-flex items-center gap-1"><FileText size={12}/>{primaryNote.documents.length}</span>{/if}
+                      {#if primaryNote.images.length}<span class="inline-flex items-center gap-1">▧ {primaryNote.images.length}</span>{/if}
+                    </span>
+                  {/if}
                 </span>
               </button>
               <button
                 class="concept-add-child absolute -right-3 -top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-brand-200 bg-white/90 text-brand-700 shadow-sm"
-                title={"Añadir concepto o nota a " + position.node.title}
-                aria-label={"Añadir concepto o nota a " + position.node.title}
+                title={"Añadir nota hija a " + position.node.title}
+                aria-label={"Añadir nota hija a " + position.node.title}
                 onpointerdown={(event) => event.stopPropagation()}
                 onclick={(event) => { event.stopPropagation(); quickMenuId = quickMenuId === position.node.id ? null : position.node.id; }}
               ><Plus size={15}/></button>
@@ -1215,9 +1185,7 @@
                 <div class="concept-node-quick-menu absolute -right-3 top-10 z-30 w-[205px] space-y-1 rounded-2xl border border-brand-100 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
                   onpointerdown={(event) => event.stopPropagation()} role="group" aria-label="Añadir al concepto">
                   <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
-                    onclick={() => { quickMenuId = null; showNew(position.node.id); }}><Layers size={16} class="text-brand-700"/> Nuevo subconcepto</button>
-                  <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
-                    onclick={() => openNoteEditor(null, position.node.id)}><FileText size={16} class="text-brand-700"/> Nueva nota</button>
+                    onclick={() => createMapNote(position.node.id)}><FileText size={16} class="text-brand-700"/> Nueva nota hija</button>
                   <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
                     onclick={() => openExistingNotePicker(position.node.id)}><Link2 size={16} class="text-brand-700"/> Relacionar nota existente</button>
                 </div>
@@ -1261,34 +1229,19 @@
         </div>
       {/if}
       <div class="pointer-events-none absolute bottom-3 left-4 rounded-full border border-slate-200/70 bg-white/75 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm backdrop-blur-sm">
-        Arrastra conceptos o notas · conecta la línea a otro concepto · Espacio para moverte · Ctrl + rueda para zoom
+        Arrastra notas · reconecta la relación al otro nodo · Espacio para moverte · Ctrl + rueda para zoom
       </div>
     </div>
-  {/if}
 </div>
 
 <ConceptNoteEditor
   open={noteEditorOpen}
   note={editingNote}
   conceptTitle={nodes.find((node) => node.id === noteTargetConceptId)?.title ?? categoryName}
-  onclose={() => { noteEditorOpen = false; editingNoteId = null; }}
+  onclose={() => { noteEditorOpen = false; editingNoteId = null; newMapParentId = undefined; }}
   onsave={saveNoteFromMap}
   ondelete={deleteNoteFromMap}
 />
-<Modal open={showNoteDestination} title="Elegir concepto para la nueva nota" onclose={() => showNoteDestination = false} widthClass="max-w-xl">
-  <p class="mb-4 text-sm text-slate-500">Selecciona el concepto al que quieres conectar la nueva tarjeta.</p>
-  <div class="max-h-[48vh] space-y-2 overflow-y-auto">
-    {#each nodes as concept (concept.id)}
-      <button class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-brand-300 hover:bg-emerald-50/30"
-        onclick={() => { showNoteDestination = false; openNoteEditor(null, concept.id); }}>
-        <Layers size={18} class="shrink-0 text-brand-700"/><span class="min-w-0 truncate text-sm font-semibold">{concept.title}</span>
-      </button>
-    {:else}
-      <p class="py-8 text-center text-sm text-slate-500">Crea primero un concepto al que relacionar la nota.</p>
-    {/each}
-  </div>
-</Modal>
-
 <Modal open={showNotePicker} title="Relacionar una nota existente" onclose={() => showNotePicker = false} widthClass="max-w-2xl">
   <div class="space-y-3">
     <p class="text-sm text-slate-500">Selecciona una nota ya guardada para mostrarla en el mapa. No se duplicará.</p>
@@ -1313,19 +1266,6 @@
       {/each}
     </div>
   </div>
-</Modal>
-
-<Modal open={showCreate} title={editingConcept ? "Editar concepto" : newParentId ? "Nuevo subconcepto" : "Nuevo concepto"} onclose={() => (showCreate = false)}>
-  <div class="space-y-4">
-    <label class="block text-sm font-semibold text-slate-700">Nombre del concepto<input class="input-base mt-2" bind:value={draftTitle} maxlength="90" placeholder="Ej. Estrategias"/></label>
-    <p class="text-sm font-semibold text-slate-700">Color del concepto</p>
-    <div class="flex flex-wrap gap-3">{#each CONCEPT_COLORS as color}<button class="flex h-10 w-10 items-center justify-center rounded-full border-2 shadow-sm" style:background={palette[color].pale} style:border-color={draftColor === color ? palette[color].stroke : "#e2e8f0"} aria-label={"Color " + color} title={color} onclick={() => (draftColor = color)}>{#if draftColor === color}<span style:color={palette[color].stroke}><Check size={19}/></span>{/if}</button>{/each}</div>
-    <div class="flex justify-end gap-2 pt-3"><button class="btn-ghost" onclick={() => (showCreate = false)}>Cancelar</button><button class="btn-primary" disabled={isSaving || !draftTitle.trim()} onclick={() => void saveConcept()}>Guardar concepto</button></div>
-  </div>
-</Modal>
-<Modal open={showDelete} title="Eliminar concepto" onclose={() => (showDelete = false)}>
-  <p class="text-sm text-slate-600">Se eliminará este concepto y sus relaciones. Las notas guardadas no se eliminarán y los subconceptos pasarán al nivel superior.</p>
-  <div class="mt-5 flex justify-end gap-2"><button class="btn-ghost" onclick={() => (showDelete = false)}>Cancelar</button><button class="btn-danger" disabled={isSaving} onclick={() => void removeConcept()}>Eliminar concepto</button></div>
 </Modal>
 
 <style>
