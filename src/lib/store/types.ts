@@ -71,11 +71,26 @@ export interface ItemImage {
   name: string;
 }
 
+export interface NoteLink {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface NoteDocument {
+  id: string;
+  name: string;
+  mime_type: string;
+  data_url: string;
+}
+
 export interface Item {
   id: string;
   title: string;
   comment: string;
   images: ItemImage[];
+  links: NoteLink[];
+  documents: NoteDocument[];
   tags: string[];
   type: ItemType;
   done: boolean;
@@ -92,6 +107,7 @@ export interface ConceptNode {
   linked_note_ids: string[];
   position: { x: number; y: number } | null;
   width: number | null;
+  note_positions: Record<string, { x: number; y: number }>;
 }
 
 export interface FlowNode {
@@ -199,6 +215,8 @@ export interface ItemFormInput {
   type: ItemType;
   categoryId: string;
   images?: ItemImage[];
+  links?: NoteLink[];
+  documents?: NoteDocument[];
   tags?: string[];
 }
 
