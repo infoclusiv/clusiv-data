@@ -39,8 +39,8 @@
     id: string; pointerId: number; startX: number; startY: number;
     origin: MapPoint; moved: boolean;
   };
-  let nodeDrag: NodeDrag | null = null;
-  let panDrag: { pointerId: number; startX: number; startY: number; originX: number; originY: number } | null = null;
+  let nodeDrag = $state<NodeDrag | null>(null);
+  let panDrag = $state<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
   let showCreate = $state(false);
   let editingConcept = $state(false);
   let newParentId = $state<string | null>(null);
