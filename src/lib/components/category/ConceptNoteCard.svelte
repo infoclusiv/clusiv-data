@@ -18,6 +18,15 @@
   let { note, conceptId, color, x, y, dimmed = false, dragging = false,
     highlighted = false, onopen, ondrag, onlink }: Props = $props();
   let menuOpen = $state(false);
+  function openFromMouse(event: MouseEvent): void {
+    // A previously focused note button must never activate when Space is held.
+    if (event.detail === 0) {
+      event.preventDefault();
+      return;
+    }
+    onopen();
+  }
+
   const shades: Record<string, string> = {
     emerald: "#10b981", lime: "#84a02b", amber: "#ef9e26", sky: "#38a5d2",
     teal: "#0d967d", violet: "#9078d1", rose: "#d58ca1",
@@ -45,7 +54,7 @@
     <FileText size={20} class="mt-0.5 shrink-0" color={stroke}/>
     <button class="min-w-0 flex-1 break-words text-left text-[15px] font-bold leading-5 hover:text-brand-700"
       title={"Abrir nota: " + note.title}
-      onpointerdown={(event) => event.stopPropagation()} onclick={onopen}
+      onpointerdown={(event) => event.stopPropagation()} onclick={openFromMouse}
     >{note.title || "Nota sin título"}</button>
     <div class="relative shrink-0">
       <button class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" title="Opciones de la nota"
@@ -53,7 +62,7 @@
         onclick={() => menuOpen = !menuOpen}><MoreHorizontal size={17}/></button>
       {#if menuOpen}
         <div class="absolute right-0 top-7 z-30 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-          <button class="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-emerald-50" onpointerdown={(event) => event.stopPropagation()} onclick={() => { menuOpen = false; onopen(); }}>Editar nota y adjuntos</button>
+          <button class="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-emerald-50" onpointerdown={(event) => event.stopPropagation()} onclick={(event) => { menuOpen = false; openFromMouse(event); }}>Editar nota y adjuntos</button>
         </div>
       {/if}
     </div>
@@ -67,7 +76,7 @@
   </div>
   <button
     class="mt-2 flex items-center justify-between rounded-xl bg-emerald-50/65 px-3 py-1.5 text-xs font-bold text-brand-800 transition hover:bg-emerald-100"
-    onpointerdown={(event) => event.stopPropagation()} onclick={onopen}
+    onpointerdown={(event) => event.stopPropagation()} onclick={openFromMouse}
   >Ver nota completa <ArrowRight size={16}/></button>
   <button
     class="note-link-handle absolute -left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-brand-200 bg-white/95 text-brand-700 shadow-sm"
