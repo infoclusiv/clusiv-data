@@ -1,4 +1,5 @@
 import { normalizeNoteTags } from "$lib/utils/noteTags";
+import { ensurePrimaryMapNotes } from "$lib/utils/conceptPrimaryNotes";
 
 import type {
   AppData,
@@ -114,6 +115,7 @@ export function normalizeConceptNodes(value: unknown): ConceptNode[] {
             y: Math.round((p as {y:number}).y),
           }]))
         : {},
+      primary_note_id: typeof node.primary_note_id === "string" && node.primary_note_id.trim() ? node.primary_note_id : null,
       linked_note_ids: Array.isArray(node.linked_note_ids)
         ? [...new Set(node.linked_note_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0))]
         : [],
@@ -628,6 +630,8 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
       parentId = parent.parent_id;
     }
   }
+
+  ensurePrimaryMapNotes(normalized);
 
   const validNoteIds = new Set(
     tasks
