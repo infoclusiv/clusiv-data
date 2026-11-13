@@ -70,7 +70,18 @@
   // explicit saved position takes priority and never gets overwritten by layout.
   type Positioned = { node: ConceptNode; x: number; y: number; depth: number; color: string };
   const layout = $derived.by(() => {
-    const roots = nodes.filter((node) => !node.parent_id || !nodes.some((entry) => entry.id === node.parent_id));
+    const allIds = new Set(nodes.map((node) => node.id));
+    const childrenByParent = new Map<string, ConceptNode[]>();
+    const roots: ConceptNode[] = [];
+    for (const node of nodes) {
+      if (!node.parent_id || !allIds.has(node.parent_id)) {
+        roots.push(node);
+      } else {
+        const siblings = childrenByParent.get(node.parent_id) ?? [];
+        siblings.push(node);
+        childrenByParent.set(node.parent_id, siblings);
+      }
+    }
     const visited = new Set<string>();
     const result: Positioned[] = [];
     const put = (node: ConceptNode, angle: number, sector: number, depth: number): void => {
@@ -80,7 +91,7 @@
       const automatic = { x: 650 + Math.cos(angle) * radius, y: 440 + Math.sin(angle) * radius };
       const position = dragPositions[node.id] ?? node.position ?? automatic;
       result.push({ node, x: position.x, y: position.y, depth, color: node.color in palette ? node.color : "emerald" });
-      const kids = nodes.filter((entry) => entry.parent_id === node.id);
+      const kids = childrenByParent.get(node.id) ?? [];
       const spread = Math.min(sector * .86, Math.PI * .80);
       kids.forEach((child, index) => put(child,
         angle + (index - (kids.length - 1) / 2) * spread / Math.max(1, kids.length - 1),
@@ -213,18 +224,28 @@
     }
   }
 
+  // Serialize multiple drops on the same item. Fast successive drags should
+  // never allow an older save to overwrite the final position.
+  const positionWrites = new Map<string, Promise<void>>();
   async function commitNodePosition(id: string, position: MapPoint): Promise<void> {
-    try {
-      await updateConceptPosition(id, position);
-    } catch (error) {
-      showSnackbar(error instanceof Error ? error.message : "No se pudo guardar la posición.", "error");
-    } finally {
-      // Keep the optimistic position while saving, then use the normalized
-      // persisted position (or the old position if the write failed).
-      const updated = { ...dragPositions };
-      delete updated[id];
-      dragPositions = updated;
-    }
+    const previous = positionWrites.get(id) ?? Promise.resolve();
+    const current = previous.catch(() => {}).then(async () => {
+      try {
+        await updateConceptPosition(id, position);
+      } catch (error) {
+        showSnackbar(error instanceof Error ? error.message : "No se pudo guardar la posición.", "error");
+      } finally {
+        const optimistic = dragPositions[id];
+        if (optimistic && optimistic.x === position.x && optimistic.y === position.y) {
+          const updated = { ...dragPositions };
+          delete updated[id];
+          dragPositions = updated;
+        }
+      }
+    });
+    positionWrites.set(id, current);
+    await current;
+    if (positionWrites.get(id) === current) positionWrites.delete(id);
   }
 
   function viewportPointerUp(event: PointerEvent): void {
