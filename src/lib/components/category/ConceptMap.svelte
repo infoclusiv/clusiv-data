@@ -8,7 +8,7 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { isTauri } from "@tauri-apps/api/core";
-  import { conceptBounds, fitConceptCamera, zoomConceptCamera } from "$lib/utils/conceptMapViewport";
+  import { conceptBounds, fitConceptCamera, zoomConceptCamera, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
   import { tick } from "svelte";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
   import type { ConceptNode, Item } from "$lib/store/types";
@@ -36,7 +36,6 @@
   let spaceHeld = $state(false);
   let pointerOverMap = $state(false);
   let focusRequestRunning = false;
-  let altLeftHeld = $state(false);
   let isPanning = $state(false);
   let isDragging = $state(false);
   let dragPositions = $state<Record<string, MapPoint>>({});
@@ -122,8 +121,9 @@
   }
 
   function wheelZoom(event: WheelEvent): void {
-    // Require LEFT Alt, not AltGr/Right Alt. Do not steal ordinary scrolling.
-    if (!mapViewport || !altLeftHeld || !event.altKey || selectedId) return;
+    // Ctrl+wheel is deliberately used instead of Alt+wheel:
+    // Windows reserves Alt+Space for its native window menu.
+    if (!mapViewport || !isMapZoomShortcut(event) || selectedId || showCreate || showDelete) return;
     event.preventDefault();
     const rect = mapViewport.getBoundingClientRect();
     const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -171,7 +171,6 @@
   function leaveMap(): void {
     pointerOverMap = false;
     if (!panDrag) spaceHeld = false;
-    altLeftHeld = false;
   }
 
   function keyDown(event: KeyboardEvent): void {
@@ -179,18 +178,13 @@
     const editable = target?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName ?? "");
     const mapFocused = document.activeElement === mapViewport;
     if ((!pointerOverMap && !mapFocused) || selectedId || showCreate || showDelete) return;
-    if (event.code === "AltLeft" && !editable) {
-      altLeftHeld = true;
-      return;
-    }
-    if (event.code === "Space" && !editable && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    if (!editable && isMapPanShortcut(event)) {
       event.preventDefault();
       spaceHeld = true;
     }
   }
 
   function keyUp(event: KeyboardEvent): void {
-    if (event.code === "AltLeft") altLeftHeld = false;
     if (event.code === "Space") spaceHeld = false;
   }
 
@@ -200,7 +194,6 @@
     isPanning = false;
     isDragging = false;
     spaceHeld = false;
-    altLeftHeld = false;
     pointerOverMap = false;
     dragPositions = {};
   }
@@ -226,7 +219,6 @@
     nodeDrag = null;
     panDrag = null;
     spaceHeld = false;
-    altLeftHeld = false;
     pointerOverMap = false;
     requestAnimationFrame(() => fitContent());
   });
@@ -601,12 +593,13 @@
               style:padding={visual.paddingYPx + "px " + visual.paddingXPx + "px"}
               style:min-width={visual.minWidthPx + "px"}
               style:max-width={visual.maxWidthPx + "px"}
+              style:border-width={visual.borderPx + "px"}
               class:node-moving={isDragging && nodeDrag?.id === position.node.id}
               style:left={position.x + "px"}
               style:top={position.y + "px"}
               style:background={shade.pale}
               style:border-color={shade.stroke}
-              style:box-shadow={"0 8px 25px " + shade.glow}
+              style:box-shadow={"0 " + Math.round(visual.shadowPx * .28) + "px " + visual.shadowPx + "px " + shade.glow}
               style:opacity={visibleNodes.some((node) => node.id === position.node.id) ? 1 : .24}
               onpointerdown={(event) => nodePointerDown(event, position.node.id)}
               onclick={(event) => clickConcept(event, position.node.id)}
@@ -623,7 +616,7 @@
         </div>
       {/if}
       <div class="pointer-events-none absolute bottom-3 left-4 rounded-full border border-slate-200/70 bg-white/75 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm backdrop-blur-sm">
-        Arrastra conceptos · Espacio + arrastrar para desplazarte · Alt izquierdo + rueda para zoom
+        Arrastra conceptos · Espacio + arrastrar para desplazarte · Ctrl + rueda para zoom
       </div>
     </div>
   {/if}
