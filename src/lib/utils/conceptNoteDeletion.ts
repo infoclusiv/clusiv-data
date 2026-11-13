@@ -1,4 +1,5 @@
 import type { AppData } from "$lib/store/types";
+import { removePrimaryMapNode } from "$lib/utils/conceptPrimaryNotes";
 
 /**
  * Delete a stored note rather than merely unlinking it from one concept.
@@ -10,6 +11,9 @@ export function deleteNoteEverywhere(draft: AppData, noteId: string): void {
   if (index < 0) throw new Error("La nota ya no existe.");
 
   draft.__SYSTEM_TASKS__.splice(index, 1);
+  // Removing a primary map note must remove its visual node as well.
+  // Keep children by promoting them one level; preserve unrelated linked notes.
+  removePrimaryMapNode(draft.__SYSTEM_CONCEPT_NODES__, noteId);
 
   for (const concept of draft.__SYSTEM_CONCEPT_NODES__) {
     concept.linked_note_ids = concept.linked_note_ids.filter((id) => id !== noteId);
