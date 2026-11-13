@@ -189,7 +189,7 @@
   function wheelZoom(event: WheelEvent): void {
     // Ctrl+wheel is deliberately used instead of Alt+wheel:
     // Windows reserves Alt+Space for its native window menu.
-    if (!mapViewport || !isMapZoomShortcut(event) || selectedId || showCreate || showDelete) return;
+    if (!mapViewport || !isMapZoomShortcut(event) || selectedId || showCreate || showDelete || noteEditorOpen || showNotePicker) return;
     event.preventDefault();
     const rect = mapViewport.getBoundingClientRect();
     const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -203,14 +203,14 @@
     if (!viewport || !canFocusMapFromHover({
       windowFocused, pointerOverMap,
       detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete,
+      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
     })) return;
     viewport.focus({ preventScroll: true });
   }
 
   async function activateMapOnHover(): Promise<void> {
     pointerOverMap = true;
-    if (!mapViewport || focusRequestRunning || selectedId || showCreate || showDelete) return;
+    if (!mapViewport || focusRequestRunning || selectedId || showCreate || showDelete || noteEditorOpen || showNotePicker) return;
     if (!isTauri()) {
       windowFocused = document.hasFocus();
       focusMapElementIfAllowed();
@@ -273,7 +273,7 @@
       windowFocused, pointerOverMap,
       isEditableTarget: editable,
       detailOpen: Boolean(selectedId),
-      overlayOpen: showCreate || showDelete,
+      overlayOpen: showCreate || showDelete || noteEditorOpen || showNotePicker,
     })) return;
     if (isMapPanShortcut(event)) {
       event.preventDefault();
