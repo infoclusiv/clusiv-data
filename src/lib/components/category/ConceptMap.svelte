@@ -145,11 +145,6 @@
     height: conceptNodeHeight(position.node.title, position.depth,
       resizeDraftWidths[position.node.id] ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)) + 78,
   })), new Set(allNotes.map((note) => note.id))));
-  const shownNotes = $derived(notePlacements.map((placement) => ({
-    ...placement,
-    x: notePositionOverlay[placement.key]?.x ?? placement.x,
-    y: notePositionOverlay[placement.key]?.y ?? placement.y,
-  })));
   const groupBounds = $derived(layout.filter((position) => position.node.is_group).map((group) => ({
     node: group.node,
     bounds: conceptGroupBounds(group.node.id, layout.map((position) => ({
@@ -165,6 +160,21 @@
     }))),
   })).filter((group) => group.bounds !== null));
   const groupById = $derived(new Map(groupBounds.map((group) => [group.node.id, group.bounds])));
+  const shownNotes = $derived(notePlacements.map((placement) => {
+    const owner = nodes.find((node) => node.id === placement.conceptId);
+    const group = groupById.get(placement.conceptId);
+    const saved = owner?.note_positions?.[placement.noteId];
+    const optimistic = notePositionOverlay[placement.key];
+    // Auto-place group-level notes outside the entire dashed group, not across its children.
+    const autoIndex = owner?.linked_note_ids.indexOf(placement.noteId) ?? 0;
+    const autoX = group ? group.right + NOTE_CARD_WIDTH / 2 + 68 : placement.x;
+    const autoY = group ? group.centerY + Math.max(0, autoIndex) * (NOTE_CARD_HEIGHT + 20) : placement.y;
+    return {
+      ...placement,
+      x: optimistic?.x ?? saved?.x ?? autoX,
+      y: optimistic?.y ?? saved?.y ?? autoY,
+    };
+  }));
 
   function compactGroupNote(note: Item, conceptId: string): boolean {
     const owner = nodes.find((node) => node.id === conceptId);
