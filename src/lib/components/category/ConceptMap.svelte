@@ -4,9 +4,10 @@
   import ConceptNoteCard from "$lib/components/category/ConceptNoteCard.svelte";
   import ConceptNoteEditor from "$lib/components/category/ConceptNoteEditor.svelte";
   import { NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT, layoutConceptNoteCards } from "$lib/utils/conceptNoteLayout";
-  import { noteCardConnection } from "$lib/utils/conceptNoteConnector";
+  import { cardBorderPoint, curvedNotePath, noteCardConnection } from "$lib/utils/conceptNoteConnector";
+  import { conceptGroupBounds, groupEdgePoint, linkedNoteParent } from "$lib/utils/conceptGroupGeometry";
   import type { ConceptNoteInput } from "$lib/store/appState.svelte";
-  import { appState, goBack, setCategorySection, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
+  import { appState, goBack, setCategorySection, updateConceptNotes, updateConceptGroupMode, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
   import { canReparentConcept } from "$lib/utils/conceptReparent";
@@ -16,7 +17,7 @@
   import { canFocusMapFromHover, canPanMapWithSpace, isPointerInsideMap, isMouseMapOpenClick } from "$lib/utils/conceptMapKeyboard";
   import { conceptBounds, fitConceptCamera, zoomConceptCamera, preserveConceptCameraOnResize, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
-  import type { ConceptNode } from "$lib/store/types";
+  import type { ConceptNode, Item } from "$lib/store/types";
 
   interface Props { categoryId: string; categoryName: string; }
   let { categoryId, categoryName }: Props = $props();
@@ -70,6 +71,7 @@
   // Undefined means an existing note or a linked-note card is being edited.
   // null means a new top-level map note; a string means a new child note.
   let newMapParentId = $state<string | null | undefined>(undefined);
+  let newMapParentNoteId = $state<string | null>(null);
   let editingNoteId = $state<string | null>(null);
   let noteTargetConceptId = $state<string | null>(null);
   let showNotePicker = $state(false);
@@ -148,6 +150,31 @@
     x: notePositionOverlay[placement.key]?.x ?? placement.x,
     y: notePositionOverlay[placement.key]?.y ?? placement.y,
   })));
+  const groupBounds = $derived(layout.filter((position) => position.node.is_group).map((group) => ({
+    node: group.node,
+    bounds: conceptGroupBounds(group.node.id, layout.map((position) => ({
+      id: position.node.id,
+      parentId: position.node.parent_id,
+      parentNoteId: position.node.parent_note_id,
+      x: position.x, y: position.y,
+      width: resizeDraftWidths[position.node.id]
+        ?? conceptNodeWidth(position.node.title, position.depth, position.node.width),
+      height: conceptNodeHeight(position.node.title, position.depth,
+        resizeDraftWidths[position.node.id]
+          ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)) + 78,
+    }))),
+  })).filter((group) => group.bounds !== null));
+  const groupById = $derived(new Map(groupBounds.map((group) => [group.node.id, group.bounds])));
+
+  function compactGroupNote(note: Item, conceptId: string): boolean {
+    const owner = nodes.find((node) => node.id === conceptId);
+    return owner?.is_group === true && !note.comment.trim()
+      && !note.links?.length && !note.documents?.length && !note.images?.length;
+  }
+  function linkedCardHeight(noteId: string, conceptId: string): number {
+    const note = noteById.get(noteId);
+    return note && compactGroupNote(note, conceptId) ? 64 : NOTE_CARD_HEIGHT;
+  }
 
   function fitContent(): void {
     if (!mapViewport) return;
@@ -512,6 +539,7 @@
 
   function openNoteEditor(noteId: string | null, conceptId: string): void {
     newMapParentId = undefined;
+    newMapParentNoteId = null;
     editingNoteId = noteId;
     noteTargetConceptId = conceptId;
     noteEditorOpen = true;
@@ -520,10 +548,38 @@
 
   function createMapNote(parentId: string | null): void {
     newMapParentId = parentId;
+    newMapParentNoteId = null;
     noteTargetConceptId = parentId;
     editingNoteId = null;
     noteEditorOpen = true;
     quickMenuId = null;
+  }
+
+  function createChildFromLinkedNote(noteId: string, conceptId: string): void {
+    const owner = nodes.find((node) => node.id === conceptId);
+    if (!owner?.linked_note_ids.includes(noteId)) {
+      showSnackbar("La relación con esta nota ya no existe.", "error");
+      return;
+    }
+    newMapParentId = conceptId;
+    newMapParentNoteId = noteId;
+    noteTargetConceptId = conceptId;
+    editingNoteId = null;
+    noteEditorOpen = true;
+    quickMenuId = null;
+  }
+
+  async function toggleGroup(conceptId: string): Promise<void> {
+    const owner = nodes.find((node) => node.id === conceptId);
+    if (!owner) return;
+    try {
+      await updateConceptGroupMode(conceptId, !owner.is_group);
+      showSnackbar(owner.is_group ? "Grupo desactivado." : "Grupo creado.", "success");
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : "No se pudo actualizar el grupo.", "error");
+    } finally {
+      quickMenuId = null;
+    }
   }
 
   async function saveNoteFromMap(input: ConceptNoteInput): Promise<void> {
@@ -534,6 +590,16 @@
         parentId: newMapParentId,
         color: parent?.color ?? CONCEPT_COLORS[nodes.length % CONCEPT_COLORS.length],
         note: input,
+        parentNoteId: newMapParentNoteId,
+        position: newMapParentNoteId ? (() => {
+          const anchor = shownNotes.find((note) =>
+            note.conceptId === newMapParentId && note.noteId === newMapParentNoteId);
+          if (!anchor) return undefined;
+          const siblings = nodes.filter((node) =>
+            node.parent_id === newMapParentId && node.parent_note_id === newMapParentNoteId).length;
+          return { x: anchor.x + NOTE_CARD_WIDTH / 2 + 188,
+            y: anchor.y + siblings * 135 };
+        })() : undefined,
       });
       showSnackbar("Nota creada en el mapa.", "success");
       // Never change zoom/pan when creating or editing a node.
@@ -1055,7 +1121,7 @@
   open={noteEditorOpen}
   note={editingNote}
   conceptTitle={nodes.find((node) => node.id === noteTargetConceptId)?.title ?? categoryName}
-  onclose={() => { noteEditorOpen = false; editingNoteId = null; newMapParentId = undefined; }}
+  onclose={() => { noteEditorOpen = false; editingNoteId = null; newMapParentId = undefined; newMapParentNoteId = null; }}
   onsave={saveNoteFromMap}
   ondelete={deleteNoteFromMap}
 />
