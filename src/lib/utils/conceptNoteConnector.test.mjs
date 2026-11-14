@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { noteCardConnection } from "./conceptNoteConnector.ts";
+const right = noteCardConnection({x:200,y:300},{x:800,y:300},306,182);
+assert.deepEqual(right.end,{x:647,y:300});
+assert.match(right.path,/ C /);
+assert.ok(!right.path.includes("800 300"),"line stops at the card border, not its text");
+const left = noteCardConnection({x:800,y:300},{x:200,y:300},306,182);
+assert.deepEqual(left.end,{x:353,y:300});
+const lower = noteCardConnection({x:500,y:0},{x:500,y:500},306,182);
+assert.deepEqual(lower.end,{x:500,y:409});
+const diagonal=noteCardConnection({x:0,y:0},{x:600,y:100},306,182);
+assert.equal(diagonal.end.x,447);
+assert.ok(diagonal.end.y > 0 && diagonal.end.y < 100);
+console.log("PASS note links stop at opaque card boundaries and use smooth cubic curves");
