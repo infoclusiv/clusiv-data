@@ -18,6 +18,7 @@ export function deleteNoteEverywhere(draft: AppData, noteId: string): void {
   for (const concept of draft.__SYSTEM_CONCEPT_NODES__) {
     concept.linked_note_ids = concept.linked_note_ids.filter((id) => id !== noteId);
     delete concept.note_positions[noteId];
+    if (concept.parent_note_id === noteId) concept.parent_note_id = null;
   }
 
   for (const flow of draft.__SYSTEM_FLOWS__) {
