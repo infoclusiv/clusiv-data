@@ -949,26 +949,47 @@
               {@const parent = position.node.parent_id ? layoutById.get(position.node.parent_id) : null}
               {@const startX = parent?.x ?? 650}
               {@const startY = parent?.y ?? 440}
-              <path
-                d={`M ${startX} ${startY} C ${(startX + position.x) / 2} ${startY}, ${(startX + position.x) / 2} ${position.y}, ${position.x} ${position.y}`}
-                stroke={palette[position.color].stroke}
-                stroke-width="2.4"
-                stroke-linecap="round"
-                fill="none"
-                opacity=".85"
-              />
-              <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
+              {@const cardOrigin = linkedNoteParent(position.node, shownNotes)}
+              {#if cardOrigin && position.node.parent_id && position.node.parent_note_id}
+                {@const cardStart = cardBorderPoint(
+                  { x: position.x, y: position.y }, cardOrigin,
+                  NOTE_CARD_WIDTH, linkedCardHeight(position.node.parent_note_id, position.node.parent_id),
+                )}
+                {@const childWidth = resizeDraftWidths[position.node.id]
+                  ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)}
+                {@const childHeight = conceptNodeHeight(position.node.title, position.depth, childWidth) + 78}
+                {@const childEnd = cardBorderPoint(cardStart,
+                  { x: position.x, y: position.y }, childWidth, childHeight)}
+                <path d={curvedNotePath(cardStart, childEnd, 12)}
+                  stroke={palette[position.color].stroke} stroke-width="2.4"
+                  stroke-linecap="round" fill="none" opacity=".85"/>
+                <circle cx={childEnd.x} cy={childEnd.y} r="3.4" fill={palette[position.color].stroke}/>
+              {:else}
+                <path
+                  d={`M ${startX} ${startY} C ${(startX + position.x) / 2} ${startY}, ${(startX + position.x) / 2} ${position.y}, ${position.x} ${position.y}`}
+                  stroke={palette[position.color].stroke}
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  fill="none"
+                  opacity=".85"
+                />
+                <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
+              {/if}
             {/each}
             {#each shownNotes as notePosition (notePosition.key)}
               {@const parent = layoutById.get(notePosition.conceptId)}
               {#if parent}
+                {@const group = parent.node.is_group ? groupById.get(parent.node.id) : null}
+                {@const source = group
+                  ? groupEdgePoint(group, { x: notePosition.x, y: notePosition.y })
+                  : { x: parent.x, y: parent.y }}
                 {@const connection = noteCardConnection(
-                  { x: parent.x, y: parent.y },
+                  source,
                   { x: notePosition.x, y: notePosition.y },
-                  NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT,
+                  NOTE_CARD_WIDTH, linkedCardHeight(notePosition.noteId, notePosition.conceptId),
                 )}
                 <path
-                  d={connection.path}
+                  d={group ? curvedNotePath(source, connection.end, 18) : connection.path}
                   stroke={palette[notePosition.color]?.stroke ?? "#0d9a72"} stroke-width="2.1"
                   stroke-linecap="round" fill="none" opacity=".8"
                 />
@@ -998,6 +1019,28 @@
               <circle cx={linkDrag.currentX} cy={linkDrag.currentY} r="5.5" fill="#059669" stroke="#ffffff" stroke-width="2"/>
             {/if}
           </svg>
+          {#each groupBounds as group (group.node.id)}
+            {#if group.bounds}
+              <div
+                class="pointer-events-none absolute rounded-[1.5rem] border border-dashed border-violet-400/70 bg-violet-100/20"
+                style:left={group.bounds.left + "px"}
+                style:top={group.bounds.top + "px"}
+                style:width={group.bounds.width + "px"}
+                style:height={group.bounds.height + "px"}
+                style="z-index: 1"
+              >
+                <div class="pointer-events-auto absolute -top-9 right-2 flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-semibold text-violet-700 shadow-sm">
+                  <Layers size={12}/> Grupo: {noteById.get(group.node.primary_note_id ?? "")?.title ?? group.node.title}
+                  <button class="flex h-5 w-5 items-center justify-center rounded-full hover:bg-violet-50"
+                    aria-label={"Crear nota relacionada con todo el grupo " + group.node.title}
+                    title="Nueva nota relacionada con todo el grupo"
+                    onpointerdown={(event) => event.stopPropagation()}
+                    onclick={(event) => { event.stopPropagation(); openNoteEditor(null, group.node.id); }}
+                  ><Plus size={13}/></button>
+                </div>
+              </div>
+            {/if}
+          {/each}
           <div data-map-root="true" class:concept-link-target={linkHoverTargetId === CATEGORY_ROOT_TARGET} class="concept-category-root absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-4 rounded-[2rem] border-[3px] border-brand-500 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-100 px-8 py-6 shadow-xl" style:left="650px" style:top="440px" style:width="390px" style:min-height="126px">
             <Target size={38} class="shrink-0 text-brand-800"/>
             <span class="min-w-0 flex-1 break-words text-[34px] font-extrabold leading-tight tracking-tight text-brand-900">{categoryName}</span>
@@ -1071,6 +1114,9 @@
                     onclick={() => createMapNote(position.node.id)}><FileText size={16} class="text-brand-700"/> Nueva nota hija</button>
                   <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
                     onclick={() => openExistingNotePicker(position.node.id)}><Link2 size={16} class="text-brand-700"/> Relacionar nota existente</button>
+                  <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-violet-50"
+                    onclick={() => void toggleGroup(position.node.id)}><Layers size={16} class="text-violet-700"/>
+                    {position.node.is_group ? "Desagrupar esta rama" : "Agrupar esta rama"}</button>
                 </div>
               {/if}
               <button
@@ -1100,6 +1146,8 @@
                 x={placement.x} y={placement.y}
                 dragging={noteDrag?.key === placement.key && isDragging}
                 highlighted={false}
+                compact={compactGroupNote(note, placement.conceptId)}
+                oncreatechild={() => createChildFromLinkedNote(note.id, placement.conceptId)}
                 dimmed={Boolean(search.trim()) && !note.title.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()) &&
                   !note.comment.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()) &&
                   !visibleNodes.some((node) => node.id === placement.conceptId)}
