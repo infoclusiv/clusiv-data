@@ -116,6 +116,8 @@ export function normalizeConceptNodes(value: unknown): ConceptNode[] {
           }]))
         : {},
       primary_note_id: typeof node.primary_note_id === "string" && node.primary_note_id.trim() ? node.primary_note_id : null,
+      is_group: node.is_group === true,
+      parent_note_id: typeof node.parent_note_id === "string" && node.parent_note_id.trim() ? node.parent_note_id : null,
       linked_note_ids: Array.isArray(node.linked_note_ids)
         ? [...new Set(node.linked_note_ids.filter((id): id is string => typeof id === "string" && id.trim().length > 0))]
         : [],
@@ -632,6 +634,13 @@ export function normalizeAppData(appData: AppData | null | undefined): AppData {
   }
 
   ensurePrimaryMapNotes(normalized);
+  // A note-to-note branch is valid only while its source remains linked to its parent concept.
+  for (const node of normalized.__SYSTEM_CONCEPT_NODES__) {
+    if (node.parent_note_id) {
+      const parent = normalized.__SYSTEM_CONCEPT_NODES__.find((candidate) => candidate.id === node.parent_id);
+      if (!parent?.linked_note_ids.includes(node.parent_note_id)) node.parent_note_id = null;
+    }
+  }
 
   const validNoteIds = new Set(
     tasks
