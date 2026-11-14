@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, FileImage, Link2, MoreHorizontal, Move, ArrowRight } from "lucide-svelte";
+  import { FileText, FileImage, Link2, MoreHorizontal, Move, ArrowRight, Plus } from "lucide-svelte";
   import type { Item } from "$lib/store/types";
 
   interface Props {
@@ -11,12 +11,14 @@
     dimmed?: boolean;
     dragging?: boolean;
     highlighted?: boolean;
+    compact?: boolean;
+    oncreatechild?: () => void;
     onopen: () => void;
     ondrag: (event: PointerEvent) => void;
     onlink: (event: PointerEvent) => void;
   }
   let { note, conceptId, color, x, y, dimmed = false, dragging = false,
-    highlighted = false, onopen, ondrag, onlink }: Props = $props();
+    highlighted = false, compact = false, oncreatechild, onopen, ondrag, onlink }: Props = $props();
   let menuOpen = $state(false);
   function openFromMouse(event: MouseEvent): void {
     // A previously focused note button must never activate when Space is held.
@@ -43,6 +45,7 @@
   class:note-moving={dragging}
   class:note-dimmed={dimmed}
   class:note-highlighted={highlighted}
+  class:note-compact={compact}
   style:left={x + "px"}
   style:top={y + "px"}
   style:border-color={stroke + "44"}
@@ -67,6 +70,7 @@
       {/if}
     </div>
   </div>
+  {#if !compact}
   <p class="mt-2 min-h-0 flex-1 overflow-hidden text-[13px] leading-[1.45] text-slate-600 line-clamp-3">{note.comment || "Añade tus observaciones, fuentes o conclusiones a esta nota."}</p>
   <div class="mt-2 flex items-center gap-3 text-[11px] font-medium text-slate-500">
     {#if note.links?.length}<span class="inline-flex items-center gap-1"><Link2 size={14}/> {note.links.length}</span>{/if}
@@ -78,6 +82,15 @@
     class="mt-2 flex items-center justify-between rounded-xl bg-emerald-50/65 px-3 py-1.5 text-xs font-bold text-brand-800 transition hover:bg-emerald-100"
     onpointerdown={(event) => event.stopPropagation()} onclick={openFromMouse}
   >Ver nota completa <ArrowRight size={16}/></button>
+  {/if}
+  {#if oncreatechild}
+    <button class="absolute -right-3 -top-3 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-brand-200 bg-white text-brand-700 shadow-sm transition hover:bg-emerald-50"
+      title={"Crear nota hija desde " + note.title}
+      aria-label={"Crear nota hija desde " + note.title}
+      onpointerdown={(event) => event.stopPropagation()}
+      onclick={(event) => { event.stopPropagation(); oncreatechild?.(); }}
+    ><Plus size={15}/></button>
+  {/if}
   <button
     class="note-link-handle absolute -left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-brand-200 bg-white/95 text-brand-700 shadow-sm"
     aria-label={"Arrastrar nota " + note.title + " a otro concepto"}
@@ -95,6 +108,7 @@
     transition: left 180ms cubic-bezier(.22,1,.36,1), top 180ms cubic-bezier(.22,1,.36,1),
       border-color 180ms ease, box-shadow 180ms ease, opacity 150ms ease;
   }
+  .concept-note-card.note-compact { height: 64px; justify-content: center; }
   .concept-note-card.note-moving { transition: none; z-index: 8; cursor: grabbing; }
   .concept-note-card.note-dimmed { opacity: .26; }
   .concept-note-card.note-highlighted { outline: 3px solid rgba(16,185,129,.4); outline-offset: 3px; }
