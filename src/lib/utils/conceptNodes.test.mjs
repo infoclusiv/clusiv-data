@@ -141,3 +141,27 @@ test("old notes and maps without attachment or placement fields receive safe def
   assert.deepEqual(migrated.__SYSTEM_TASKS__[0].documents,[]);
   assert.deepEqual(migrated.__SYSTEM_CONCEPT_NODES__[0].note_positions,{});
 });
+
+test("group flag and linked-note child association survive normalization and reload", () => {
+  const data = fixture();
+  data.__SYSTEM_CONCEPT_NODES__ = [
+    { id: "markets", category_id: "general", parent_id: null, title: "Mercados",
+      color: "violet", icon: "FileText", linked_note_ids: ["note_1"], is_group: true,
+      parent_note_id: null, note_positions: {note_1: {x: 1040, y: 550}} },
+    { id: "child", category_id: "general", parent_id: "markets",
+      title: "Nota hija de Test 1", color: "violet", icon: "FileText", linked_note_ids: [],
+      is_group: false, parent_note_id: "note_1", position: {x: 1450, y: 550} },
+  ];
+  const restored = normalizeAppData(JSON.parse(JSON.stringify(data)));
+  assert.equal(restored.__SYSTEM_CONCEPT_NODES__[0].is_group, true);
+  assert.equal(restored.__SYSTEM_CONCEPT_NODES__[1].parent_note_id, "note_1");
+  assert.deepEqual(restored.__SYSTEM_CONCEPT_NODES__[1].position, {x: 1450, y: 550});
+  assert.equal(restored.__SYSTEM_TASKS__.filter((n) => n.id === "note_1").length, 1);
+  const again = normalizeAppData(JSON.parse(JSON.stringify(restored)));
+  assert.deepEqual(again, restored, "migrations must not duplicate or detach group notes");
+  restored.__SYSTEM_CONCEPT_NODES__[0].linked_note_ids = [];
+  const missingLink = normalizeAppData(restored);
+  assert.equal(missingLink.__SYSTEM_CONCEPT_NODES__[1].parent_note_id, null);
+  assert.equal(missingLink.__SYSTEM_CONCEPT_NODES__[1].parent_id, "markets");
+  assert.equal(normalizeConceptNodes([{id:"legacy", category_id:"general", title:"Legacy"}])[0].is_group, false);
+});

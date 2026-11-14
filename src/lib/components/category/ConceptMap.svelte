@@ -4,8 +4,10 @@
   import ConceptNoteCard from "$lib/components/category/ConceptNoteCard.svelte";
   import ConceptNoteEditor from "$lib/components/category/ConceptNoteEditor.svelte";
   import { NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT, layoutConceptNoteCards } from "$lib/utils/conceptNoteLayout";
+  import { cardBorderPoint, curvedNotePath, noteCardConnection } from "$lib/utils/conceptNoteConnector";
+  import { conceptGroupBounds, groupEdgePoint, linkedNoteParent } from "$lib/utils/conceptGroupGeometry";
   import type { ConceptNoteInput } from "$lib/store/appState.svelte";
-  import { appState, goBack, setCategorySection, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
+  import { appState, goBack, setCategorySection, updateConceptNotes, updateConceptGroupMode, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
   import { CONCEPT_COLORS } from "$lib/utils/categoryUtils";
   import { canReparentConcept } from "$lib/utils/conceptReparent";
@@ -15,7 +17,7 @@
   import { canFocusMapFromHover, canPanMapWithSpace, isPointerInsideMap, isMouseMapOpenClick } from "$lib/utils/conceptMapKeyboard";
   import { conceptBounds, fitConceptCamera, zoomConceptCamera, preserveConceptCameraOnResize, isMapZoomShortcut, isMapPanShortcut } from "$lib/utils/conceptMapViewport";
   import type { MapPoint, MapCamera } from "$lib/utils/conceptMapViewport";
-  import type { ConceptNode } from "$lib/store/types";
+  import type { ConceptNode, Item } from "$lib/store/types";
 
   interface Props { categoryId: string; categoryName: string; }
   let { categoryId, categoryName }: Props = $props();
@@ -69,6 +71,7 @@
   // Undefined means an existing note or a linked-note card is being edited.
   // null means a new top-level map note; a string means a new child note.
   let newMapParentId = $state<string | null | undefined>(undefined);
+  let newMapParentNoteId = $state<string | null>(null);
   let editingNoteId = $state<string | null>(null);
   let noteTargetConceptId = $state<string | null>(null);
   let showNotePicker = $state(false);
@@ -142,11 +145,46 @@
     height: conceptNodeHeight(position.node.title, position.depth,
       resizeDraftWidths[position.node.id] ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)) + 78,
   })), new Set(allNotes.map((note) => note.id))));
-  const shownNotes = $derived(notePlacements.map((placement) => ({
-    ...placement,
-    x: notePositionOverlay[placement.key]?.x ?? placement.x,
-    y: notePositionOverlay[placement.key]?.y ?? placement.y,
-  })));
+  const groupBounds = $derived(layout.filter((position) => position.node.is_group).map((group) => ({
+    node: group.node,
+    bounds: conceptGroupBounds(group.node.id, layout.map((position) => ({
+      id: position.node.id,
+      parentId: position.node.parent_id,
+      parentNoteId: position.node.parent_note_id,
+      x: position.x, y: position.y,
+      width: resizeDraftWidths[position.node.id]
+        ?? conceptNodeWidth(position.node.title, position.depth, position.node.width),
+      height: conceptNodeHeight(position.node.title, position.depth,
+        resizeDraftWidths[position.node.id]
+          ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)) + 78,
+    }))),
+  })).filter((group) => group.bounds !== null));
+  const groupById = $derived(new Map(groupBounds.map((group) => [group.node.id, group.bounds])));
+  const shownNotes = $derived(notePlacements.map((placement) => {
+    const owner = nodes.find((node) => node.id === placement.conceptId);
+    const group = groupById.get(placement.conceptId);
+    const saved = owner?.note_positions?.[placement.noteId];
+    const optimistic = notePositionOverlay[placement.key];
+    // Auto-place group-level notes outside the entire dashed group, not across its children.
+    const autoIndex = owner?.linked_note_ids.indexOf(placement.noteId) ?? 0;
+    const autoX = group ? group.right + NOTE_CARD_WIDTH / 2 + 68 : placement.x;
+    const autoY = group ? group.centerY + Math.max(0, autoIndex) * (NOTE_CARD_HEIGHT + 20) : placement.y;
+    return {
+      ...placement,
+      x: optimistic?.x ?? saved?.x ?? autoX,
+      y: optimistic?.y ?? saved?.y ?? autoY,
+    };
+  }));
+
+  function compactGroupNote(note: Item, conceptId: string): boolean {
+    const owner = nodes.find((node) => node.id === conceptId);
+    return owner?.is_group === true && !note.comment.trim()
+      && !note.links?.length && !note.documents?.length && !note.images?.length;
+  }
+  function linkedCardHeight(noteId: string, conceptId: string): number {
+    const note = noteById.get(noteId);
+    return note && compactGroupNote(note, conceptId) ? 64 : NOTE_CARD_HEIGHT;
+  }
 
   function fitContent(): void {
     if (!mapViewport) return;
@@ -511,6 +549,7 @@
 
   function openNoteEditor(noteId: string | null, conceptId: string): void {
     newMapParentId = undefined;
+    newMapParentNoteId = null;
     editingNoteId = noteId;
     noteTargetConceptId = conceptId;
     noteEditorOpen = true;
@@ -519,10 +558,38 @@
 
   function createMapNote(parentId: string | null): void {
     newMapParentId = parentId;
+    newMapParentNoteId = null;
     noteTargetConceptId = parentId;
     editingNoteId = null;
     noteEditorOpen = true;
     quickMenuId = null;
+  }
+
+  function createChildFromLinkedNote(noteId: string, conceptId: string): void {
+    const owner = nodes.find((node) => node.id === conceptId);
+    if (!owner?.linked_note_ids.includes(noteId)) {
+      showSnackbar("La relación con esta nota ya no existe.", "error");
+      return;
+    }
+    newMapParentId = conceptId;
+    newMapParentNoteId = noteId;
+    noteTargetConceptId = conceptId;
+    editingNoteId = null;
+    noteEditorOpen = true;
+    quickMenuId = null;
+  }
+
+  async function toggleGroup(conceptId: string): Promise<void> {
+    const owner = nodes.find((node) => node.id === conceptId);
+    if (!owner) return;
+    try {
+      await updateConceptGroupMode(conceptId, !owner.is_group);
+      showSnackbar(owner.is_group ? "Grupo desactivado." : "Grupo creado.", "success");
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : "No se pudo actualizar el grupo.", "error");
+    } finally {
+      quickMenuId = null;
+    }
   }
 
   async function saveNoteFromMap(input: ConceptNoteInput): Promise<void> {
@@ -533,6 +600,16 @@
         parentId: newMapParentId,
         color: parent?.color ?? CONCEPT_COLORS[nodes.length % CONCEPT_COLORS.length],
         note: input,
+        parentNoteId: newMapParentNoteId,
+        position: newMapParentNoteId ? (() => {
+          const anchor = shownNotes.find((note) =>
+            note.conceptId === newMapParentId && note.noteId === newMapParentNoteId);
+          if (!anchor) return undefined;
+          const siblings = nodes.filter((node) =>
+            node.parent_id === newMapParentId && node.parent_note_id === newMapParentNoteId).length;
+          return { x: anchor.x + NOTE_CARD_WIDTH / 2 + 188,
+            y: anchor.y + siblings * 135 };
+        })() : undefined,
       });
       showSnackbar("Nota creada en el mapa.", "success");
       // Never change zoom/pan when creating or editing a node.
@@ -882,25 +959,50 @@
               {@const parent = position.node.parent_id ? layoutById.get(position.node.parent_id) : null}
               {@const startX = parent?.x ?? 650}
               {@const startY = parent?.y ?? 440}
-              <path
-                d={`M ${startX} ${startY} C ${(startX + position.x) / 2} ${startY}, ${(startX + position.x) / 2} ${position.y}, ${position.x} ${position.y}`}
-                stroke={palette[position.color].stroke}
-                stroke-width="2.4"
-                stroke-linecap="round"
-                fill="none"
-                opacity=".85"
-              />
-              <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
+              {@const cardOrigin = linkedNoteParent(position.node, shownNotes)}
+              {#if cardOrigin && position.node.parent_id && position.node.parent_note_id}
+                {@const cardStart = cardBorderPoint(
+                  { x: position.x, y: position.y }, cardOrigin,
+                  NOTE_CARD_WIDTH, linkedCardHeight(position.node.parent_note_id, position.node.parent_id),
+                )}
+                {@const childWidth = resizeDraftWidths[position.node.id]
+                  ?? conceptNodeWidth(position.node.title, position.depth, position.node.width)}
+                {@const childHeight = conceptNodeHeight(position.node.title, position.depth, childWidth) + 78}
+                {@const childEnd = cardBorderPoint(cardStart,
+                  { x: position.x, y: position.y }, childWidth, childHeight)}
+                <path d={curvedNotePath(cardStart, childEnd, 12)}
+                  stroke={palette[position.color].stroke} stroke-width="2.4"
+                  stroke-linecap="round" fill="none" opacity=".85"/>
+                <circle cx={childEnd.x} cy={childEnd.y} r="3.4" fill={palette[position.color].stroke}/>
+              {:else}
+                <path
+                  d={`M ${startX} ${startY} C ${(startX + position.x) / 2} ${startY}, ${(startX + position.x) / 2} ${position.y}, ${position.x} ${position.y}`}
+                  stroke={palette[position.color].stroke}
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  fill="none"
+                  opacity=".85"
+                />
+                <circle cx={position.x} cy={position.y} r="4" fill={palette[position.color].stroke}/>
+              {/if}
             {/each}
             {#each shownNotes as notePosition (notePosition.key)}
               {@const parent = layoutById.get(notePosition.conceptId)}
               {#if parent}
+                {@const group = parent.node.is_group ? groupById.get(parent.node.id) : null}
+                {@const source = group
+                  ? groupEdgePoint(group, { x: notePosition.x, y: notePosition.y })
+                  : { x: parent.x, y: parent.y }}
+                {@const connection = noteCardConnection(
+                  source,
+                  { x: notePosition.x, y: notePosition.y },
+                  NOTE_CARD_WIDTH, linkedCardHeight(notePosition.noteId, notePosition.conceptId),
+                )}
                 <path
-                  d={`M ${parent.x} ${parent.y} C ${(parent.x + notePosition.x) / 2} ${parent.y}, ${(parent.x + notePosition.x) / 2} ${notePosition.y}, ${notePosition.x} ${notePosition.y}`}
+                  d={group ? curvedNotePath(source, connection.end, 18) : connection.path}
                   stroke={palette[notePosition.color]?.stroke ?? "#0d9a72"} stroke-width="2.1"
                   stroke-linecap="round" fill="none" opacity=".8"
                 />
-                <circle cx={notePosition.x} cy={notePosition.y} r="3.4" fill={palette[notePosition.color]?.stroke ?? "#0d9a72"}/>
               {/if}
             {/each}
             {#if noteLinkDrag}
@@ -927,6 +1029,28 @@
               <circle cx={linkDrag.currentX} cy={linkDrag.currentY} r="5.5" fill="#059669" stroke="#ffffff" stroke-width="2"/>
             {/if}
           </svg>
+          {#each groupBounds as group (group.node.id)}
+            {#if group.bounds}
+              <div
+                class="pointer-events-none absolute rounded-[1.5rem] border border-dashed border-violet-400/70 bg-violet-100/20"
+                style:left={group.bounds.left + "px"}
+                style:top={group.bounds.top + "px"}
+                style:width={group.bounds.width + "px"}
+                style:height={group.bounds.height + "px"}
+                style="z-index: 1"
+              >
+                <div class="pointer-events-auto absolute -top-9 right-2 flex items-center gap-2 rounded-full border border-violet-200 bg-white px-3 py-1 text-xs font-semibold text-violet-700 shadow-sm">
+                  <Layers size={12}/> Grupo: {noteById.get(group.node.primary_note_id ?? "")?.title ?? group.node.title}
+                  <button class="flex h-5 w-5 items-center justify-center rounded-full hover:bg-violet-50"
+                    aria-label={"Crear nota relacionada con todo el grupo " + group.node.title}
+                    title="Nueva nota relacionada con todo el grupo"
+                    onpointerdown={(event) => event.stopPropagation()}
+                    onclick={(event) => { event.stopPropagation(); openNoteEditor(null, group.node.id); }}
+                  ><Plus size={13}/></button>
+                </div>
+              </div>
+            {/if}
+          {/each}
           <div data-map-root="true" class:concept-link-target={linkHoverTargetId === CATEGORY_ROOT_TARGET} class="concept-category-root absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-4 rounded-[2rem] border-[3px] border-brand-500 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-100 px-8 py-6 shadow-xl" style:left="650px" style:top="440px" style:width="390px" style:min-height="126px">
             <Target size={38} class="shrink-0 text-brand-800"/>
             <span class="min-w-0 flex-1 break-words text-[34px] font-extrabold leading-tight tracking-tight text-brand-900">{categoryName}</span>
@@ -1000,6 +1124,9 @@
                     onclick={() => createMapNote(position.node.id)}><FileText size={16} class="text-brand-700"/> Nueva nota hija</button>
                   <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50"
                     onclick={() => openExistingNotePicker(position.node.id)}><Link2 size={16} class="text-brand-700"/> Relacionar nota existente</button>
+                  <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-violet-50"
+                    onclick={() => void toggleGroup(position.node.id)}><Layers size={16} class="text-violet-700"/>
+                    {position.node.is_group ? "Desagrupar esta rama" : "Agrupar esta rama"}</button>
                 </div>
               {/if}
               <button
@@ -1029,6 +1156,8 @@
                 x={placement.x} y={placement.y}
                 dragging={noteDrag?.key === placement.key && isDragging}
                 highlighted={false}
+                compact={compactGroupNote(note, placement.conceptId)}
+                oncreatechild={() => createChildFromLinkedNote(note.id, placement.conceptId)}
                 dimmed={Boolean(search.trim()) && !note.title.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()) &&
                   !note.comment.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()) &&
                   !visibleNodes.some((node) => node.id === placement.conceptId)}
@@ -1050,7 +1179,7 @@
   open={noteEditorOpen}
   note={editingNote}
   conceptTitle={nodes.find((node) => node.id === noteTargetConceptId)?.title ?? categoryName}
-  onclose={() => { noteEditorOpen = false; editingNoteId = null; newMapParentId = undefined; }}
+  onclose={() => { noteEditorOpen = false; editingNoteId = null; newMapParentId = undefined; newMapParentNoteId = null; }}
   onsave={saveNoteFromMap}
   ondelete={deleteNoteFromMap}
 />

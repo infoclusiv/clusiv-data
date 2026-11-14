@@ -25,5 +25,11 @@ export function moveNoteLink(
   delete source.note_positions[noteId];
   if (!target.linked_note_ids.includes(noteId)) target.linked_note_ids.push(noteId);
   target.note_positions[noteId] = { x: Math.round(position.x), y: Math.round(position.y) };
+  // Keep an existing branch attached to the note when its link moves.
+  for (const child of concepts) {
+    if (child.parent_id === source.id && child.parent_note_id === noteId) {
+      child.parent_id = target.id;
+    }
+  }
   return true;
 }

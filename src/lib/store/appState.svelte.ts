@@ -3113,7 +3113,7 @@ export async function createConceptNode(input: {
     )) throw new Error("El concepto padre no existe.");
     draft.__SYSTEM_CONCEPT_NODES__.push({
       id, category_id: input.categoryId, parent_id: input.parentId ?? null,
-      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], primary_note_id: null, position: null, width: null, note_positions: {},
+      title: input.title.trim(), color: input.color ?? "emerald", icon: "Layers", linked_note_ids: [], primary_note_id: null, position: null, width: null, note_positions: {}, is_group: false, parent_note_id: null,
     });
   });
   return id;
@@ -3198,6 +3198,14 @@ export async function updateConceptGeometry(
   });
 }
 
+export async function updateConceptGroupMode(id: string, isGroup: boolean): Promise<void> {
+  await mutateAppData((draft) => {
+    const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
+    if (!node) throw new Error("No se encontró la nota del grupo.");
+    node.is_group = isGroup;
+  });
+}
+
 export async function updateConceptNotes(id: string, noteIds: string[]): Promise<void> {
   await mutateAppData((draft) => {
     const node = draft.__SYSTEM_CONCEPT_NODES__.find((entry) => entry.id === id);
@@ -3206,6 +3214,10 @@ export async function updateConceptNotes(id: string, noteIds: string[]): Promise
     node.linked_note_ids = [...new Set(noteIds.filter((noteId) => valid.has(noteId)))];
     node.note_positions = Object.fromEntries(Object.entries(node.note_positions)
       .filter(([noteId]) => node.linked_note_ids.includes(noteId)));
+    for (const child of draft.__SYSTEM_CONCEPT_NODES__) {
+      if (child.parent_id === id && child.parent_note_id
+        && !node.linked_note_ids.includes(child.parent_note_id)) child.parent_note_id = null;
+    }
   });
 }
 
@@ -3226,6 +3238,8 @@ export async function createMapNoteNode(input: {
   parentId: string | null;
   color?: string;
   note: ConceptNoteInput;
+  parentNoteId?: string | null;
+  position?: { x: number; y: number };
 }): Promise<string> {
   const nodeId = `concept-${crypto.randomUUID()}`;
   const noteId = generateItemId();
@@ -3238,6 +3252,12 @@ export async function createMapNoteNode(input: {
       node.id === input.parentId && node.category_id === input.categoryId)) {
       throw new Error("La nota padre ya no existe.");
     }
+    if (input.parentNoteId) {
+      const parent = draft.__SYSTEM_CONCEPT_NODES__.find((node) => node.id === input.parentId);
+      if (!parent?.linked_note_ids.includes(input.parentNoteId)) {
+        throw new Error("La nota de origen ya no está relacionada con ese grupo.");
+      }
+    }
     const title = input.note.title.trim() || "Nota sin título";
     draft.__SYSTEM_TASKS__.push({
       id: noteId, title, comment: input.note.comment.trim(),
@@ -3249,8 +3269,10 @@ export async function createMapNoteNode(input: {
     draft.__SYSTEM_CONCEPT_NODES__.push({
       id: nodeId, category_id: input.categoryId, parent_id: input.parentId,
       title, color: input.color ?? "emerald", icon: "FileText",
-      primary_note_id: noteId, linked_note_ids: [], position: null,
-      width: null, note_positions: {},
+      primary_note_id: noteId, linked_note_ids: [], position: input.position
+        ? { x: Math.round(input.position.x), y: Math.round(input.position.y) } : null,
+      width: null, note_positions: {}, is_group: false,
+      parent_note_id: input.parentNoteId ?? null,
     });
   });
   return nodeId;

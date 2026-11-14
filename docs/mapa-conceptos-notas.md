@@ -110,3 +110,27 @@ pnpm run tauri dev
 La ejecución automatizada verifica estructura, migraciones y compilación.
 El comportamiento con mouse, diálogos nativos y documentos reales requiere
 una prueba interactiva en Windows.
+
+
+## Grupos visuales y notas hijas de notas vinculadas (esquema 21)
+
+- En el menú `+` de una nota estructural se puede elegir **Agrupar esta rama**.
+- Aparece un contenedor violeta punteado que agrupa el nodo y sus descendientes estructurales.
+- El `+` en la etiqueta **Grupo: ...** crea una nota que se relaciona con el grupo completo.
+- Las notas del grupo se posicionan automáticamente al exterior del contenedor, pero se respetan las posiciones guardadas por el usuario.
+- La línea parte del borde del grupo, dibuja una curva Bézier sutil y termina en el borde de la tarjeta opaca.
+- El `+` de una tarjeta relacionada crea una **nueva nota hija** cuya conexión nace en esa tarjeta.
+- Los hijos se almacenan como notas ordinarias con un nodo de geometría. `parent_note_id` conserva la relación contextual con la tarjeta, y `parent_id` mantiene su integración con la jerarquía principal.
+- Reconectar la nota de origen a otro nodo mueve su rama sin duplicar contenido; eliminar el origen desacopla los hijos sin borrarlos.
+- Los mapas antiguos utilizan por defecto `is_group: false` y `parent_note_id: null`, por lo que mantienen su presentación.
+
+**Importante:** respaldar `data.json` y los respaldos antes de abrir esta versión; la migración a esquema 21 es persistente.
+
+Pruebas adicionales:
+```powershell
+node --experimental-strip-types src/lib/utils/conceptNoteConnector.test.mjs
+node --experimental-strip-types src/lib/utils/conceptGroupGeometry.test.mjs
+pnpm run test:concepts
+pnpm run test:concept-note-links
+pnpm run test:concept-note-delete
+```

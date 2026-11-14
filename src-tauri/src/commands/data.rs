@@ -479,7 +479,17 @@ fn normalize_data(raw: Value) -> (AppData, bool) {
         }
     }
 
+    let source_note_links: HashMap<String, HashSet<String>> = concept_nodes.iter()
+        .map(|node| (node.id.clone(), node.linked_note_ids.iter().cloned().collect()))
+        .collect();
     for node in &mut concept_nodes {
+        if let Some(note_id) = &node.parent_note_id {
+            let valid_parent = node.parent_id.as_ref()
+                .and_then(|parent_id| source_note_links.get(parent_id))
+                .map(|linked| linked.contains(note_id) && valid_note_ids.contains(note_id))
+                .unwrap_or(false);
+            if !valid_parent { node.parent_note_id = None; changed = true; }
+        }
         node.linked_note_ids = filter_known_note_ids(
             dedupe_string_values(std::mem::take(&mut node.linked_note_ids), &mut changed),
             &valid_note_ids,
@@ -1362,6 +1372,8 @@ fn parse_concept_nodes(value: Value, changed: &mut bool) -> Vec<ConceptNode> {
             icon: string_value(map.remove("icon"), "Layers", changed),
             linked_note_ids: string_array_value(map.remove("linked_note_ids"), changed),
             primary_note_id: flow_category_id_value(map.remove("primary_note_id"), changed),
+            is_group: map.remove("is_group").and_then(|v| v.as_bool()).unwrap_or(false),
+            parent_note_id: flow_category_id_value(map.remove("parent_note_id"), changed),
             position: match map.remove("position") {
                 Some(Value::Object(map)) => Some(flow_position_from_value(Some(Value::Object(map)), changed)),
                 Some(Value::Null) | None => None,

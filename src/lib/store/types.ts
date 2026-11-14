@@ -110,6 +110,10 @@ export interface ConceptNode {
   position: { x: number; y: number } | null;
   width: number | null;
   note_positions: Record<string, { x: number; y: number }>;
+  /** Render this node and its directly connected map notes inside a visual group. */
+  is_group: boolean;
+  /** Optional source note for a child created from a linked-note card. */
+  parent_note_id: string | null;
 }
 
 export interface FlowNode {

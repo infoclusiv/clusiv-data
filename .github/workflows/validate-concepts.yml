@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - feat/category-concept-maps
+      - fix/concept-note-card-connectors
   pull_request:
     branches:
       - main
+      - feat/category-concept-maps
 permissions:
   contents: read
 
@@ -47,6 +49,8 @@ jobs:
           pnpm run test:concept-note-links
           pnpm run test:concept-note-delete
           pnpm run test:map-primary-notes
+          node --experimental-strip-types src/lib/utils/conceptNoteConnector.test.mjs
+          node --experimental-strip-types src/lib/utils/conceptGroupGeometry.test.mjs
 
   backend:
     name: Tauri Rust tests

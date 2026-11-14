@@ -70,3 +70,14 @@ assert.equal(parentDraft.__SYSTEM_CONCEPT_NODES__[0].parent_id,null,
 assert.equal(parentDraft.__SYSTEM_TASKS__.length,2);
 assert.equal(parentDraft.__SYSTEM_TASKS__[0].id,"note-keep");
 console.log("PASS primary-note deletion removes visual node and keeps descendants");
+
+const childDraft = makeFixture();
+childDraft.__SYSTEM_CONCEPT_NODES__.push({
+  id:"branch",parent_id:"source",parent_note_id:"note-target",
+  linked_note_ids:[],note_positions:{},position:{x:1500,y:400},
+});
+deleteNoteEverywhere(childDraft,"note-target");
+assert.equal(childDraft.__SYSTEM_CONCEPT_NODES__.at(-1).parent_note_id,null);
+assert.equal(childDraft.__SYSTEM_CONCEPT_NODES__.at(-1).parent_id,"source");
+assert.deepEqual(childDraft.__SYSTEM_CONCEPT_NODES__.at(-1).position,{x:1500,y:400});
+console.log("PASS deleting source group-linked note preserves detached child note");
