@@ -25,3 +25,15 @@ assert.throws(()=>moveNoteLink(nodes,[note],"n1","analisis","fuentes",{x:NaN,y:1
 assert.deepEqual(nodes,previous,"invalid drops never modify relationships");
 assert.equal(moveNoteLink(nodes,[note],"n1","analisis","analisis",{x:1,y:1}),false);
 console.log("PASS note reattachment preserves other links, note contents, attachments and location");
+
+const branchedNodes = [
+  {id:"markets",category_id:"trading",linked_note_ids:["n1"],note_positions:{n1:{x:800,y:400}}},
+  {id:"futures",category_id:"trading",linked_note_ids:[],note_positions:{}},
+  {id:"child",category_id:"trading",parent_id:"markets",parent_note_id:"n1",
+    linked_note_ids:[],note_positions:{},position:{x:1200,y:400}},
+];
+assert.equal(moveNoteLink(branchedNodes,[note],"n1","markets","futures",{x:910,y:460}),true);
+assert.equal(branchedNodes[2].parent_id,"futures","child branch follows moved note");
+assert.equal(branchedNodes[2].parent_note_id,"n1","its source note ID stays stable");
+assert.deepEqual(branchedNodes[2].position,{x:1200,y:400},"moving the relation does not move the child");
+console.log("PASS note child branches preserve parent note and coordinates after relink");
