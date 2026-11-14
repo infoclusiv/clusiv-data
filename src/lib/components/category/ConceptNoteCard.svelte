@@ -39,7 +39,7 @@
   role="group"
   tabindex="0"
   data-note-key={conceptId + "::" + note.id}
-  class="concept-note-card group absolute flex -translate-x-1/2 -translate-y-1/2 flex-col overflow-visible rounded-[1.35rem] border bg-white/90 p-4 text-slate-900 shadow-lg backdrop-blur-sm"
+  class="concept-note-card group absolute flex -translate-x-1/2 -translate-y-1/2 flex-col overflow-visible rounded-[1.35rem] border bg-white p-4 text-slate-900 shadow-lg"
   class:note-moving={dragging}
   class:note-dimmed={dimmed}
   class:note-highlighted={highlighted}
