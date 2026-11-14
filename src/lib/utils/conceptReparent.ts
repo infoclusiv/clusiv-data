@@ -84,5 +84,7 @@ export function applyConceptReparent(
     if (point) node.position = { x: Math.round(point.x), y: Math.round(point.y) };
   }
   source.parent_id = newParentId;
+  // A card-relative parent only makes sense while the same concept owns the card.
+  source.parent_note_id = null;
   return true;
 }
