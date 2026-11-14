@@ -4,6 +4,7 @@
   import ConceptNoteCard from "$lib/components/category/ConceptNoteCard.svelte";
   import ConceptNoteEditor from "$lib/components/category/ConceptNoteEditor.svelte";
   import { NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT, layoutConceptNoteCards } from "$lib/utils/conceptNoteLayout";
+  import { noteCardConnection } from "$lib/utils/conceptNoteConnector";
   import type { ConceptNoteInput } from "$lib/store/appState.svelte";
   import { appState, goBack, setCategorySection, updateConceptNotes, updateConceptPosition, updateConceptGeometry, reparentConceptNode, createMapNoteNode, createNoteOnConcept, updateConceptNote, deleteConceptNote, updateConceptNotePosition, moveConceptNote } from "$lib/store/appState.svelte";
   import { showSnackbar } from "$lib/store/snackbar.svelte";
@@ -895,12 +896,16 @@
             {#each shownNotes as notePosition (notePosition.key)}
               {@const parent = layoutById.get(notePosition.conceptId)}
               {#if parent}
+                {@const connection = noteCardConnection(
+                  { x: parent.x, y: parent.y },
+                  { x: notePosition.x, y: notePosition.y },
+                  NOTE_CARD_WIDTH, NOTE_CARD_HEIGHT,
+                )}
                 <path
-                  d={`M ${parent.x} ${parent.y} C ${(parent.x + notePosition.x) / 2} ${parent.y}, ${(parent.x + notePosition.x) / 2} ${notePosition.y}, ${notePosition.x} ${notePosition.y}`}
+                  d={connection.path}
                   stroke={palette[notePosition.color]?.stroke ?? "#0d9a72"} stroke-width="2.1"
                   stroke-linecap="round" fill="none" opacity=".8"
                 />
-                <circle cx={notePosition.x} cy={notePosition.y} r="3.4" fill={palette[notePosition.color]?.stroke ?? "#0d9a72"}/>
               {/if}
             {/each}
             {#if noteLinkDrag}
